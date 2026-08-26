@@ -550,25 +550,26 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       </div>
 
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2 border-t border-stone-200 dark:border-stone-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
         {/* Target Duration */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Target Duration
           </label>
-          <div className="flex gap-1.5">
+          <div className="flex h-9 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 overflow-hidden focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
             <input
               type="number"
               min={1}
               max={360}
               value={settings.target_duration}
               onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-3/5 h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+              className="w-1/2 h-full bg-transparent px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none"
             />
+            <div className="w-[1px] h-4 my-auto bg-stone-300 dark:bg-stone-800" />
             <select
               value={settings.duration_unit}
               onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-              className="w-2/5 h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 text-xs text-stone-900 dark:text-white focus:outline-none cursor-pointer"
+              className="w-1/2 h-full bg-transparent px-2 text-xs font-semibold text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
             >
               <option value="minutes">Mins</option>
               <option value="hours">Hours</option>
@@ -577,37 +578,37 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Format & Quality */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Format & Quality
           </label>
-          <div className="flex gap-1.5">
-            <div className="grid grid-cols-3 gap-1 flex-1">
+          <div className="flex h-9 gap-1.5">
+            <div className="flex-1 p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex items-center gap-0.5">
               {(['16:9', '9:16', '1:1'] as const).map((ar) => (
                 <button
                   key={ar}
                   type="button"
                   onClick={() => updateSetting('aspect_ratio', ar)}
-                  className={`h-9 rounded-xl text-xs font-semibold border transition-all ${
+                  className={`flex-1 h-full rounded-lg text-xs font-semibold transition-all ${
                     settings.aspect_ratio === ar
-                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs'
-                      : 'bg-stone-50/70 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
+                      ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
                   {ar}
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-1 w-20">
+            <div className="w-24 p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex items-center gap-0.5">
               {(['1080p', '4K'] as const).map((res) => (
                 <button
                   key={res}
                   type="button"
                   onClick={() => updateSetting('resolution', res)}
-                  className={`h-9 rounded-xl text-xs font-semibold border transition-all ${
+                  className={`flex-1 h-full rounded-lg text-xs font-semibold transition-all ${
                     settings.resolution === res
-                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs'
-                      : 'bg-stone-50/70 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
+                      ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
                   {res}
@@ -618,7 +619,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Shot Diversity Selector */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Cinematic Shot Cadence
           </label>
@@ -635,7 +636,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* History Control Toggle */}
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             History Filter
           </label>
@@ -654,18 +655,18 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       </div>
 
       {/* 5. PRIMARY ACTION BUTTON */}
-      <div className="pt-3 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-xs text-stone-500 dark:text-stone-400">
-          Target: <span className="font-bold text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit}</span> • <span className="font-bold text-amber-700 dark:text-amber-400">{selectedList.length} nature themes</span> ({totalAllocatedClips} clips) • Bright sunlit aesthetic.
+      <div className="pt-3 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="text-xs text-stone-500 dark:text-stone-400 text-center sm:text-left">
+          Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit}</strong> • <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} nature themes</strong> ({totalAllocatedClips} clips) • Bright sunlit aesthetic.
         </div>
 
         <button
           type="button"
           onClick={onSearchFootage}
           disabled={isSearching || selectedList.length === 0}
-          className="w-full sm:w-auto h-12 px-8 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer"
+          className="w-full sm:w-auto h-11 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer shrink-0"
         >
-          <Search className="w-4 h-4" />
+          <Search className="w-3.5 h-3.5" />
           <span>{isSearching ? 'Searching & Evaluating Footage...' : `Fetch Footage for Plan (${totalAllocatedClips} clips)`}</span>
         </button>
       </div>

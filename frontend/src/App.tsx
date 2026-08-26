@@ -433,43 +433,46 @@ export function App() {
               </div>
             )}
 
-            {/* STAGE 3: RENDER & EXPORT */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 px-1">
-                <span className="w-6 h-6 rounded-full bg-amber-500 text-stone-950 text-xs font-bold flex items-center justify-center shadow-sm">
-                  {candidates.length > 0 ? 3 : 2}
-                </span>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300">
-                  Render Final Video
-                </h3>
-              </div>
-
-              {/* Render Launch Bar */}
-              <div className="bg-gradient-to-r from-amber-500/10 via-amber-400/15 to-amber-500/10 dark:from-stone-900/90 dark:via-amber-950/30 dark:to-stone-900/90 border border-amber-300/80 dark:border-amber-800/40 rounded-2xl p-7 shadow-sm dark:shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-6 transition-colors duration-200">
-                <div className="space-y-1.5 text-center md:text-left">
-                  <h3 className="text-base font-semibold text-stone-900 dark:text-white flex items-center gap-2 justify-center md:justify-start">
-                    <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    Ready to Render Meditation Video
+            {/* STAGE 3: RENDER & EXPORT (Appears when footage has been fetched) */}
+            {candidates.length > 0 && (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-6 h-6 rounded-full bg-amber-500 text-stone-950 text-xs font-bold flex items-center justify-center shadow-xs">
+                    3
+                  </span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300">
+                    Render Final Video
                   </h3>
-                  <p className="text-xs text-stone-600 dark:text-stone-400">
-                    Target: <span className="text-amber-700 dark:text-amber-300 font-semibold">{settings.target_duration} {settings.duration_unit}</span> ({settings.aspect_ratio}, {settings.resolution}) • Using <span className="font-semibold text-stone-900 dark:text-stone-200">{selectedCandidatesList.length || settings.maximum_unique_videos} curated clips</span> from <span className="font-semibold text-amber-800 dark:text-amber-300">{Object.keys(selectedNatures).length} nature themes</span> • Audio: <span className="font-semibold text-amber-800 dark:text-amber-300 capitalize">{settings.audio_mode === 'none' ? 'No Audio (Silent)' : settings.audio_mode}</span>
-                    {estimatedRepeats > 0 && (
-                      <span className="text-amber-800 dark:text-amber-300 ml-1.5 font-semibold">
-                        (Sequence loops ~{estimatedRepeats}x with rotated start)
-                      </span>
-                    )}
-                  </p>
                 </div>
 
-                <button
-                  onClick={() => generateMutation.mutate()}
-                  disabled={generateMutation.isPending || !title.trim()}
-                  className="w-full md:w-auto flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer"
-                >
-                  <Play className="w-4 h-4 fill-stone-950" />
-                  {generateMutation.isPending ? 'Queuing Video Job...' : 'Queue for Render'}
-                </button>
+                {/* Render Launch Bar */}
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl p-5 sm:p-6 shadow-xs backdrop-blur-sm flex flex-col sm:flex-row items-center justify-between gap-4 transition-colors duration-200">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <h3 className="text-sm sm:text-base font-bold text-stone-900 dark:text-white flex items-center gap-2 justify-center sm:justify-start">
+                      <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                      <span>Ready to Render Meditation Video</span>
+                    </h3>
+                    <p className="text-xs text-stone-600 dark:text-stone-400">
+                      Target: <strong className="text-amber-800 dark:text-amber-300">{settings.target_duration} {settings.duration_unit}</strong> ({settings.aspect_ratio}, {settings.resolution}) • Using <strong className="text-stone-900 dark:text-stone-200">{selectedCandidatesList.length || settings.maximum_unique_videos} curated clips</strong> from <strong className="text-amber-800 dark:text-amber-300">{Object.keys(selectedNatures).length} nature themes</strong>
+                      {estimatedRepeats > 0 && (
+                        <span className="text-amber-800 dark:text-amber-300 ml-1.5 font-semibold">
+                          (Sequence loops ~{estimatedRepeats}x)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => generateMutation.mutate()}
+                    disabled={generateMutation.isPending || !title.trim()}
+                    className="w-full sm:w-auto h-11 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-stone-950" />
+                    <span>{generateMutation.isPending ? 'Queuing Video Job...' : 'Queue for Render'}</span>
+                  </button>
+                </div>
               </div>
+            )}
 
               {/* Generation Progress & Completed Video Player */}
               {activeJobId && (
@@ -485,8 +488,7 @@ export function App() {
                 />
               )}
             </div>
-          </div>
-        )}
+          )}
 
         {activeTab === 'library' && (
           <LibraryPanel
