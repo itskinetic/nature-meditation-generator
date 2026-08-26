@@ -1,11 +1,13 @@
 import React from 'react';
-import { Sparkles, Film, Database, History, Sun, Moon } from 'lucide-react';
+import { Sparkles, Film, Database, History, Sun, Moon, Zap } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'generator' | 'library' | 'history';
   setActiveTab: (tab: 'generator' | 'library' | 'history') => void;
   isDark: boolean;
   setIsDark: (dark: boolean) => void;
+  activeJobsCount?: number;
+  onOpenQueue?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -13,6 +15,8 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   isDark,
   setIsDark,
+  activeJobsCount = 0,
+  onOpenQueue,
 }) => {
   return (
     <header className="border-b border-stone-200/80 dark:border-stone-800/80 bg-white/85 dark:bg-[#0c0e12]/85 backdrop-blur-md sticky top-0 z-50 transition-colors duration-200">
@@ -32,8 +36,29 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs & Theme Toggle */}
+        {/* Navigation Tabs & Actions */}
         <div className="flex items-center gap-1.5 sm:gap-3">
+          {/* Active Queue Drawer Trigger */}
+          {onOpenQueue && (
+            <button
+              type="button"
+              onClick={onOpenQueue}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                activeJobsCount > 0
+                  ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md shadow-amber-500/25 animate-pulse'
+                  : 'bg-stone-100/90 dark:bg-stone-900/90 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:border-amber-400'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span className="hidden xs:inline">Queue</span>
+              {activeJobsCount > 0 && (
+                <span className="w-4 h-4 rounded-full bg-stone-950 text-white text-[10px] flex items-center justify-center font-mono font-bold">
+                  {activeJobsCount}
+                </span>
+              )}
+            </button>
+          )}
+
           <nav className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-xl bg-stone-100/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800">
             <button
               onClick={() => setActiveTab('generator')}

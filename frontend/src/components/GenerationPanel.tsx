@@ -9,12 +9,14 @@ interface GenerationPanelProps {
   job: JobDetail | JobProgress | null;
   onCancel: () => void;
   isCancelling: boolean;
+  onStartNewVideo?: () => void;
 }
 
 export const GenerationPanel: React.FC<GenerationPanelProps> = ({
   job,
   onCancel,
   isCancelling,
+  onStartNewVideo,
 }) => {
   if (!job) return null;
 
@@ -31,6 +33,16 @@ export const GenerationPanel: React.FC<GenerationPanelProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onStartNewVideo && (
+            <button
+              type="button"
+              onClick={onStartNewVideo}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 text-xs font-semibold transition-colors"
+            >
+              <span>+ Plan Next Video</span>
+            </button>
+          )}
+
           {isRunning && (
             <button
               onClick={onCancel}

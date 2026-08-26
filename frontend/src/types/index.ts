@@ -164,3 +164,14 @@ export interface HistoryItem {
   status: string;
   download_url?: string;
 }
+
+export interface ActiveJobItem {
+  id: string;
+  title: string;
+  status: string;
+  progress: number;
+  current_stage: string;
+  target_duration_seconds: number;
+  created_at?: string;
+  updated_at?: string;
+}

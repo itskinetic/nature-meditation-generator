@@ -9,11 +9,13 @@ import { SelectedSequenceTray } from './components/SelectedSequenceTray';
 import { GenerationPanel } from './components/GenerationPanel';
 import { LibraryPanel } from './components/LibraryPanel';
 import { HistoryPanel } from './components/HistoryPanel';
+import { QueueDrawer } from './components/QueueDrawer';
 import { api } from './api/client';
 import {
   GenerationRequest,
   JobDetail,
-  CandidateItem
+  CandidateItem,
+  ActiveJobItem
 } from './types';
 
 export function App() {
@@ -101,8 +103,9 @@ export function App() {
     audio_mode: 'none',
   });
 
-  // Active Job ID
+  // Active Job ID & Queue Drawer State
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
 
   // Sync title / script into settings
   useEffect(() => {
@@ -133,6 +136,16 @@ export function App() {
   const { data: historyItems = [], isLoading: isHistoryLoading } = useQuery({
     queryKey: ['history'],
     queryFn: api.getHistory,
+  });
+
+  // Background Active Queue Polling (Every 2.5s if active, 8s otherwise)
+  const { data: activeJobs = [], refetch: refetchActiveJobs } = useQuery({
+    queryKey: ['activeJobs'],
+    queryFn: api.getActiveJobs,
+    refetchInterval: (query) => {
+      const data = query.state.data as ActiveJobItem[] | undefined;
+      return data && data.length > 0 ? 2500 : 8000;
+    },
   });
 
   // Active Job Polling
@@ -271,15 +284,19 @@ export function App() {
     },
     onSuccess: (data) => {
       setActiveJobId(data.job_id);
+      setIsQueueOpen(true);
+      queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
     },
   });
 
-  // Cancel Mutation
+  // Cancel Mutation (Cancels active or queued job)
   const cancelMutation = useMutation({
-    mutationFn: () => (activeJobId ? api.cancelJob(activeJobId) : Promise.resolve({ status: 'none' })),
+    mutationFn: (jobId?: string) => api.cancelJob(jobId || activeJobId || ''),
     onSuccess: () => {
       refetchJob();
+      queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['history'] });
     },
   });
 
@@ -332,6 +349,16 @@ export function App() {
         setActiveTab={setActiveTab}
         isDark={isDark}
         setIsDark={setIsDark}
+        activeJobsCount={activeJobs.length}
+        onOpenQueue={() => setIsQueueOpen(true)}
+      />
+
+      <QueueDrawer
+        isOpen={isQueueOpen}
+        onClose={() => setIsQueueOpen(false)}
+        activeJobs={activeJobs}
+        recentCompleted={historyItems}
+        onCancelJob={(id) => cancelMutation.mutate(id)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8">
@@ -423,7 +450,7 @@ export function App() {
                   className="w-full md:w-auto flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-stone-950" />
-                  {generateMutation.isPending ? 'Queuing Video Job...' : 'Render Meditation Video'}
+                  {generateMutation.isPending ? 'Queuing Video Job...' : '🚀 Queue for Render'}
                 </button>
               </div>
 
@@ -433,6 +460,11 @@ export function App() {
                   job={jobDetail || null}
                   onCancel={() => cancelMutation.mutate()}
                   isCancelling={cancelMutation.isPending}
+                  onStartNewVideo={() => {
+                    setActiveJobId(null);
+                    setCandidates([]);
+                    setSelectedCandidateIds([]);
+                  }}
                 />
               )}
             </div>

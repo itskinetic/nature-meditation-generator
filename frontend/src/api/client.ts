@@ -7,7 +7,8 @@ import {
   JobDetail,
   JobProgress,
   LibraryItem,
-  HistoryItem
+  HistoryItem,
+  ActiveJobItem
 } from '../types';
 
 const API_BASE = '/api';
@@ -141,6 +142,12 @@ export const api = {
   async getHistory(): Promise<HistoryItem[]> {
     const res = await fetch(`${API_BASE}/history`);
     if (!res.ok) throw new Error('Failed to get history');
+    return res.json();
+  },
+
+  async getActiveJobs(): Promise<ActiveJobItem[]> {
+    const res = await fetch(`${API_BASE}/jobs/active`);
+    if (!res.ok) throw new Error('Failed to get active jobs');
     return res.json();
   },
 };

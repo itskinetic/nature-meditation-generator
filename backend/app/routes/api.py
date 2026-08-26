@@ -29,6 +29,7 @@ from backend.app.services.scoring_service import scoring_service
 from backend.app.services.library_service import library_service
 from backend.app.services.selection_service import selection_service
 from backend.app.services.ffmpeg_service import ffmpeg_service
+from backend.app.services.queue_service import queue_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -130,6 +131,38 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 c.is_approved = score_res.keep
                 c.rejection_reason = score_res.reason if not score_res.keep else None
                 return c
+
+            # Include matching clips from saved local library
+            lib_items = db.query(VideoLibraryItem).filter(
+                VideoLibraryItem.is_approved == True,
+                (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
+                (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
+                (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
+            ).limit(10).all()
+            for li in lib_items:
+                approved.append(CandidateItem(
+                    source="library",
+                    source_video_id=li.source_video_id,
+                    source_url=li.source_url or "",
+                    creator_name=li.creator_name or "Your Library",
+                    creator_url=li.creator_url,
+                    search_query=env_spec.name,
+                    duration=li.duration,
+                    width=li.width,
+                    height=li.height,
+                    preview_url=li.preview_url,
+                    download_url=li.source_url,
+                    local_file_path=li.local_file_path,
+                    intent_match=li.intent_score or 9.5,
+                    theme_match=li.theme_score or 9.5,
+                    calmness=li.calmness_score or 9.5,
+                    motion_intensity=li.motion_score or 2.0,
+                    visual_quality=li.visual_quality_score or 9.5,
+                    subtheme=env_spec.name,
+                    environment_id=env_spec.id,
+                    is_approved=True,
+                    rejection_reason=None
+                ))
 
             scored_env = await asyncio.gather(*[score_single(c) for c in env_filtered[:15]])
             for c in scored_env:
@@ -496,20 +529,34 @@ async def generate_video(
         transition_type=req.transition_type,
         transition_duration=req.transition_duration,
         music_file=req.music_file,
-        status="pending",
+        status="queued",
         progress=0,
-        current_stage="Job submitted"
+        current_stage="Job queued in background worker"
     )
     db.add(job)
     db.commit()
 
-    background_tasks.add_task(run_generation_pipeline, job_id, req)
+    # Submit to the 2-slot concurrency queue service
+    queue_service.submit_job(job_id, req)
 
     return GenerationResponse(
         job_id=job_id,
-        status="pending",
-        message="Video generation job has been queued."
+        status="queued",
+        message="Video generation job has been queued in background."
     )
+
+
+@router.get("/jobs/active")
+def get_active_jobs(db: Session = Depends(get_db)):
+    """Returns all currently queued, downloading, and rendering jobs."""
+    return queue_service.get_active_jobs(db)
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str):
+    """Cancels a queued or active generation job."""
+    success = queue_service.cancel_job(job_id)
+    return {"status": "cancelled" if success else "not_found", "job_id": job_id}
 
 
 @router.get("/jobs/{job_id}", response_model=JobDetailResponse)
