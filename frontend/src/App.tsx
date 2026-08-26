@@ -39,52 +39,19 @@ export function App() {
   }, [isDark]);
 
   // Input states
-  const [title, setTitle] = useState('Softening the Heart');
-  const [script, setScript] = useState('');
+  const [title, setTitle] = useState<string>('');
+  const [script, setScript] = useState<string>('');
   const [analysis, setAnalysis] = useState<import('./types').IntentAnalysisResult | null>(null);
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [customMusicName, setCustomMusicName] = useState<string>('');
 
-  // 20 Nature Selection state (Default 4 popular themes with 4 clips each = 16 clips)
-  const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({
-    sunlit_forest: {
-      id: 'sunlit_forest',
-      name: 'Sunlit Forest',
-      icon: '',
-      category: 'Forest',
-      clipCount: 4,
-      queries: ['sunlight through forest trees', 'bright green woodland canopy', 'sunlit quiet forest path'],
-    },
-    calm_ocean: {
-      id: 'calm_ocean',
-      name: 'Calm Ocean',
-      icon: '',
-      category: 'Water',
-      clipCount: 4,
-      queries: ['crystal clear calm sea', 'calm turquoise shoreline', 'gentle shallow sea ripples'],
-    },
-    wildflower_meadow: {
-      id: 'wildflower_meadow',
-      name: 'Wildflower Meadow',
-      icon: '',
-      category: 'Meadow',
-      clipCount: 4,
-      queries: ['sunlit wildflower meadow', 'blooming wildflower field', 'gentle breeze colorful meadow'],
-    },
-    mountain_lake: {
-      id: 'mountain_lake',
-      name: 'Mountain Lakes',
-      icon: '',
-      category: 'Water',
-      clipCount: 4,
-      queries: ['still alpine lake reflection', 'crystal clear mountain lake', 'peaceful lake shore'],
-    },
-  });
+  // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
+  const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
 
   // Generation Settings State
   const [settings, setSettings] = useState<GenerationRequest>({
-    title: 'Softening the Heart',
+    title: '',
     script: '',
     preset: 'sunlit_forest',
     target_duration: 30,

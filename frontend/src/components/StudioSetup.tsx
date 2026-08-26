@@ -333,157 +333,155 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
       </div>
 
-      {/* 2. SUGGESTED VISUAL JOURNEY (Primary Interactive Visual Stage) */}
-      <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
-              Suggested Visual Journey
-            </h3>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-              {selectedList.length} Themes • {totalAllocatedClips} Clips
-            </span>
-          </div>
+      {/* 2. SUGGESTED VISUAL JOURNEY (Only appears when AI Analyzes or themes are selected) */}
+      {(selectedList.length > 0 || !!analysis) && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
+                Suggested Visual Journey
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+                {selectedList.length} Themes • {totalAllocatedClips} Clips
+              </span>
+            </div>
 
-          <div className="flex items-center gap-2">
-            {selectedList.length > 0 && (
+            <div className="flex items-center gap-2">
+              {selectedList.length > 0 && (
+                <button
+                  type="button"
+                  onClick={autoBalanceClips}
+                  className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
+                  <span>Balance Clips</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={autoBalanceClips}
-                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                onClick={() => setShowCustomForm(!showCustomForm)}
+                className="h-9 px-3.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center gap-1 shadow-xs transition-colors"
               >
-                <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
-                <span>Balance Clips</span>
+                <Plus className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+                <span>Custom Theme</span>
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowCustomForm(!showCustomForm)}
-              className="h-9 px-3.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center gap-1 shadow-xs transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
-              <span>Custom Theme</span>
-            </button>
-          </div>
-        </div>
-
-        {/* AI Intent & Mood Metadata Banner */}
-        {analysis && (
-          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-white/90 dark:bg-stone-900/90 border border-amber-200/60 dark:border-amber-800/40 text-xs">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              <span className="font-semibold text-stone-500 dark:text-stone-400">Detected Intent:</span>
-              <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
             </div>
-            {analysis.mood && analysis.mood.length > 0 && (
-              <div className="flex items-center gap-1 shrink-0">
-                {analysis.mood.slice(0, 3).map((m) => (
-                  <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/40">
-                    {m}
-                  </span>
-                ))}
+          </div>
+
+          {/* AI Intent & Mood Metadata Banner */}
+          {analysis && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-white/90 dark:bg-stone-900/90 border border-amber-200/60 dark:border-amber-800/40 text-xs">
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="font-semibold text-stone-500 dark:text-stone-400">Detected Intent:</span>
+                <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Active Themes Review List */}
-        {selectedList.length === 0 ? (
-          <div className="py-6 text-center text-xs text-stone-500 dark:text-stone-400">
-            No themes active. Click <strong>"Analyze & Suggest Themes"</strong> above or pick themes from the manual list below.
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedList.map((item) => (
-              <div
-                key={item.id}
-                className="h-9 flex items-center justify-between gap-2.5 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors shrink-0"
-              >
-                <div className="flex items-center gap-1.5 whitespace-nowrap">
-                  {renderNatureIcon(item.category, item.id)}
-                  <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                    {item.name}
-                  </span>
-                </div>
-
+              {analysis.mood && analysis.mood.length > 0 && (
                 <div className="flex items-center gap-1 shrink-0">
-                  {/* Clip Stepper */}
-                  <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
-                    <button
-                      type="button"
-                      onClick={() => updateClipCount(item.id, item.clipCount - 1)}
-                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                    >
-                      -
-                    </button>
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
-                      {item.clipCount}
+                  {analysis.mood.slice(0, 3).map((m) => (
+                    <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/40">
+                      {m}
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => updateClipCount(item.id, item.clipCount + 1)}
-                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                    >
-                      +
-                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Active Themes Review List */}
+          {selectedList.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedList.map((item) => (
+                <div
+                  key={item.id}
+                  className="h-9 flex items-center justify-between gap-2.5 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors shrink-0"
+                >
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    {renderNatureIcon(item.category, item.id)}
+                    <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
+                      {item.name}
+                    </span>
                   </div>
 
-                  {/* Remove Theme Button */}
-                  <button
-                    type="button"
-                    onClick={() => removeNature(item.id)}
-                    title="Remove theme from plan"
-                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Clip Stepper */}
+                    <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
+                      <button
+                        type="button"
+                        onClick={() => updateClipCount(item.id, item.clipCount - 1)}
+                        className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
+                        {item.clipCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateClipCount(item.id, item.clipCount + 1)}
+                        className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
 
-        {/* Custom Nature Inline Form */}
-        {showCustomForm && (
-          <form
-            onSubmit={handleAddCustom}
-            className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800/80 rounded-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150"
-          >
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                type="text"
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                placeholder="Theme name (e.g. Nordic Fjords)"
-                className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
-                required
-              />
-              <input
-                type="text"
-                value={customQueries}
-                onChange={(e) => setCustomQueries(e.target.value)}
-                placeholder="Search keywords (e.g. fjord calm water)"
-                className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
-              />
+                    {/* Remove Theme Button */}
+                    <button
+                      type="button"
+                      onClick={() => removeNature(item.id)}
+                      title="Remove theme from plan"
+                      className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowCustomForm(false)}
-                className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="h-9 px-3.5 bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Add to Plan
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+          )}
+
+          {/* Custom Nature Inline Form */}
+          {showCustomForm && (
+            <form
+              onSubmit={handleAddCustom}
+              className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800/80 rounded-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  value={customName}
+                  onChange={(e) => setCustomName(e.target.value)}
+                  placeholder="Theme name (e.g. Nordic Fjords)"
+                  className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
+                  required
+                />
+                <input
+                  type="text"
+                  value={customQueries}
+                  onChange={(e) => setCustomQueries(e.target.value)}
+                  placeholder="Search keywords (e.g. fjord calm water)"
+                  className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomForm(false)}
+                  className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-9 px-3.5 bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Add to Plan
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* 3. COMPACT MANUAL THEME SELECTOR (Collapsible Accordion) */}
       <div className="border border-stone-200/80 dark:border-stone-800/80 rounded-2xl overflow-hidden bg-stone-50/50 dark:bg-stone-950/30">
