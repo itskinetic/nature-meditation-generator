@@ -342,7 +342,7 @@ export function App() {
         onCancelJob={(id) => cancelMutation.mutate(id)}
       />
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-8">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-4 pb-24 sm:py-8">
         {activeTab === 'generator' && (
           <div className="space-y-6 sm:space-y-8">
             {/* STAGE 1: UNIFIED STUDIO SETUP & NATURE SELECTOR */}
