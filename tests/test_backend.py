@@ -308,3 +308,37 @@ async def test_music_service_and_probe():
     probe = await ffmpeg_service.probe_file(test_audio)
     assert probe["duration"] >= 4.5
     test_audio.unlink(missing_ok=True)
+
+
+def test_candidate_ban_and_unban_pipeline(db_session):
+    # Test banning a candidate
+    ban_cand = CandidateItem(
+        source="pexels",
+        source_video_id="ban_test_999",
+        source_url="https://pexels.com/video/drone-boats-in-lagoon-999",
+        creator_name="Test Creator",
+        duration=20.0,
+        width=1920,
+        height=1080
+    )
+    
+    # 1. Filter before ban - candidate should pass
+    passed_before = candidate_service.filter_candidates([ban_cand], db=db_session)
+    assert len(passed_before) == 1
+
+    # 2. Ban the candidate
+    banned_item = VideoLibraryItem(
+        source=ban_cand.source,
+        source_video_id=ban_cand.source_video_id,
+        source_url=ban_cand.source_url,
+        is_approved=False,
+        rejected_at=datetime.datetime.utcnow(),
+        rejection_reason="Contains banned drone boats"
+    )
+    db_session.add(banned_item)
+    db_session.commit()
+
+    # 3. Filter after ban - candidate MUST be rejected permanently
+    passed_after = candidate_service.filter_candidates([ban_cand], db=db_session)
+    assert len(passed_after) == 0
+

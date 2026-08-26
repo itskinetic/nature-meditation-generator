@@ -52,6 +52,7 @@ export const api = {
     max_duration?: number;
     aspect_ratio: string;
     resolution: string;
+    exclude_all_history?: boolean;
   }): Promise<SearchResponse> {
     const res = await fetch(`${API_BASE}/search`, {
       method: 'POST',
@@ -59,6 +60,31 @@ export const api = {
       body: JSON.stringify(params),
     });
     if (!res.ok) throw new Error('Failed to search candidate videos');
+    return res.json();
+  },
+
+  async banCandidate(candidate: {
+    source_video_id: string;
+    source?: string;
+    source_url?: string;
+    creator_name?: string;
+    preview_url?: string;
+    reason?: string;
+  }): Promise<{ status: string; message: string }> {
+    const res = await fetch(`${API_BASE}/candidates/ban`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(candidate),
+    });
+    if (!res.ok) throw new Error('Failed to ban video candidate');
+    return res.json();
+  },
+
+  async unbanCandidate(sourceVideoId: string): Promise<{ status: string }> {
+    const res = await fetch(`${API_BASE}/candidates/unban?source_video_id=${encodeURIComponent(sourceVideoId)}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Failed to unban video candidate');
     return res.json();
   },
 

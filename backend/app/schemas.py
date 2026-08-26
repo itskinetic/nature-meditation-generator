@@ -103,6 +103,16 @@ class SearchRequest(BaseModel):
     max_duration: Optional[float] = None
     aspect_ratio: str = "16:9"
     resolution: str = "1080p"
+    exclude_all_history: bool = False
+
+
+class BanCandidateRequest(BaseModel):
+    source_video_id: str
+    source: str = "pexels"
+    source_url: Optional[str] = None
+    reason: Optional[str] = "Manually banned by user"
+    creator_name: Optional[str] = None
+    preview_url: Optional[str] = None
 
 
 class SearchResponse(BaseModel):

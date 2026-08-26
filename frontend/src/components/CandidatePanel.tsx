@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
-  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck
+  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban
 } from 'lucide-react';
 import { CandidateItem } from '../types';
 
@@ -13,6 +13,7 @@ interface CandidatePanelProps {
   onSelectAllApproved: () => void;
   onDeselectAll: () => void;
   onSaveCandidate?: (candidate: CandidateItem) => void;
+  onBanCandidate?: (candidate: CandidateItem) => void;
 }
 
 export const CandidatePanel: React.FC<CandidatePanelProps> = ({
@@ -22,6 +23,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   onSelectAllApproved,
   onDeselectAll,
   onSaveCandidate,
+  onBanCandidate,
 }) => {
   const [filter, setFilter] = useState<'all' | 'approved' | 'selected' | 'rejected'>('all');
   const [themeFilter, setThemeFilter] = useState<string>('all');
@@ -357,6 +359,18 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                     </button>
                   )}
 
+                  {/* 1-Click Ban Video */}
+                  {onBanCandidate && (
+                    <button
+                      type="button"
+                      onClick={() => onBanCandidate(c)}
+                      title="Permanently ban this footage (never show again)"
+                      className="p-2 rounded-xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 transition-colors"
+                    >
+                      <Ban className="w-4 h-4" />
+                    </button>
+                  )}
+
                   {videoSrc && (
                     <button
                       type="button"
@@ -416,6 +430,20 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                 Source: <span className="font-semibold uppercase">{activePreviewVideo.source}</span>
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
+                {onBanCandidate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onBanCandidate(activePreviewVideo);
+                      setActivePreviewVideo(null);
+                    }}
+                    title="Permanently ban this clip from future searches"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    <span>Ban Footage</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {

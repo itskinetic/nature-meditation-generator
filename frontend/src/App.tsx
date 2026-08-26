@@ -106,6 +106,7 @@ export function App() {
   // Active Job ID & Queue Drawer State
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
+  const [excludeAllHistory, setExcludeAllHistory] = useState<boolean>(false);
 
   // Sync title / script into settings
   useEffect(() => {
@@ -197,6 +198,7 @@ export function App() {
         max_duration: settings.maximum_clip_duration,
         aspect_ratio: settings.aspect_ratio,
         resolution: settings.resolution,
+        exclude_all_history: excludeAllHistory,
       });
     },
     onSuccess: (data) => {
@@ -210,7 +212,7 @@ export function App() {
     },
   });
 
-  // AI Auto-Plan Mutation
+  // AI Auto-Plan Mutation (Populates themes and intent for interactive review)
   const autoPlanMutation = useMutation({
     mutationFn: () =>
       api.analyzeContent(
@@ -235,14 +237,6 @@ export function App() {
           };
         });
         setSelectedNatures(newSel);
-
-        const envSpecs = data.planned_environments.map((pe) => ({
-          id: pe.id,
-          name: pe.name,
-          queries: pe.keywords,
-          clip_count: pe.suggested_clips,
-        }));
-        searchMutation.mutate(envSpecs);
       }
     },
   });
@@ -261,6 +255,25 @@ export function App() {
 
   const handleDeselectAll = () => {
     setSelectedCandidateIds([]);
+  };
+
+  // 1-Click Ban Candidate Handler
+  const handleBanCandidate = async (candidate: CandidateItem) => {
+    try {
+      await api.banCandidate({
+        source_video_id: candidate.source_video_id,
+        source: candidate.source,
+        source_url: candidate.source_url,
+        creator_name: candidate.creator_name,
+        preview_url: candidate.preview_url,
+      });
+      // Instantly remove candidate from current UI pool
+      setCandidates((prev) => prev.filter((c) => c.source_video_id !== candidate.source_video_id));
+      setSelectedCandidateIds((prev) => prev.filter((id) => id !== candidate.source_video_id));
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+    } catch (err) {
+      console.error('Failed to ban candidate:', err);
+    }
   };
 
   // Generate Mutation
@@ -383,6 +396,8 @@ export function App() {
               onAutoPlanAI={() => autoPlanMutation.mutate()}
               isPlanningAI={autoPlanMutation.isPending}
               analysis={analysis}
+              excludeAllHistory={excludeAllHistory}
+              setExcludeAllHistory={setExcludeAllHistory}
             />
 
             {/* STAGE 2: FOOTAGE REVIEW & SEQUENCE CURATION (Appears when candidates exist) */}
@@ -404,6 +419,7 @@ export function App() {
                   onSelectAllApproved={handleSelectAllApproved}
                   onDeselectAll={handleDeselectAll}
                   onSaveCandidate={(c) => saveCandidateMutation.mutate(c)}
+                  onBanCandidate={handleBanCandidate}
                 />
 
                 {selectedCandidatesList.length > 0 && (

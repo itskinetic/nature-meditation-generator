@@ -20,6 +20,7 @@ class CandidateService:
         aspect_ratio: str = "16:9",
         resolution: str = "1080p",
         avoid_recently_used: bool = True,
+        exclude_all_history: bool = False,
         db: Optional[Session] = None
     ) -> List[CandidateItem]:
         """
@@ -41,7 +42,12 @@ class CandidateService:
             ).all()
             rejected_ids = {r[0] for r in rejected_items}
 
-            if avoid_recently_used:
+            if exclude_all_history:
+                history_items = db.query(VideoLibraryItem.source_video_id).filter(
+                    VideoLibraryItem.usage_count > 0
+                ).all()
+                recently_used_ids = {r[0] for r in history_items}
+            elif avoid_recently_used:
                 # e.g., used in last 24 hours
                 cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
                 recent_items = db.query(VideoLibraryItem.source_video_id).filter(

@@ -2,9 +2,9 @@ import React, { useRef, useState } from 'react';
 import {
   Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
-  Search, Sliders, Wand2
+  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye
 } from 'lucide-react';
-import { GenerationRequest, Preset } from '../types';
+import { GenerationRequest, Preset, IntentAnalysisResult } from '../types';
 import { SelectedNatureItem } from './NatureSelector';
 
 export interface IntentPreset {
@@ -111,7 +111,9 @@ interface StudioSetupProps {
   isSearching: boolean;
   onAutoPlanAI: () => void;
   isPlanningAI: boolean;
-  analysis?: import('../types').IntentAnalysisResult | null;
+  analysis?: IntentAnalysisResult | null;
+  excludeAllHistory?: boolean;
+  setExcludeAllHistory?: (val: boolean) => void;
 }
 
 export const StudioSetup: React.FC<StudioSetupProps> = ({
@@ -132,10 +134,13 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   onAutoPlanAI,
   isPlanningAI,
   analysis,
+  excludeAllHistory = false,
+  setExcludeAllHistory,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [activeIntentPreset, setActiveIntentPreset] = useState<string | null>('heart_opening');
+  const [showManualThemes, setShowManualThemes] = useState<boolean>(false);
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   const [customName, setCustomName] = useState<string>('');
   const [customQueries, setCustomQueries] = useState<string>('');
@@ -165,6 +170,15 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
     });
 
     setSelectedNatures(newSelected);
+  };
+
+  // Remove a theme from active plan
+  const removeNature = (id: string) => {
+    setSelectedNatures((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   // Toggle selection of a preset nature theme manually
@@ -261,65 +275,35 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   });
 
   return (
-    <div className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl p-4 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-6 sm:space-y-8 transition-colors duration-200">
+    <div className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl p-4 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-6 transition-colors duration-200">
       
-      {/* QUICK INTENT THEME TEMPLATES DROPDOWN */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800/80">
-        <div className="flex items-center gap-2">
-          <Compass className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+      {/* 1. HERO SECTION: Title, Script & AI Director Analysis */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
           <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-stone-800 dark:text-stone-200">
-              Meditation Intent Preset:
-            </span>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400 block sm:inline sm:ml-2">
-              (Auto-selects fitting nature themes)
-            </span>
-          </div>
-        </div>
-
-        <div className="relative sm:w-80">
-          <select
-            value={activeIntentPreset || ''}
-            onChange={(e) => {
-              const selected = INTENT_PRESETS.find((i) => i.id === e.target.value);
-              if (selected) {
-                applyIntentPreset(selected);
-              } else {
-                setActiveIntentPreset(null);
-              }
-            }}
-            className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-300 dark:border-stone-800 rounded-xl px-3.5 py-2 text-xs font-semibold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 cursor-pointer shadow-sm"
-          >
-            <option value="" disabled>Choose Intent Preset...</option>
-            {INTENT_PRESETS.map((intent) => (
-              <option key={intent.id} value={intent.id}>
-                {intent.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* LEFT COLUMN: Concept, Duration, Resolution, Audio (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800/80">
-            <h2 className="text-base font-bold text-stone-900 dark:text-white tracking-tight">
-              1. Title, Script & Settings
+            <h2 className="text-base sm:text-lg font-bold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              <span>Meditation Concept & AI Script Director</span>
             </h2>
-            <button
-              type="button"
-              onClick={onAutoPlanAI}
-              disabled={isPlanningAI || !title.trim()}
-              className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              <span>{isPlanningAI ? 'AI Planning...' : 'Auto-Plan with AI'}</span>
-            </button>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Enter your meditation title or guidance script to automatically discover matching nature themes
+            </p>
           </div>
 
+          <button
+            type="button"
+            onClick={onAutoPlanAI}
+            disabled={isPlanningAI || !title.trim()}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            <span>{isPlanningAI ? 'Analyzing Script...' : '✨ Analyze & Suggest Themes'}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Title */}
-          <div className="space-y-1.5">
+          <div className="lg:col-span-5 space-y-1.5">
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
               Meditation Title
             </label>
@@ -327,373 +311,329 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Softening the Heart, Deep Restful Sleep..."
-              className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-2.5 text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
+              placeholder="e.g. Softening the Heart, Morning Awakening, Deep Sleep..."
+              className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500"
             />
           </div>
 
-          {/* Script (Optional) */}
-          <div className="space-y-1.5">
+          {/* Script */}
+          <div className="lg:col-span-7 space-y-1.5">
             <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-              Script or Guidance <span className="text-stone-400 font-normal lowercase">(optional)</span>
+              Script or Spoken Guidance <span className="text-stone-400 font-normal lowercase">(optional)</span>
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={script}
               onChange={(e) => setScript(e.target.value)}
-              placeholder="Paste guidance script to guide tone, emotional journey, and aesthetic atmosphere..."
-              className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-2 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 resize-none"
+              placeholder="Paste guidance script to extract emotional intent, pace, and visual metaphors..."
+              className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 py-2 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 resize-none"
             />
-          </div>
-
-          {/* AI Analysis Visual Result (If planned by AI) */}
-          {analysis && (
-            <div className="bg-amber-50/50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3.5 space-y-2 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-600" />
-                  AI Scene Journey Planned
-                </span>
-                <span className="text-[10px] font-mono text-amber-800 dark:text-amber-400">
-                  {analysis.mood?.slice(0, 3).join(', ')}
-                </span>
-              </div>
-              <p className="text-[11px] text-stone-700 dark:text-stone-300 italic">
-                "{analysis.intent}"
-              </p>
-            </div>
-          )}
-
-          {/* Duration & Clip Length */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                Target Duration
-              </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="number"
-                  min={1}
-                  max={360}
-                  value={settings.target_duration}
-                  onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-                  className="w-3/5 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                />
-                <select
-                  value={settings.duration_unit}
-                  onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-                  className="w-2/5 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 py-2 text-xs text-stone-900 dark:text-white focus:outline-none"
-                >
-                  <option value="minutes">Mins</option>
-                  <option value="hours">Hours</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                Clip Duration (Min-Max)
-              </label>
-              <div className="flex gap-1.5">
-                <input
-                  type="number"
-                  min={5}
-                  max={60}
-                  placeholder="Min"
-                  value={settings.minimum_clip_duration}
-                  onChange={(e) => updateSetting('minimum_clip_duration', Number(e.target.value))}
-                  className="w-1/2 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 py-2 text-xs text-stone-900 dark:text-white focus:outline-none"
-                />
-                <input
-                  type="number"
-                  min={5}
-                  max={180}
-                  placeholder="Max"
-                  value={settings.maximum_clip_duration || ''}
-                  onChange={(e) => updateSetting('maximum_clip_duration', e.target.value ? Number(e.target.value) : undefined)}
-                  className="w-1/2 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 py-2 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Aspect Ratio & Resolution */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                Aspect Ratio
-              </label>
-              <div className="grid grid-cols-3 gap-1">
-                {(['16:9', '9:16', '1:1'] as const).map((ar) => (
-                  <button
-                    key={ar}
-                    type="button"
-                    onClick={() => updateSetting('aspect_ratio', ar)}
-                    className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      settings.aspect_ratio === ar
-                        ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-sm'
-                        : 'bg-stone-50 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
-                    }`}
-                  >
-                    {ar}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-                Resolution
-              </label>
-              <div className="grid grid-cols-2 gap-1">
-                {(['1080p', '4K'] as const).map((res) => (
-                  <button
-                    key={res}
-                    type="button"
-                    onClick={() => updateSetting('resolution', res)}
-                    className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                      settings.resolution === res
-                        ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-sm'
-                        : 'bg-stone-50 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
-                    }`}
-                  >
-                    {res}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Audio Soundscape Mode */}
-          <div className="space-y-2 pt-2 border-t border-stone-200 dark:border-stone-800">
-            <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
-              <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              Audio Track
-            </label>
-
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => updateSetting('audio_mode', 'none')}
-                className={`py-2 px-2.5 rounded-xl border text-center transition-all ${
-                  settings.audio_mode === 'none'
-                    ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 font-bold'
-                    : 'bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
-                }`}
-              >
-                <div className="text-[11px] flex items-center justify-center gap-1">
-                  <VolumeX className="w-3 h-3" />
-                  <span>Silent Track</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  updateSetting('audio_mode', 'upload');
-                  if (!customMusicName) fileInputRef.current?.click();
-                }}
-                className={`py-2 px-2.5 rounded-xl border text-center transition-all ${
-                  settings.audio_mode === 'upload'
-                    ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 font-bold'
-                    : 'bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
-                }`}
-              >
-                <div className="text-[11px] flex items-center justify-center gap-1 truncate">
-                  <Upload className="w-3 h-3" />
-                  <span className="truncate">{customMusicName ? 'Audio Loaded' : 'Upload MP3'}</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => updateSetting('audio_mode', 'ambient_synth')}
-                className={`py-2 px-2.5 rounded-xl border text-center transition-all ${
-                  settings.audio_mode === 'ambient_synth'
-                    ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 font-bold'
-                    : 'bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
-                }`}
-              >
-                <div className="text-[11px] flex items-center justify-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  <span>432Hz Drone</span>
-                </div>
-              </button>
-            </div>
-
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="audio/*"
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files?.[0]) {
-                  onUploadMusic(e.target.files[0]);
-                  updateSetting('audio_mode', 'upload');
-                }
-              }}
-            />
-          </div>
-        </div>
-
-        {/* RIGHT COLUMN: 20 Nature Themes Grid (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-stone-200 dark:border-stone-800/80">
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-stone-900 dark:text-white tracking-tight">
-                2. Nature Themes ({selectedList.length} Selected)
-              </h2>
-              <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-300 font-bold">
-                {totalAllocatedClips} clips total
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {selectedList.length > 0 && (
-                <button
-                  type="button"
-                  onClick={autoBalanceClips}
-                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 flex items-center gap-1"
-                >
-                  <RefreshCw className="w-3 h-3 text-stone-400" />
-                  <span>Auto-Balance</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setShowCustomForm(!showCustomForm)}
-                className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Custom</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Custom Nature Inline Form */}
-          {showCustomForm && (
-            <form
-              onSubmit={handleAddCustom}
-              className="bg-amber-50/40 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/60 rounded-xl p-3.5 space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
-            >
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Theme name (e.g. Nordic Fjords)"
-                  className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs"
-                  required
-                />
-                <input
-                  type="text"
-                  value={customQueries}
-                  onChange={(e) => setCustomQueries(e.target.value)}
-                  placeholder="Keywords (e.g. fjord reflection)"
-                  className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomForm(false)}
-                  className="px-2.5 py-1 text-xs text-stone-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1 bg-amber-500 text-stone-950 font-bold rounded-lg text-xs"
-                >
-                  Add
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* Category Filter Tabs */}
-          <div className="flex flex-wrap items-center gap-1 text-[11px]">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setFilterCategory(cat)}
-                className={`px-2.5 py-1 rounded-md font-semibold capitalize transition-all ${
-                  filterCategory === cat
-                    ? 'bg-amber-500 text-stone-950 shadow-sm'
-                    : 'bg-stone-100 dark:bg-stone-800/80 text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Nature Checkbox List (Compact, Clean & Uncluttered) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[380px] overflow-y-auto pr-1">
-            {filteredPresetList.map((preset) => {
-              const isSelected = !!selectedNatures[preset.id];
-              const item = selectedNatures[preset.id];
-
-              return (
-                <div
-                  key={preset.id}
-                  onClick={() => toggleNature(preset)}
-                  className={`flex items-center justify-between p-2.5 px-3 rounded-xl border transition-all cursor-pointer select-none ${
-                    isSelected
-                      ? 'bg-amber-50/80 dark:bg-amber-950/50 border-amber-500 shadow-sm'
-                      : 'bg-stone-50/60 dark:bg-stone-950/30 border-stone-200 dark:border-stone-800/80 hover:border-stone-300 dark:hover:border-stone-700'
-                  }`}
-                >
-                  {/* Left: Checkbox + Icon + Theme Name */}
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}} // Handled by container click
-                        className="w-4 h-4 rounded border-stone-300 dark:border-stone-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer shrink-0"
-                      />
-                      {renderNatureIcon(preset.category, preset.id)}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-xs font-medium text-stone-800 dark:text-stone-200 truncate block">
-                          {preset.name}
-                        </span>
-                      </div>
-                    </div>
-
-                  {/* Right: Inline Clip Count Stepper (Only when checked) */}
-                  {isSelected && item && (
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-1 bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-700/80 rounded-lg px-1.5 py-0.5 shrink-0 ml-2 shadow-sm"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => updateClipCount(preset.id, item.clipCount - 1)}
-                        className="text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-amber-600 px-1"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-4 text-center">
-                        {item.clipCount}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateClipCount(preset.id, item.clipCount + 1)}
-                        className="text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-amber-600 px-1"
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
 
-      {/* SINGLE PRIMARY ACTION BUTTON: Search & Review Footage */}
+      {/* 2. INTERACTIVE AI THEME PLAN REVIEW CARD (Primary Visual Stage) */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-amber-200/60 dark:border-amber-900/40">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-bold text-amber-950 dark:text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Compass className="w-3.5 h-3.5 text-amber-600" />
+              <span>Suggested Visual Journey ({selectedList.length} Themes • {totalAllocatedClips} Clips)</span>
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedList.length > 0 && (
+              <button
+                type="button"
+                onClick={autoBalanceClips}
+                className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:text-stone-900 flex items-center gap-1 shadow-sm"
+              >
+                <RefreshCw className="w-3 h-3 text-stone-400" />
+                <span>Balance Clips</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowCustomForm(!showCustomForm)}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 flex items-center gap-1 shadow-sm"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Custom Theme</span>
+            </button>
+          </div>
+        </div>
+
+        {/* AI Intent & Mood Metadata Banner */}
+        {analysis && (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3 rounded-xl bg-white/80 dark:bg-stone-900/80 border border-amber-200/60 dark:border-amber-800/40 text-xs">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="font-semibold text-stone-500 dark:text-stone-400">Detected Intent:</span>
+              <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
+            </div>
+            {analysis.mood && analysis.mood.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0">
+                {analysis.mood.slice(0, 3).map((m) => (
+                  <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/40">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Active Themes Review List (Interactive with steppers and delete buttons) */}
+        {selectedList.length === 0 ? (
+          <div className="py-6 text-center text-xs text-stone-500 dark:text-stone-400">
+            No themes active. Click <strong>"✨ Analyze & Suggest Themes"</strong> above or pick themes from the manual list below.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {selectedList.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-2.5 px-3 rounded-xl bg-white dark:bg-stone-900 border border-amber-300/80 dark:border-amber-700/60 shadow-sm"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                  {renderNatureIcon(item.category, item.id)}
+                  <span className="text-xs font-medium text-stone-800 dark:text-stone-200 truncate">
+                    {item.name}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Clip Stepper */}
+                  <div className="flex items-center gap-1 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
+                    <button
+                      type="button"
+                      onClick={() => updateClipCount(item.id, item.clipCount - 1)}
+                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5"
+                    >
+                      -
+                    </button>
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3 text-center">
+                      {item.clipCount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateClipCount(item.id, item.clipCount + 1)}
+                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Remove Theme Button */}
+                  <button
+                    type="button"
+                    onClick={() => removeNature(item.id)}
+                    title="Remove theme from plan"
+                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Custom Nature Inline Form */}
+        {showCustomForm && (
+          <form
+            onSubmit={handleAddCustom}
+            className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800/80 rounded-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value)}
+                placeholder="Theme name (e.g. Nordic Fjords)"
+                className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs text-stone-900 dark:text-white"
+                required
+              />
+              <input
+                type="text"
+                value={customQueries}
+                onChange={(e) => setCustomQueries(e.target.value)}
+                placeholder="Search keywords (e.g. fjord calm water)"
+                className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs text-stone-900 dark:text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCustomForm(false)}
+                className="px-2.5 py-1 text-xs text-stone-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3 py-1 bg-amber-500 text-stone-950 font-bold rounded-lg text-xs"
+              >
+                Add to Plan
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      {/* 3. COMPACT MANUAL THEME SELECTOR (Collapsible Accordion) */}
+      <div className="border border-stone-200 dark:border-stone-800/80 rounded-xl overflow-hidden bg-stone-50/40 dark:bg-stone-950/30">
+        <button
+          type="button"
+          onClick={() => setShowManualThemes(!showManualThemes)}
+          className="w-full flex items-center justify-between p-3.5 px-4 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Sliders className="w-3.5 h-3.5 text-stone-500" />
+            <span>Customize / Pick Themes Manually (20 Nature Environments)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-stone-400">{showManualThemes ? 'Hide' : 'Show'}</span>
+            {showManualThemes ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
+          </div>
+        </button>
+
+        {showManualThemes && (
+          <div className="p-4 border-t border-stone-200 dark:border-stone-800 space-y-3 animate-in fade-in duration-200">
+            {/* Category Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1 text-[11px]">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setFilterCategory(cat)}
+                  className={`px-2.5 py-1 rounded-md font-semibold capitalize transition-all ${
+                    filterCategory === cat
+                      ? 'bg-amber-500 text-stone-950 shadow-sm'
+                      : 'bg-stone-200/70 dark:bg-stone-800/80 text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Compact Themes Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[260px] overflow-y-auto pr-1">
+              {filteredPresetList.map((preset) => {
+                const isSelected = !!selectedNatures[preset.id];
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => toggleNature(preset)}
+                    className={`flex items-center justify-between p-2 px-2.5 rounded-lg border text-left transition-all ${
+                      isSelected
+                        ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-950 dark:text-amber-200 shadow-sm'
+                        : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:border-stone-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
+                      {renderNatureIcon(preset.category, preset.id)}
+                      <span className="text-xs font-medium truncate">{preset.name}</span>
+                    </div>
+                    {isSelected ? <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" /> : <div className="w-3.5 h-3.5 rounded border border-stone-300 dark:border-stone-700 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-stone-200 dark:border-stone-800">
+        {/* Target Duration & Clip Length */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+            Target Duration
+          </label>
+          <div className="flex gap-1.5">
+            <input
+              type="number"
+              min={1}
+              max={360}
+              value={settings.target_duration}
+              onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
+              className="w-3/5 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs font-bold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+            />
+            <select
+              value={settings.duration_unit}
+              onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
+              className="w-2/5 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 py-2 text-xs text-stone-900 dark:text-white focus:outline-none"
+            >
+              <option value="minutes">Mins</option>
+              <option value="hours">Hours</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Aspect Ratio & Resolution */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+            Format & Quality
+          </label>
+          <div className="flex gap-1.5">
+            <div className="grid grid-cols-3 gap-1 flex-1">
+              {(['16:9', '9:16', '1:1'] as const).map((ar) => (
+                <button
+                  key={ar}
+                  type="button"
+                  onClick={() => updateSetting('aspect_ratio', ar)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    settings.aspect_ratio === ar
+                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-sm'
+                      : 'bg-stone-50 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-1 w-24">
+              {(['1080p', '4K'] as const).map((res) => (
+                <button
+                  key={res}
+                  type="button"
+                  onClick={() => updateSetting('resolution', res)}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    settings.resolution === res
+                      ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-sm'
+                      : 'bg-stone-50 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
+                  }`}
+                >
+                  {res}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* History Control Toggle */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+            History Reuse Filter
+          </label>
+          <label className="flex items-center justify-between p-2 rounded-xl bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 cursor-pointer">
+            <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
+              Exclude Past History Videos
+            </span>
+            <input
+              type="checkbox"
+              checked={excludeAllHistory}
+              onChange={(e) => setExcludeAllHistory && setExcludeAllHistory(e.target.checked)}
+              className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* 5. PRIMARY ACTION BUTTON */}
       <div className="pt-4 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="text-xs text-stone-500 dark:text-stone-400">
           Target: <span className="font-bold text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit}</span> • <span className="font-bold text-amber-700 dark:text-amber-400">{selectedList.length} nature themes</span> ({totalAllocatedClips} clips) • Bright sunlit aesthetic.
@@ -706,7 +646,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer"
         >
           <Search className="w-4 h-4" />
-          <span>{isSearching ? 'Searching & Evaluating Footage...' : 'Search & Review Footage'}</span>
+          <span>{isSearching ? 'Searching & Evaluating Footage...' : `Fetch Footage for Plan (${totalAllocatedClips} clips)`}</span>
         </button>
       </div>
     </div>

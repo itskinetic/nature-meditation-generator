@@ -16,7 +16,7 @@ from backend.app.models import GenerationJob, VideoLibraryItem
 from backend.app.schemas import (
     IntentAnalysisRequest, IntentAnalysisResult,
     PresetSchema, SearchRequest, SearchResponse,
-    CandidateItem, GenerationRequest, GenerationResponse,
+    CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest
 )
@@ -104,6 +104,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 max_duration=req.max_duration,
                 aspect_ratio=req.aspect_ratio,
                 resolution=req.resolution,
+                exclude_all_history=req.exclude_all_history,
                 db=db
             )
             all_raw.extend(env_raw)
@@ -132,13 +133,16 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 c.rejection_reason = score_res.reason if not score_res.keep else None
                 return c
 
-            # Include matching clips from saved local library
-            lib_items = db.query(VideoLibraryItem).filter(
-                VideoLibraryItem.is_approved == True,
-                (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
-                (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
-                (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
-            ).limit(10).all()
+            # Include matching clips from saved local library (unless history is excluded)
+            if not req.exclude_all_history:
+                lib_items = db.query(VideoLibraryItem).filter(
+                    VideoLibraryItem.is_approved == True,
+                    (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
+                    (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
+                    (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
+                ).limit(10).all()
+            else:
+                lib_items = []
             for li in lib_items:
                 approved.append(CandidateItem(
                     source="library",
@@ -748,6 +752,48 @@ def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(ge
     db.add(item)
     db.commit()
     return {"status": "saved", "id": item.id, "message": "Saved to Library with theme tags"}
+
+
+@router.post("/candidates/ban")
+def ban_candidate(req: BanCandidateRequest, db: Session = Depends(get_db)):
+    """Permanently bans a video candidate so it is never fetched again."""
+    item = db.query(VideoLibraryItem).filter(
+        VideoLibraryItem.source_video_id == req.source_video_id
+    ).first()
+    
+    if not item:
+        item = VideoLibraryItem(
+            source=req.source,
+            source_video_id=req.source_video_id,
+            source_url=req.source_url,
+            creator_name=req.creator_name,
+            preview_url=req.preview_url,
+            is_approved=False,
+            rejected_at=datetime.datetime.utcnow(),
+            rejection_reason=req.reason or "Manually banned by user"
+        )
+        db.add(item)
+    else:
+        item.is_approved = False
+        item.rejected_at = datetime.datetime.utcnow()
+        item.rejection_reason = req.reason or "Manually banned by user"
+    
+    db.commit()
+    return {"status": "banned", "source_video_id": req.source_video_id, "message": "Video permanently banned"}
+
+
+@router.post("/candidates/unban")
+def unban_candidate(source_video_id: str = Query(...), db: Session = Depends(get_db)):
+    """Removes the ban on a video candidate."""
+    item = db.query(VideoLibraryItem).filter(
+        VideoLibraryItem.source_video_id == source_video_id
+    ).first()
+    if item:
+        item.is_approved = True
+        item.rejected_at = None
+        item.rejection_reason = None
+        db.commit()
+    return {"status": "unbanned", "source_video_id": source_video_id}
 
 
 @router.delete("/library/{item_id}")
