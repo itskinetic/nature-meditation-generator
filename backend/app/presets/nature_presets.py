@@ -11,13 +11,18 @@ class EnvironmentTheme(BaseModel):
     queries: List[str]
     subthemes: List[str]
     negative_terms: List[str] = [
+        "boat", "boats", "ship", "ships", "yacht", "vessel", "canoe", "kayak", "speedboat", "motorboat", "jetski", "sailing", "ferry",
+        "dock", "docks", "pier", "piers", "marina", "harbor", "harbour", "port", "wharf", "jetty",
+        "drone", "aerial", "overhead", "bird eye", "birds eye", "top down", "top-down", "satellite",
+        "building", "house", "resort", "hotel", "cabin", "road", "car", "vehicle", "city", "bridge", "fence", "crowd", "traffic",
+        "people", "person", "swimmer", "tourist", "tourists", "diver", "man", "woman", "human",
+        "algae", "marsh", "swamp", "sludge", "scum", "murky", "muddy", "stagnant",
         "raw", "raw video", "log footage", "slog", "s-log", "flat profile", "ungraded", "uncolored", "flat color",
-        "grey", "gray", "dull", "desaturated", "washed out", "drab", "monochrome", "lifeless", "murky", "muddy", "faded",
+        "grey", "gray", "dull", "desaturated", "washed out", "drab", "monochrome", "lifeless", "faded",
         "gloomy", "dark", "overcast", "dreary", "depressing", "bleak",
-        "foggy dark", "night", "shadowy", "people", "person", "animal", "bird",
-        "building", "house", "road", "car", "vehicle", "city", "crowd", "traffic",
+        "foggy dark", "night", "shadowy", "animal", "bird",
         "storm", "lightning", "surfing", "timelapse", "hyperlapse", "fast movement",
-        "drone flyby", "text", "logo", "flashing", "neon"
+        "text", "logo", "flashing", "neon"
     ]
     preferred_colors: List[str] = ["soft green", "warm gold", "pale blue"]
     visual_style: str = "bright sunlit natural landscape"
@@ -296,11 +301,11 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         category="Water",
         description="Swaying palm fronds and crystal clear emerald lagoons under warm sunshine",
         queries=[
-            "swaying palm trees tropical beach",
-            "crystal clear tropical lagoon daylight",
-            "sunlit palm trees turquoise water",
-            "peaceful tropical island shore calm",
-            "clear shallow turquoise lagoon"
+            "crystal clear shallow tropical water ripples",
+            "sunlit turquoise lagoon water close up calm",
+            "pure tropical nature shore turquoise water",
+            "empty tropical beach clear turquoise water",
+            "gentle shallow sea ripples turquoise sunlit"
         ],
         subthemes=["swaying palm fronds", "crystal lagoon", "turquoise shallows", "tropical island shore"],
         preferred_colors=["lagoon turquoise", "palm green", "sunlit coral", "warm gold"]

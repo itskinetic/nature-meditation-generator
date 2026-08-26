@@ -184,10 +184,16 @@ Return ONLY valid JSON matching this schema:
             preferred_colors=["warm gold", "fresh green", "turquoise blue", "soft white"],
             visual_motifs=["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle morning light"],
             avoid_visuals=[
+                "boat", "boats", "ship", "ships", "yacht", "vessel", "canoe", "kayak", "speedboat", "motorboat", "jetski", "sailing", "ferry",
+                "dock", "docks", "pier", "piers", "marina", "harbor", "harbour", "port", "wharf", "jetty",
+                "drone", "aerial", "overhead", "bird eye", "birds eye", "top down", "top-down", "satellite",
+                "building", "house", "resort", "hotel", "cabin", "road", "car", "vehicle", "city", "bridge", "fence", "crowd", "traffic",
+                "people", "person", "swimmer", "tourist", "tourists", "diver", "man", "woman", "human",
+                "algae", "marsh", "swamp", "sludge", "scum", "murky", "muddy", "stagnant",
                 "raw", "log footage", "flat profile", "ungraded", "dull", "desaturated",
                 "washed out", "drab", "lifeless", "gloomy", "dark", "overcast", "grey", "gray",
                 "dreary", "depressing", "bleak", "foggy dark", "night", "shadowy", "storms",
-                "people", "buildings", "vehicles", "timelapse", "text"
+                "timelapse", "text"
             ],
             generated_queries=all_queries,
             planned_environments=selected_envs

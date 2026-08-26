@@ -53,19 +53,21 @@ Avoid Elements: {', '.join(analysis.avoid_visuals)}
 Preset Name: {preset.name if preset else 'General Nature'}
 
 Keep the video ONLY if:
-- it fits the emotional intent
-- it fits the visual theme
+- it is a pure, tranquil, untouched natural landscape
+- it fits the emotional intent and preset theme
 - the colors are vibrant, natural, bright, and pleasing (NOT raw footage, NOT flat/LOG profile, NOT dull, NOT grey, NOT washed-out)
-- the atmosphere is peaceful and spacious
+- the atmosphere is peaceful, spacious, and meditative
 - the movement is slow and subtle
-- the lighting is soft and natural
-- there are no people, animals, buildings, vehicles, crowds, text, or logos
-- there is no storm, dramatic action, fast camera movement, or timelapse
-- the scene is not visually harsh, chaotic, or distracting
 
-STRICT REJECTION CRITERIA:
-- Reject RAW camera footage, unedited LOG profiles, flat color profiles, or washed-out ungraded video.
-- Reject dull, muddy, grey, overcast-grey, or lifeless desaturated visuals.
+STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
+- REJECT ANY docks, piers, marinas, harbors, ports, jetties, or boat slips.
+- REJECT ANY high-altitude drone flyovers, high aerial survey shots, top-down satellite maps, or distant overhead drone vistas.
+- REJECT ANY buildings, houses, resorts, hotels, pools, cabins, roads, cars, vehicles, bridges, fences, or man-made structures.
+- REJECT ANY people, tourists, swimmers, divers, crowds, or visible human activity.
+- REJECT ANY murky, muddy, stagnant water, algae scum, sludge, or brownish swamp water.
+- REJECT RAW camera footage, unedited LOG profiles, flat color profiles, or washed-out ungraded video.
+- REJECT dull, muddy, grey, overcast-grey, dark, or lifeless desaturated visuals.
 
 Return ONLY valid JSON matching this schema:
 {{
@@ -75,9 +77,9 @@ Return ONLY valid JSON matching this schema:
   "motion_intensity": 3,
   "visual_quality": 9,
   "unwanted_elements": [],
-  "subtheme": "{preset.subthemes[0] if preset and preset.subthemes else 'misty forest'}",
+  "subtheme": "{preset.subthemes[0] if preset and preset.subthemes else 'nature landscape'}",
   "keep": true,
-  "reason": "Peaceful foggy forest with slow movement and no distracting elements."
+  "reason": "Pure tranquil natural landscape with no boats, docks, drone survey, or man-made elements."
 }}
 """
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
@@ -129,36 +131,46 @@ Return ONLY valid JSON matching this schema:
         """
         Conservative heuristic scorer matching nature keywords, subthemes, and quality indicators.
         """
-        query_text = f"{candidate.search_query or ''} {candidate.source_url or ''} {candidate.creator_name or ''}".lower()
-        
+        import re
+        raw_corpus = f"{candidate.source_url or ''} {candidate.search_query or ''} {candidate.creator_name or ''} {candidate.preview_url or ''} {candidate.subtheme or ''}".lower()
+        cleaned_corpus = re.sub(r'[^a-z0-9\s]', ' ', raw_corpus)
+        corpus_words = set(cleaned_corpus.split())
+
         # Check subtheme
         assigned_subtheme = preset.subthemes[0] if preset and preset.subthemes else "nature landscape"
         if preset and preset.subthemes:
             for st in preset.subthemes:
                 st_words = st.lower().split()
-                if any(w in query_text for w in st_words):
+                if any(w in corpus_words for w in st_words):
                     assigned_subtheme = st
                     break
 
         # Check negative triggers
         unwanted = []
-        avoid_list = (preset.negative_terms if preset else []) + analysis.avoid_visuals
+        avoid_list = (preset.negative_terms if preset else []) + (analysis.avoid_visuals if analysis else [])
         for term in avoid_list:
-            if term.lower() in query_text:
-                unwanted.append(term)
+            t = term.lower().strip()
+            if not t:
+                continue
+            if ' ' in t:
+                if t in cleaned_corpus:
+                    unwanted.append(t)
+            else:
+                if t in corpus_words:
+                    unwanted.append(t)
 
         # Baseline scores for nature meditation
         if unwanted:
             return ScoringResult(
-                intent_match=4.0,
-                theme_match=4.0,
-                calmness=4.0,
-                motion_intensity=7.0,
-                visual_quality=6.0,
+                intent_match=3.0,
+                theme_match=3.0,
+                calmness=3.0,
+                motion_intensity=8.0,
+                visual_quality=5.0,
                 unwanted_elements=unwanted,
                 subtheme=assigned_subtheme,
                 keep=False,
-                reason=f"Detected unwanted element: {', '.join(unwanted)}"
+                reason=f"Rejected: Contains banned element '{unwanted[0]}'"
             )
 
         # High-relevance nature terms

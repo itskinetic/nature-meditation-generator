@@ -115,12 +115,29 @@ class CandidateService:
                     c.rejection_reason = f"Resolution {c.width}x{c.height} below required standard"
                     continue
 
-            # 8. Check negative keywords in candidate text / search query / creator
-            text_corpus = f"{c.search_query or ''} {c.creator_name or ''} {c.source_url or ''}".lower()
-            matched_neg = [neg for neg in negative_terms if neg in text_corpus]
+            # 8. Check negative keywords in candidate text / search query / creator / URL slugs
+            import re
+            raw_corpus = f"{c.source_url or ''} {c.search_query or ''} {c.creator_name or ''} {c.subtheme or ''}".lower()
+            cleaned_corpus = re.sub(r'[^a-z0-9\s]', ' ', raw_corpus)
+            corpus_words = set(cleaned_corpus.split())
+
+            matched_neg = []
+            for neg in negative_terms:
+                n = neg.lower().strip()
+                if not n:
+                    continue
+                if ' ' in n:
+                    if n in cleaned_corpus:
+                        matched_neg.append(n)
+                        break
+                else:
+                    if n in corpus_words:
+                        matched_neg.append(n)
+                        break
+
             if matched_neg:
                 c.is_approved = False
-                c.rejection_reason = f"Matched negative term: {matched_neg[0]}"
+                c.rejection_reason = f"Contains banned visual: {matched_neg[0]}"
                 continue
 
             filtered.append(c)
