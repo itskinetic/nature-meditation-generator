@@ -233,7 +233,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   });
 
   return (
-    <div className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-8 transition-colors duration-200">
+    <div className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl p-4 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-6 sm:space-y-8 transition-colors duration-200">
       
       {/* QUICK INTENT THEME TEMPLATES DROPDOWN */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200 dark:border-stone-800/80">

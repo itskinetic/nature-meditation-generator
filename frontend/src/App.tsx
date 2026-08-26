@@ -334,9 +334,9 @@ export function App() {
         setIsDark={setIsDark}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8">
         {activeTab === 'generator' && (
-          <div className="space-y-10">
+          <div className="space-y-6 sm:space-y-10">
             {/* STAGE 1: UNIFIED STUDIO SETUP & NATURE SELECTOR */}
             <StudioSetup
               title={title}
