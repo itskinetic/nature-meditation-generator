@@ -115,7 +115,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "lush_rainforest": EnvironmentTheme(
         id="lush_rainforest",
-        name="Lush Rainforest",
+        name="Rainforest",
         icon="",
         category="Forest",
         description="Rich emerald tropical foliage, dew drops, and peaceful green canopies",
@@ -131,7 +131,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "cascading_waterfalls": EnvironmentTheme(
         id="cascading_waterfalls",
-        name="Waterfalls & Streams",
+        name="Waterfalls",
         icon="",
         category="Water",
         description="Clear bubbling streams and soft mossy cascading waterfalls",
@@ -147,7 +147,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "golden_grasslands": EnvironmentTheme(
         id="golden_grasslands",
-        name="Grasslands & Hills",
+        name="Grasslands",
         icon="",
         category="Meadow",
         description="Endless fields of sunlit tall grass gently swaying in the breeze",
@@ -163,7 +163,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "bamboo_groves": EnvironmentTheme(
         id="bamboo_groves",
-        name="Bamboo Groves",
+        name="Bamboo",
         icon="",
         category="Zen",
         description="Tall green bamboo stalks swaying gracefully with zen stone gardens",
@@ -211,7 +211,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "ethereal_clouds": EnvironmentTheme(
         id="ethereal_clouds",
-        name="Ethereal Clouds",
+        name="Clouds",
         icon="",
         category="Sky",
         description="Gentle, slow-drifting white clouds over peaceful azure sky horizons",
@@ -307,7 +307,7 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "riverbed_pebbles": EnvironmentTheme(
         id="riverbed_pebbles",
-        name="Riverbed & Pebbles",
+        name="Riverbed",
         icon="",
         category="Water",
         description="Shallow crystal clear water gliding over smooth colorful river stones",
