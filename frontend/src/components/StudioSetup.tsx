@@ -316,21 +316,6 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               placeholder="Paste guidance script to guide tone, emotional journey, and aesthetic atmosphere..."
               className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-4 py-2 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 resize-none"
             />
-
-            {/* Prominent AI Director Auto-Plan Action */}
-            <button
-              type="button"
-              onClick={onAutoPlanAI}
-              disabled={isPlanningAI || !title.trim()}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 border border-amber-200 dark:border-amber-800/80 text-amber-900 dark:text-amber-300 text-xs font-semibold transition-all shadow-sm disabled:opacity-50 mt-1 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>
-                {isPlanningAI
-                  ? 'AI Director is analyzing title & script...'
-                  : '✨ AI Director: Auto-Select Fitting Themes from Script'}
-              </span>
-            </button>
           </div>
 
           {/* AI Analysis Visual Result (If planned by AI) */}
