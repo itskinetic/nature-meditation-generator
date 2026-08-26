@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.app.config import settings
-from backend.app.database import engine, Base
+from backend.app.database import engine, Base, init_db
 from backend.app.routes.api import router as api_router
 from backend.app.services.cleanup_service import cleanup_old_renders
 
@@ -26,8 +26,8 @@ async def periodic_cleanup_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB tables
-    Base.metadata.create_all(bind=engine)
+    # Initialize DB tables and auto-migrate missing columns
+    init_db()
     
     # Run initial cleanup and launch background cleanup daemon
     try:
