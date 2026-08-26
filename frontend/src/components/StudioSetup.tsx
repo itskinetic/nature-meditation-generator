@@ -361,6 +361,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               type="button"
               onClick={() => {
                 updateSetting('studio_mode', 'meditation');
+                updateSetting('media_type', 'video');
                 setSelectedNatures({});
                 setActiveIntentPreset(null);
               }}
@@ -392,59 +393,61 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           </div>
         </div>
 
-        {/* Media Format Selector */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 py-1 px-3 bg-stone-50/70 dark:bg-stone-950/50 rounded-xl border border-stone-200/60 dark:border-stone-800/60">
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-              Media Format:
-            </label>
-            <div className="inline-flex p-0.5 bg-stone-200/60 dark:bg-stone-800 rounded-lg text-xs font-medium">
-              <button
-                type="button"
-                onClick={() => updateSetting('media_type', 'video')}
-                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                  (settings.media_type || 'video') === 'video'
-                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
-                }`}
-              >
-                <Film className="w-3 h-3" />
-                <span>Video Only</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting('media_type', 'image')}
-                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                  settings.media_type === 'image'
-                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
-                }`}
-              >
-                <ImageIcon className="w-3 h-3" />
-                <span>Photos Only</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => updateSetting('media_type', 'both')}
-                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                  settings.media_type === 'both'
-                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
-                }`}
-              >
-                <Layers className="w-3 h-3" />
-                <span>Both (Video & Photo)</span>
-              </button>
+        {/* Media Format Selector (Only visible in Wildlife Documentary Mode) */}
+        {isDocMode && (
+          <div className="flex flex-wrap items-center justify-between gap-2.5 py-1 px-3 bg-stone-50/70 dark:bg-stone-950/50 rounded-xl border border-stone-200/60 dark:border-stone-800/60 animate-in fade-in duration-150">
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                Media Format:
+              </label>
+              <div className="inline-flex p-0.5 bg-stone-200/60 dark:bg-stone-800 rounded-lg text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => updateSetting('media_type', 'video')}
+                  className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    (settings.media_type || 'video') === 'video'
+                      ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                  }`}
+                >
+                  <Film className="w-3 h-3" />
+                  <span>Video Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateSetting('media_type', 'image')}
+                  className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    settings.media_type === 'image'
+                      ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                  }`}
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  <span>Photos Only</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateSetting('media_type', 'both')}
+                  className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    settings.media_type === 'both'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 font-semibold'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                  }`}
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Both (Video & Photo)</span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          {(settings.media_type === 'image' || settings.media_type === 'both') && (
-            <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
-              <span>Smooth Ken Burns slow zoom & pan active on photos</span>
-            </span>
-          )}
-        </div>
+            {(settings.media_type === 'image' || settings.media_type === 'both') && (
+              <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                <span>Smooth Ken Burns slow zoom & pan active on photos</span>
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Title Input */}
