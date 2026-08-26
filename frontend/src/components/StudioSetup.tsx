@@ -312,7 +312,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Softening the Heart, Morning Awakening, Deep Sleep..."
-              className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
+              className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
 
@@ -326,7 +326,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               value={script}
               onChange={(e) => setScript(e.target.value)}
               placeholder="Paste guidance script to extract emotional intent, pace, and visual metaphors..."
-              className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
+              className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
         </div>
@@ -396,7 +396,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             {selectedList.map((item) => (
               <div
                 key={item.id}
-                className="h-11 flex items-center justify-between px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors"
+                className="h-9 flex items-center justify-between px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
                   {renderNatureIcon(item.category, item.id)}
@@ -454,7 +454,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
                 placeholder="Theme name (e.g. Nordic Fjords)"
-                className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs text-stone-900 dark:text-white"
+                className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
                 required
               />
               <input
@@ -462,20 +462,20 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 value={customQueries}
                 onChange={(e) => setCustomQueries(e.target.value)}
                 placeholder="Search keywords (e.g. fjord calm water)"
-                className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-2.5 py-1.5 text-xs text-stone-900 dark:text-white"
+                className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
               />
             </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowCustomForm(false)}
-                className="px-2.5 py-1 text-xs text-stone-500"
+                className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-3 py-1 bg-amber-500 text-stone-950 font-bold rounded-lg text-xs"
+                className="h-9 px-3.5 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold rounded-xl text-xs"
               >
                 Add to Plan
               </button>
@@ -563,12 +563,12 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               max={360}
               value={settings.target_duration}
               onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-3/5 h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+              className="w-3/5 h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30"
             />
             <select
               value={settings.duration_unit}
               onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-              className="w-2/5 h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 text-xs text-stone-900 dark:text-white focus:outline-none cursor-pointer"
+              className="w-2/5 h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2 text-xs text-stone-900 dark:text-white focus:outline-none cursor-pointer"
             >
               <option value="minutes">Mins</option>
               <option value="hours">Hours</option>
@@ -588,7 +588,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   key={ar}
                   type="button"
                   onClick={() => updateSetting('aspect_ratio', ar)}
-                  className={`h-10 rounded-xl text-xs font-semibold border transition-all ${
+                  className={`h-9 rounded-xl text-xs font-semibold border transition-all ${
                     settings.aspect_ratio === ar
                       ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs'
                       : 'bg-stone-50/70 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
@@ -604,7 +604,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   key={res}
                   type="button"
                   onClick={() => updateSetting('resolution', res)}
-                  className={`h-10 rounded-xl text-xs font-semibold border transition-all ${
+                  className={`h-9 rounded-xl text-xs font-semibold border transition-all ${
                     settings.resolution === res
                       ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs'
                       : 'bg-stone-50/70 dark:bg-stone-950/50 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-400'
@@ -625,7 +625,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           <select
             value={settings.shot_preference || 'balanced'}
             onChange={(e) => updateSetting('shot_preference', e.target.value as any)}
-            className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
+            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
           >
             <option value="balanced">Balanced Variety</option>
             <option value="macro">Mindful Close-Ups</option>
@@ -639,7 +639,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             History Filter
           </label>
-          <label className="h-10 flex items-center justify-between px-3.5 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-colors">
+          <label className="h-9 flex items-center justify-between px-3.5 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-colors">
             <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
               Exclude Past History
             </span>

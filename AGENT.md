@@ -28,38 +28,30 @@ This guide serves as the single source of truth for **ZenHub** (Nature Meditatio
 
 ---
 
-## 3. Universal Button Design System (Strict Specifications)
+## 3. Global Universal Sizing System (Buttons, Boxes, Inputs, Selects)
 
-All interactive buttons in ZenHub follow 4 standardized tiers to guarantee visual cohesion across the entire app:
+All interactive elements and form controls in ZenHub share a strict **`h-9`** (36px) baseline height and **`rounded-xl`** (12px) corner radius to ensure mathematical harmony and visual alignment across every row and column:
 
-### Tier 1: Standard Universal Action Buttons
-Used for all primary and secondary actions (`Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Add to Plan`, `Select All Approved`, `Clear`, `Select for Video`, `Ban Footage`, `Download MP4`, `Close`).
-- **Height**: Strictly **`h-9`** (36px).
-- **Border Radius**: Strictly **`rounded-xl`** (12px radius).
-- **Padding**: **`px-3.5`**.
-- **Typography**: **`text-xs font-semibold`** or **`font-bold`** in Figtree.
-- **Primary Accent Style**: `bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-xs`.
-- **Secondary Neutral Style**: `bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750`.
+### Standard Universal Controls (`h-9 rounded-xl`)
+- **Action Buttons**: `h-9 px-3.5 rounded-xl text-xs font-semibold` / `font-bold`
+  - Examples: `Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Add to Plan`, `Select All Approved`, `Clear`, `Select for Video`, `Ban Footage`, `Download MP4`, `Close`.
+- **Text & Number Inputs**: `h-9 px-3.5 rounded-xl text-xs`
+  - Examples: `Meditation Title`, `Script or Spoken Guidance`, `Target Duration` number input, `Library Search` input (`pl-9 pr-3.5`).
+- **Select Dropdowns**: `h-9 px-3 rounded-xl text-xs`
+  - Examples: `Duration Unit` select (`Mins` / `Hours`), `Cinematic Shot Cadence` select.
+- **Toggle / Checkbox Boxes**: `h-9 px-3.5 rounded-xl text-xs`
+  - Examples: `Exclude Past History` toggle container, `Approved Only` library filter container.
+- **Segmented Control Buttons**: `h-9 rounded-xl text-xs font-semibold`
+  - Examples: `16:9`, `9:16`, `1:1` aspect ratio pills; `1080p`, `4K` quality pills.
+- **Square Icon Buttons**: `w-9 h-9 flex items-center justify-center rounded-xl`
+  - Examples: `Bookmark / Library Save`, `1-Click Ban`, `Preview Eye`, `Theme Mode Toggle`.
+- **Active Theme Journey Cards**: `h-9 px-3 rounded-xl text-xs`
+  - Clean pill cards with icon, theme title, clip stepper (`- 4 +`), and delete button.
 
-### Tier 2: Universal Square Icon Buttons
-Used for icon-only action triggers (`Bookmark / Save to Library`, `1-Click Ban`, `Video Preview Eye`, `Theme Mode Toggle`).
-- **Dimensions**: Strictly **`w-9 h-9`** (36px × 36px).
-- **Border Radius**: Strictly **`rounded-xl`** (12px).
-- **Alignment**: `flex items-center justify-center`.
-- **Icon Size**: `w-4 h-4`.
-
-### Tier 3: Segmented Controls & Filter Tabs
-Used for tab bars (`Studio / Library / History` navigation, candidate filter tabs, category pills, format buttons `16:9` / `1080p`).
-- **Container Height**: **`h-9`** or **`h-10`** with `p-1 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800`.
-- **Item Height**: **`h-7`** to **`h-7.5`** with **`px-3 rounded-lg text-xs font-semibold`**.
-
-### Tier 4: Primary Large CTA Buttons
-Used exclusively for major pipeline triggers (`Fetch Footage for Plan`, `Queue for Render`).
-- **Height**: **`h-11`** to **`h-12`** (44px–48px).
-- **Border Radius**: **`rounded-xl`** (12px).
-- **Padding**: **`px-7`** to **`px-8`**.
-- **Typography**: **`text-sm font-bold`**.
-- **Accent Glow**: `bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-md shadow-amber-500/25`.
+### Primary Large CTA Buttons (`h-11` to `h-12`)
+Used exclusively for major pipeline launch actions:
+- **`Fetch Footage for Plan`**: `h-12 px-8 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-md shadow-amber-500/25`.
+- **`Queue for Render`**: `h-12 px-8 rounded-xl text-sm font-bold bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-md shadow-amber-500/25`.
 
 ---
 
@@ -82,7 +74,7 @@ ZenHub is designed with mobile-first responsiveness across all screen sizes (fro
    - Form inputs & Theme grids: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` with tight `gap-2.5` / `gap-3.5`.
    - Settings row: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`.
 2. **Touch Target Dimensions**:
-   - All interactive controls have at least 36px–44px touch targets (`h-9` buttons, `h-10` inputs/selects).
+   - All interactive controls have at least 36px–44px touch targets (`h-9` buttons, `h-9` inputs/selects).
    - Spacing includes `touch-manipulation` to prevent tap delays on iOS Safari and Android Chrome.
 3. **Adaptive Action Bars**:
    - Primary action buttons: `w-full sm:w-auto` so mobile users get full-width thumb-friendly buttons.
