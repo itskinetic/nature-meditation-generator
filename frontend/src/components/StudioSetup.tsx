@@ -267,12 +267,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const selectedList = Object.values(selectedNatures);
   const totalAllocatedClips = selectedList.reduce((acc, curr) => acc + curr.clipCount, 0);
 
-  const categories = ['all', 'Forest', 'Water', 'Meadow', 'Sky', 'Mountain', 'Zen', 'Flora'];
   const uniquePresets = Array.from(new Map(Object.values(presets).map((p) => [p.id, p])).values());
-  const filteredPresetList = uniquePresets.filter((p) => {
-    if (filterCategory === 'all') return true;
-    return p.category === filterCategory;
-  });
+  const filteredPresetList = uniquePresets;
 
   return (
     <div className="bg-white dark:bg-stone-900/80 border border-stone-200/90 dark:border-stone-800/80 rounded-3xl p-5 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-5 sm:space-y-6 transition-colors duration-200">
@@ -501,25 +497,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </button>
 
         {showManualThemes && (
-          <div className="p-4 border-t border-stone-200/80 dark:border-stone-800 space-y-3 animate-in fade-in duration-200">
-            {/* Category Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-1 text-[11px]">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setFilterCategory(cat)}
-                  className={`px-2.5 py-1 rounded-md font-medium capitalize transition-all ${
-                    filterCategory === cat
-                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
-                      : 'bg-stone-200/70 dark:bg-stone-800/80 text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
+          <div className="p-4 border-t border-stone-200/80 dark:border-stone-800 animate-in fade-in duration-200">
             {/* Compact Themes Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[260px] overflow-y-auto pr-1">
               {filteredPresetList.map((preset) => {
