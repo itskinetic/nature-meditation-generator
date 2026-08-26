@@ -625,10 +625,18 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
       </div>
 
-      {/* 5. PRIMARY ACTION BUTTON */}
+      {/* 5. PRIMARY ACTION BAR */}
       <div className="pt-3 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs text-stone-500 dark:text-stone-400 text-center sm:text-left">
-          Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit}</strong> • <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} nature themes</strong> ({totalAllocatedClips} clips) • Bright sunlit aesthetic.
+          {selectedList.length > 0 ? (
+            <>
+              Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} mins</strong> •{' '}
+              <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} nature {selectedList.length === 1 ? 'theme' : 'themes'}</strong> ({totalAllocatedClips} clips) •{' '}
+              <span className="font-medium text-stone-700 dark:text-stone-300">{settings.aspect_ratio} {settings.resolution}</span>
+            </>
+          ) : (
+            <span>Enter your meditation concept and analyze to generate a custom nature plan.</span>
+          )}
         </div>
 
         <button
