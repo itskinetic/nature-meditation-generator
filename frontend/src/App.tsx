@@ -45,6 +45,7 @@ export function App() {
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [customMusicName, setCustomMusicName] = useState<string>('');
+  const [activeNotionPageId, setActiveNotionPageId] = useState<string | null>(null);
 
   // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
@@ -140,6 +141,15 @@ export function App() {
       );
     }
   }, [jobDetail]);
+
+  // Live Notion Two-Way Status Sync on completion
+  useEffect(() => {
+    if (jobDetail?.status === 'completed' && activeNotionPageId) {
+      api.updateNotionStatus(activeNotionPageId, 'Completed', jobDetail.download_url).catch((err) => {
+        console.warn('Failed to sync completed status back to Notion:', err);
+      });
+    }
+  }, [jobDetail?.status, activeNotionPageId, jobDetail?.download_url]);
 
   // Target duration in seconds
   const targetSeconds = settings.duration_unit === 'hours'
@@ -366,6 +376,7 @@ export function App() {
               analysis={analysis}
               excludeAllHistory={excludeAllHistory}
               setExcludeAllHistory={setExcludeAllHistory}
+              onSelectNotionPage={setActiveNotionPageId}
             />
 
             {/* STAGE 2: FOOTAGE REVIEW & SEQUENCE CURATION (Appears when candidates exist) */}

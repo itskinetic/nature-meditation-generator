@@ -1,11 +1,14 @@
 import React, { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
-  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye
+  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye,
+  Database, ExternalLink, FileText
 } from 'lucide-react';
-import { GenerationRequest, Preset, IntentAnalysisResult } from '../types';
+import { GenerationRequest, Preset, IntentAnalysisResult, NotionItem } from '../types';
 import { SelectedNatureItem } from './NatureSelector';
+import { api } from '../api/client';
 
 export interface IntentPreset {
   id: string;
@@ -114,6 +117,7 @@ interface StudioSetupProps {
   analysis?: IntentAnalysisResult | null;
   excludeAllHistory?: boolean;
   setExcludeAllHistory?: (val: boolean) => void;
+  onSelectNotionPage?: (pageId: string) => void;
 }
 
 export const StudioSetup: React.FC<StudioSetupProps> = ({
@@ -136,6 +140,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   analysis,
   excludeAllHistory = false,
   setExcludeAllHistory,
+  onSelectNotionPage,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -144,6 +149,37 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   const [customName, setCustomName] = useState<string>('');
   const [customQueries, setCustomQueries] = useState<string>('');
+
+  // Live Notion State & Query
+  const [showNotionPicker, setShowNotionPicker] = useState<boolean>(false);
+  const [notionSearchTerm, setNotionSearchTerm] = useState<string>('');
+  const [selectedNotionId, setSelectedNotionId] = useState<string | null>(null);
+
+  const { data: notionData, isLoading: isNotionLoading, refetch: refetchNotion } = useQuery({
+    queryKey: ['notionItems'],
+    queryFn: () => api.getNotionItems(),
+    staleTime: 30000,
+  });
+
+  const handleSelectNotionItem = (item: NotionItem) => {
+    setTitle(item.title);
+    setSelectedNotionId(item.id);
+    if (item.script) {
+      setScript(item.script);
+    }
+    if (item.duration) {
+      setSettings((prev) => ({ ...prev, target_duration: item.duration || prev.target_duration }));
+    }
+    if (onSelectNotionPage) {
+      onSelectNotionPage(item.id);
+    }
+    setShowNotionPicker(false);
+  };
+
+  const filteredNotionItems = (notionData?.items || []).filter((item) =>
+    item.title.toLowerCase().includes(notionSearchTerm.toLowerCase()) ||
+    (item.status && item.status.toLowerCase().includes(notionSearchTerm.toLowerCase()))
+  );
 
   const updateSetting = <K extends keyof GenerationRequest>(key: K, value: GenerationRequest[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -290,18 +326,124 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-          {/* Title Input */}
-          <div className="lg:col-span-5 space-y-1">
-            <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-              Meditation Title
-            </label>
+          {/* Title Input with Live Notion Integration */}
+          <div className="lg:col-span-5 space-y-1 relative">
+            <div className="flex items-center justify-between">
+              <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+                Meditation Title
+              </label>
+
+              {/* Live Notion Sync Indicator & Trigger */}
+              {notionData?.connected && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowNotionPicker(!showNotionPicker)}
+                    className="h-5 px-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/80 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Notion ({notionData.items.length})</span>
+                    <ChevronDown className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => refetchNotion()}
+                    title="Refresh live Notion database"
+                    className="h-5 w-5 rounded-md text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-2.5 h-2.5 ${isNotionLoading ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              )}
+            </div>
+
             <input
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setSelectedNotionId(null);
+              }}
               placeholder="e.g. Softening the Heart, Morning Awakening, Deep Sleep..."
               className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
+
+            {/* Live Notion Dropdown Popover */}
+            {showNotionPicker && notionData?.connected && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white dark:bg-stone-900 border border-emerald-300 dark:border-emerald-800/80 rounded-2xl shadow-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150">
+                <div className="flex items-center justify-between pb-1.5 border-b border-stone-100 dark:border-stone-800">
+                  <div className="flex items-center gap-1.5">
+                    <Database className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-semibold text-stone-900 dark:text-white">
+                      Live Notion Database
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNotionPicker(false)}
+                    className="text-stone-400 hover:text-stone-700 p-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Search Filter */}
+                <input
+                  type="text"
+                  value={notionSearchTerm}
+                  onChange={(e) => setNotionSearchTerm(e.target.value)}
+                  placeholder="Search live Notion entries..."
+                  className="w-full h-7 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-2 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+
+                {/* Items List */}
+                <div className="max-h-52 overflow-y-auto space-y-1 pr-1">
+                  {filteredNotionItems.length === 0 ? (
+                    <p className="text-[11px] text-stone-400 text-center py-3">
+                      No matching Notion entries found.
+                    </p>
+                  ) : (
+                    filteredNotionItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectNotionItem(item)}
+                        className={`w-full text-left p-2 rounded-xl text-xs flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                          selectedNotionId === item.id
+                            ? 'bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 font-medium'
+                            : 'hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-800 dark:text-stone-200'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <FileText className="w-3 h-3 text-stone-400 shrink-0" />
+                            <span className="truncate font-medium">{item.title}</span>
+                          </div>
+                          {item.script && (
+                            <p className="text-[10px] text-stone-400 truncate mt-0.5 ml-4.5">
+                              {item.script}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          {item.status && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 capitalize">
+                              {item.status}
+                            </span>
+                          )}
+                          {item.duration && (
+                            <span className="text-[10px] text-stone-400 font-mono">
+                              {item.duration}m
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Guidance Script Input */}

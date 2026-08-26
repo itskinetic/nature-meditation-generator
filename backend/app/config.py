@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     PIXABAY_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     VISION_PROVIDER: str = "gemini"
+    NOTION_API_KEY: str = ""
+    NOTION_DATABASE_ID: str = ""
 
     # Video Defaults
     DEFAULT_ASPECT_RATIO: str = "16:9"
