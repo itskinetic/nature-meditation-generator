@@ -376,13 +376,13 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onToggleSelect(c.source_video_id)}
-                    className={`h-9 px-3.5 flex-1 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    className={`h-9 px-3.5 flex-1 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-600 font-bold'
-                        : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300'
+                        ? 'bg-amber-100 dark:bg-amber-950/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 shadow-xs hover:bg-amber-200/80'
+                        : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700'
                     }`}
                   >
-                    {isSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                    {isSelected ? <CheckSquare className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" /> : <Square className="w-3.5 h-3.5" />}
                     <span>{isSelected ? 'Selected for Video' : 'Select for Video'}</span>
                   </button>
 

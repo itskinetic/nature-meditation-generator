@@ -279,26 +279,14 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       
       {/* 1. CONCEPT & AI SCRIPT DIRECTOR */}
       <div className="space-y-3.5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
-          <div>
-            <h2 className="text-base font-bold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <span>Meditation Concept & AI Script Director</span>
-            </h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-              Enter your meditation title or guidance script to automatically discover matching nature themes
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onAutoPlanAI}
-            disabled={isPlanningAI || !title.trim()}
-            className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            <span>{isPlanningAI ? 'Analyzing Script...' : 'Analyze & Suggest Themes'}</span>
-          </button>
+        <div className="pb-3 border-b border-stone-200 dark:border-stone-800/80">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>Meditation Concept & AI Script Director</span>
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            Enter your meditation title or guidance script to automatically discover matching nature themes
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
@@ -330,6 +318,19 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             />
           </div>
         </div>
+
+        {/* Action button placed directly below the inputs */}
+        <div className="flex justify-end pt-0.5">
+          <button
+            type="button"
+            onClick={onAutoPlanAI}
+            disabled={isPlanningAI || !title.trim()}
+            className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 disabled:opacity-50 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Wand2 className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
+            <span>{isPlanningAI ? 'Analyzing Script...' : 'Analyze & Suggest Themes'}</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. SUGGESTED VISUAL JOURNEY (Primary Interactive Visual Stage) */}
@@ -337,10 +338,10 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <h3 className="text-xs font-bold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
+            <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
               Suggested Visual Journey
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
               {selectedList.length} Themes • {totalAllocatedClips} Clips
             </span>
           </div>
@@ -350,7 +351,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               <button
                 type="button"
                 onClick={autoBalanceClips}
-                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
                 <span>Balance Clips</span>
@@ -359,9 +360,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             <button
               type="button"
               onClick={() => setShowCustomForm(!showCustomForm)}
-              className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
+              className="h-9 px-3.5 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center gap-1 shadow-xs transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
               <span>Custom Theme</span>
             </button>
           </div>
@@ -475,7 +476,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               </button>
               <button
                 type="submit"
-                className="h-9 px-3.5 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold rounded-xl text-xs"
+                className="h-9 px-3.5 bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium rounded-xl text-xs transition-colors cursor-pointer"
               >
                 Add to Plan
               </button>
@@ -664,9 +665,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           type="button"
           onClick={onSearchFootage}
           disabled={isSearching || selectedList.length === 0}
-          className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
+          className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 disabled:opacity-50 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
         >
-          <Search className="w-3.5 h-3.5" />
+          <Search className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400" />
           <span>{isSearching ? 'Searching & Evaluating Footage...' : `Fetch Footage for Plan (${totalAllocatedClips} clips)`}</span>
         </button>
       </div>
