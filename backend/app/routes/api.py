@@ -353,6 +353,18 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             else:
                 rejected.append(c)
 
+    # Auto-save approved and high-scoring candidates into SQLite Video Library
+    for c in approved:
+        try:
+            library_service.save_or_update_video(
+                db=db,
+                candidate=c,
+                local_path=c.local_file_path or "",
+                is_approved=True
+            )
+        except Exception as save_err:
+            logger.warning(f"Could not auto-save candidate {c.source_video_id} to library: {save_err}")
+
     return SearchResponse(
         candidates=approved + rejected,
         total_found=len(all_raw),
@@ -618,19 +630,25 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
         probe = await ffmpeg_service.probe_file(final_video_path)
         actual_dur = probe.get("duration", target_dur_sec)
 
-        # 10. Update library and usage stats
+        # 10. Auto-save all used / selected videos to library and update usage stats
         for cand in sequence_data["unique_clips"]:
-            if cand.is_reused:
-                library_service.record_usage(db, cand.source_video_id)
-            else:
-                library_file = settings.LIBRARY_DIR / f"{cand.source_video_id}.mp4"
-                library_service.save_or_update_video(
-                    db=db,
-                    candidate=cand,
-                    local_path=str(library_file) if library_file.exists() else None,
-                    is_approved=True
-                )
-                library_service.record_usage(db, cand.source_video_id)
+            cand_id = cand.source_video_id or getattr(cand, "candidate_id", None)
+            if not cand_id:
+                continue
+            
+            # Check if file exists in library directory
+            library_file = settings.LIBRARY_DIR / f"{cand_id}.mp4"
+            if not library_file.exists():
+                library_file = settings.LIBRARY_DIR / f"{cand_id}.jpg"
+
+            resolved_path = str(library_file) if library_file.exists() else cand.local_file_path
+            library_service.save_or_update_video(
+                db=db,
+                candidate=cand,
+                local_path=resolved_path,
+                is_approved=True
+            )
+            library_service.record_usage(db, cand_id)
 
         # Save metadata.json
         metadata = {
