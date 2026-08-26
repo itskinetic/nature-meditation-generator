@@ -38,18 +38,18 @@ export const Header: React.FC<HeaderProps> = ({
               ZenHub
             </h1>
 
-            {/* Studio Mode Segmented Toggle */}
+            {/* Studio Mode Minimal Icon Switcher */}
             {onToggleStudioMode && (
-              <div className="inline-flex p-0.5 bg-stone-100/90 dark:bg-stone-900/90 rounded-xl border border-stone-200 dark:border-stone-800 ml-1">
+              <div className="flex items-center gap-0.5 ml-0.5">
                 <button
                   type="button"
                   onClick={() => onToggleStudioMode('meditation')}
                   title="Nature Meditation Mode"
                   aria-label="Nature Meditation Mode"
-                  className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  className={`w-6 h-6 rounded-md transition-colors flex items-center justify-center cursor-pointer ${
                     studioMode !== 'documentary'
-                      ? 'bg-white dark:bg-stone-800 text-emerald-700 dark:text-emerald-400 shadow-xs border border-stone-200/80 dark:border-stone-700/80'
-                      : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
+                      ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 font-semibold'
+                      : 'text-stone-400/80 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300 hover:bg-stone-100/60 dark:hover:bg-stone-800/50'
                   }`}
                 >
                   <Trees className="w-3.5 h-3.5" />
@@ -59,10 +59,10 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => onToggleStudioMode('documentary')}
                   title="Wildlife Documentary Mode"
                   aria-label="Wildlife Documentary Mode"
-                  className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                  className={`w-6 h-6 rounded-md transition-colors flex items-center justify-center cursor-pointer ${
                     studioMode === 'documentary'
-                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
-                      : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
+                      ? 'text-amber-600 dark:text-amber-400 bg-amber-500/15 font-semibold'
+                      : 'text-stone-400/80 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300 hover:bg-stone-100/60 dark:hover:bg-stone-800/50'
                   }`}
                 >
                   <Compass className="w-3.5 h-3.5" />
