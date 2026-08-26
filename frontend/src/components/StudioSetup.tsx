@@ -655,11 +655,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                       {renderNatureIcon(preset.category, preset.id)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate leading-tight">
+                      <span className="text-xs font-bold text-stone-900 dark:text-white truncate block">
                         {preset.name}
-                      </h4>
-                      <span className="text-[10px] text-stone-400 capitalize truncate block">
-                        {preset.category}
                       </span>
                     </div>
                   </div>

@@ -31,8 +31,8 @@ class EnvironmentTheme(BaseModel):
 NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     "sunlit_forest": EnvironmentTheme(
         id="sunlit_forest",
-        name="Sunlit Forest & Woodland Canopy",
-        icon="🌲",
+        name="Sunlit Forest",
+        icon="",
         category="Forest",
         description="Bright sunbeams through vibrant green canopy and peaceful woodland paths",
         queries=[
@@ -49,8 +49,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "calm_ocean": EnvironmentTheme(
         id="calm_ocean",
-        name="Calm Ocean & Turquoise Waves",
-        icon="🌊",
+        name="Calm Ocean",
+        icon="",
         category="Water",
         description="Crystal clear turquoise shallow water and gentle soothing ripples",
         queries=[
@@ -66,8 +66,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "wildflower_meadow": EnvironmentTheme(
         id="wildflower_meadow",
-        name="Sun-Drenched Wildflower Meadow",
-        icon="🌸",
+        name="Wildflower Meadow",
+        icon="",
         category="Meadow",
         description="Colorful blooming wildflowers swaying gently under warm sunshine",
         queries=[
@@ -83,8 +83,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "mountain_lake": EnvironmentTheme(
         id="mountain_lake",
-        name="Crystal Mountain Lakes",
-        icon="🏞️",
+        name="Mountain Lakes",
+        icon="",
         category="Water",
         description="Placid mirror-like alpine lakes reflecting clear skies and pine ridges",
         queries=[
@@ -99,8 +99,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "golden_sunrise": EnvironmentTheme(
         id="golden_sunrise",
-        name="Golden Sunrise & Dawn Valleys",
-        icon="🌄",
+        name="Golden Sunrise",
+        icon="",
         category="Sky",
         description="Warm golden morning light illuminating peaceful rolling hills and valleys",
         queries=[
@@ -115,8 +115,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "lush_rainforest": EnvironmentTheme(
         id="lush_rainforest",
-        name="Lush Rainforest & Tropics",
-        icon="🌿",
+        name="Lush Rainforest",
+        icon="",
         category="Forest",
         description="Rich emerald tropical foliage, dew drops, and peaceful green canopies",
         queries=[
@@ -131,8 +131,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "cascading_waterfalls": EnvironmentTheme(
         id="cascading_waterfalls",
-        name="Gentle Waterfalls & Cascades",
-        icon="💧",
+        name="Waterfalls & Streams",
+        icon="",
         category="Water",
         description="Clear bubbling streams and soft mossy cascading waterfalls",
         queries=[
@@ -147,8 +147,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "golden_grasslands": EnvironmentTheme(
         id="golden_grasslands",
-        name="Golden Grasslands & Rolling Hills",
-        icon="🌾",
+        name="Grasslands & Hills",
+        icon="",
         category="Meadow",
         description="Endless fields of sunlit tall grass gently swaying in the breeze",
         queries=[
@@ -163,8 +163,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "bamboo_groves": EnvironmentTheme(
         id="bamboo_groves",
-        name="Bamboo Groves & Zen Gardens",
-        icon="🎋",
+        name="Bamboo Groves",
+        icon="",
         category="Zen",
         description="Tall green bamboo stalks swaying gracefully with zen stone gardens",
         queries=[
@@ -179,8 +179,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "cherry_blossoms": EnvironmentTheme(
         id="cherry_blossoms",
-        name="Cherry Blossoms & Blooming Orchards",
-        icon="🌸",
+        name="Cherry Blossoms",
+        icon="",
         category="Flora",
         description="Delicate pink blossoms and blooming spring fruit orchards in soft sunlight",
         queries=[
@@ -195,8 +195,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "sandy_beach": EnvironmentTheme(
         id="sandy_beach",
-        name="Soft Sandy Beach & Coastline",
-        icon="🏖️",
+        name="Sandy Beach",
+        icon="",
         category="Water",
         description="Warm golden sands, gentle sea breezes, and pristine coastal shores",
         queries=[
@@ -211,8 +211,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "ethereal_clouds": EnvironmentTheme(
         id="ethereal_clouds",
-        name="Ethereal Clouds & Sky Horizons",
-        icon="☁️",
+        name="Ethereal Clouds",
+        icon="",
         category="Sky",
         description="Gentle, slow-drifting white clouds over peaceful azure sky horizons",
         queries=[
@@ -227,8 +227,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "autumn_woodlands": EnvironmentTheme(
         id="autumn_woodlands",
-        name="Warm Autumn Woodlands",
-        icon="🍁",
+        name="Autumn Woods",
+        icon="",
         category="Forest",
         description="Rich golden amber leaves and warm sun-dappled autumn tree groves",
         queries=[
@@ -243,8 +243,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "desert_dunes": EnvironmentTheme(
         id="desert_dunes",
-        name="Warm Desert Dunes & Sandstone",
-        icon="🏜️",
+        name="Desert Dunes",
+        icon="",
         category="Zen",
         description="Smooth, sculpted golden sand dunes and peaceful sunlit sandstone canyons",
         queries=[
@@ -259,8 +259,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "lotus_ponds": EnvironmentTheme(
         id="lotus_ponds",
-        name="Lotus Ponds & Water Lilies",
-        icon="🪷",
+        name="Lotus Ponds",
+        icon="",
         category="Water",
         description="Tranquil mirror ponds with floating pink lotus blossoms and water lilies",
         queries=[
@@ -275,8 +275,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "alpine_valleys": EnvironmentTheme(
         id="alpine_valleys",
-        name="Alpine Valleys & Pine Ridges",
-        icon="🏔️",
+        name="Alpine Valleys",
+        icon="",
         category="Mountain",
         description="Sun-drenched alpine meadows framed by majestic pine ridges",
         queries=[
@@ -291,8 +291,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "tropical_lagoons": EnvironmentTheme(
         id="tropical_lagoons",
-        name="Tropical Island Lagoons",
-        icon="🌴",
+        name="Tropical Lagoons",
+        icon="",
         category="Water",
         description="Swaying palm fronds and crystal clear emerald lagoons under warm sunshine",
         queries=[
@@ -307,8 +307,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "riverbed_pebbles": EnvironmentTheme(
         id="riverbed_pebbles",
-        name="Peaceful Riverbed & Pebbles",
-        icon="🪨",
+        name="Riverbed & Pebbles",
+        icon="",
         category="Water",
         description="Shallow crystal clear water gliding over smooth colorful river stones",
         queries=[
@@ -323,8 +323,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "sunset_twilight": EnvironmentTheme(
         id="sunset_twilight",
-        name="Pastel Sunset & Twilight Glow",
-        icon="🌅",
+        name="Sunset Twilight",
+        icon="",
         category="Sky",
         description="Soft, tranquil sunset skies painted with gentle pink, lavender, and gold",
         queries=[
@@ -339,8 +339,8 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
     "fern_canyon": EnvironmentTheme(
         id="fern_canyon",
-        name="Fern Canyon & Mossy Grotto",
-        icon="🍃",
+        name="Fern Canyon",
+        icon="",
         category="Forest",
         description="Vibrant green fern-covered walls, mossy rock alcoves, and gentle sunbeams",
         queries=[
