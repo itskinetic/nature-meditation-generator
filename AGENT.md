@@ -28,18 +28,53 @@ This guide serves as the single source of truth for **ZenHub** (Nature Meditatio
 
 ---
 
-## 3. Strict NO Emoji Rule (Clean SVG Icons Only)
+## 3. Universal Button Design System (Strict Specifications)
+
+All interactive buttons in ZenHub follow 4 standardized tiers to guarantee visual cohesion across the entire app:
+
+### Tier 1: Standard Universal Action Buttons
+Used for all primary and secondary actions (`Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Add to Plan`, `Select All Approved`, `Clear`, `Select for Video`, `Ban Footage`, `Download MP4`, `Close`).
+- **Height**: Strictly **`h-9`** (36px).
+- **Border Radius**: Strictly **`rounded-xl`** (12px radius).
+- **Padding**: **`px-3.5`**.
+- **Typography**: **`text-xs font-semibold`** or **`font-bold`** in Figtree.
+- **Primary Accent Style**: `bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 shadow-xs`.
+- **Secondary Neutral Style**: `bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-750`.
+
+### Tier 2: Universal Square Icon Buttons
+Used for icon-only action triggers (`Bookmark / Save to Library`, `1-Click Ban`, `Video Preview Eye`, `Theme Mode Toggle`).
+- **Dimensions**: Strictly **`w-9 h-9`** (36px × 36px).
+- **Border Radius**: Strictly **`rounded-xl`** (12px).
+- **Alignment**: `flex items-center justify-center`.
+- **Icon Size**: `w-4 h-4`.
+
+### Tier 3: Segmented Controls & Filter Tabs
+Used for tab bars (`Studio / Library / History` navigation, candidate filter tabs, category pills, format buttons `16:9` / `1080p`).
+- **Container Height**: **`h-9`** or **`h-10`** with `p-1 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800`.
+- **Item Height**: **`h-7`** to **`h-7.5`** with **`px-3 rounded-lg text-xs font-semibold`**.
+
+### Tier 4: Primary Large CTA Buttons
+Used exclusively for major pipeline triggers (`Fetch Footage for Plan`, `Queue for Render`).
+- **Height**: **`h-11`** to **`h-12`** (44px–48px).
+- **Border Radius**: **`rounded-xl`** (12px).
+- **Padding**: **`px-7`** to **`px-8`**.
+- **Typography**: **`text-sm font-bold`**.
+- **Accent Glow**: `bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-md shadow-amber-500/25`.
+
+---
+
+## 4. Strict NO Emoji Rule (Clean SVG Icons Only)
 
 - **NEVER use raw Unicode emojis** (e.g. `✨`, `🎬`, `🔍`, `🌱`, `🏔️`, `🧘`, `🚫`, `🌲`, `🌊`) in UI buttons, badges, headings, dropdown options, or status indicators.
 - **ALWAYS use clean Lucide SVG icons** with explicit dimensions (`w-3.5 h-3.5`, `w-4 h-4`) paired with clean typography.
 - Examples:
   - Button: `<Wand2 className="w-3.5 h-3.5" /> Analyze & Suggest Themes` (NOT `✨ Analyze`)
-  - Badges: `<Mountain className="w-2.5 h-2.5" /> Wide Vista`, `<Leaf className="w-2.5 h-2.5" /> Low Angle`, `<Search className="w-2.5 h-2.5" /> Macro`
+  - Badges: `<Mountain className="w-2.5 h-2.5" /> Wide Vista`, `<Leaf className="w-2.5 h-2.5" /> Low Angle`, `<SearchIcon className="w-2.5 h-2.5" /> Macro`
   - Select options: Plain text (`Balanced Variety`, `Mindful Close-Ups`, `Deep Stillness`, `Expansive Vistas`).
 
 ---
 
-## 4. Mobile-First Responsive Optimization System
+## 5. Mobile-First Responsive Optimization System
 
 ZenHub is designed with mobile-first responsiveness across all screen sizes (from 360px phones to 4K monitors):
 
@@ -58,7 +93,7 @@ ZenHub is designed with mobile-first responsiveness across all screen sizes (fro
 
 ---
 
-## 5. Color Palette & Tone (Meditation Calm Yellow)
+## 6. Color Palette & Tone (Meditation Calm Yellow)
 
 - **Primary Accent**: **Soft Luminous Meditation Yellow** (`#fef9c3`, `#fde047`, `#facc15`, `#eab308`).
   - **NEVER use harsh amber/orange** (`#f59e0b`, `#d97706`).
@@ -70,28 +105,6 @@ ZenHub is designed with mobile-first responsiveness across all screen sizes (fro
 - **Cards**:
   - Light mode: `bg-white` with `border-stone-200/90`.
   - Dark mode: `bg-stone-900/80` with `border-stone-800/80`.
-
----
-
-## 6. Layout Dimensions & Universal Button Sizing
-
-### Container Width
-- **Main Dashboard & Header**: Strictly **`max-w-5xl`** (`w-full mx-auto px-4 sm:px-6`).
-- **NEVER use `max-w-7xl`** or unbounded full-width on dashboards.
-
-### Universal Button Standards
-- **Standard Action Buttons** (`Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Queue`, `Select for Video`, etc.):
-  - **Height**: Strictly **`h-9`** (36px).
-  - **Border Radius**: Strictly **`rounded-xl`** (12px).
-  - **Padding**: `px-3.5`.
-  - **Font**: `text-xs font-semibold` or `font-bold`.
-- **Primary Large CTA Buttons** (`Fetch Footage for Plan`, `Queue for Render`):
-  - **Height**: `h-11` to `h-12` (44px–48px).
-  - **Border Radius**: `rounded-xl`.
-  - **Padding**: `px-7` to `px-8`.
-  - **Font**: `text-sm font-bold`.
-- **Standard Inputs & Selects**:
-  - Height: `h-10` with `rounded-xl` and `px-3.5`.
 
 ---
 
@@ -115,7 +128,7 @@ Every clip is classified into one of 5 cinematic perspectives:
 
 | Shot Type | Badge Icon + Label | Description & Meditation Role |
 | :--- | :--- | :--- |
-| **`close_up`** | `<Search /> Macro` | Dew drops, leaf veins, petal flutter, ripples (Mindfulness & Presence) |
+| **`close_up`** | `<SearchIcon /> Macro` | Dew drops, leaf veins, petal flutter, ripples (Mindfulness & Presence) |
 | **`low_angle`** | `<Leaf /> Low Angle` | Ground-level looking up through grass/roots/trees (Grounding & Stability) |
 | **`wide_vista`** | `<Mountain /> Wide Vista` | Expansive sunlit valley, lake, horizon (Spaciousness & Calm) |
 | **`still_ambient`** | `<Clock /> Still` | Locked-off static tripod shot with natural motion (Deep Stillness & Sleep) |

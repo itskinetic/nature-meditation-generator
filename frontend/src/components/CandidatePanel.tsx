@@ -136,46 +136,51 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
           {/* Quick Select Actions */}
           <div className="flex items-center gap-1.5 mr-2">
             <button
+              type="button"
               onClick={onSelectAllApproved}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-700 transition-colors"
+              className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
             >
               Select All Approved
             </button>
             <button
+              type="button"
               onClick={onDeselectAll}
-              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-colors"
+              className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-colors cursor-pointer"
             >
               Clear
             </button>
           </div>
 
           {/* Filter tabs */}
-          <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950/80 p-1 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
+          <div className="h-9 flex items-center gap-1 bg-stone-100 dark:bg-stone-950/80 p-1 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
             <button
+              type="button"
               onClick={() => setFilter('all')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`h-7 px-3 rounded-lg font-semibold transition-all ${
                 filter === 'all'
-                  ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-xs'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
               All ({candidates.length})
             </button>
             <button
+              type="button"
               onClick={() => setFilter('selected')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`h-7 px-3 rounded-lg font-bold transition-all ${
                 filter === 'selected'
-                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
                   : 'text-stone-600 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
               }`}
             >
               Selected ({selectedCount})
             </button>
             <button
+              type="button"
               onClick={() => setFilter('approved')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
+              className={`h-7 px-3 rounded-lg font-semibold transition-all flex items-center gap-1 ${
                 filter === 'approved'
-                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/50 shadow-sm'
+                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/50 shadow-xs'
                   : 'text-stone-600 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
               }`}
             >
@@ -183,10 +188,11 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
               Approved ({approvedCount})
             </button>
             <button
+              type="button"
               onClick={() => setFilter('rejected')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
+              className={`h-7 px-3 rounded-lg font-semibold transition-all flex items-center gap-1 ${
                 filter === 'rejected'
-                  ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-900/50 shadow-sm'
+                  ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-900/50 shadow-xs'
                   : 'text-stone-600 dark:text-stone-400 hover:text-rose-600 dark:hover:text-rose-400'
               }`}
             >
@@ -370,9 +376,9 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   <button
                     type="button"
                     onClick={() => onToggleSelect(c.source_video_id)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                    className={`h-9 px-3.5 flex-1 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-amber-500 text-stone-950 shadow-sm hover:bg-amber-600'
+                        ? 'bg-amber-500 text-stone-950 shadow-xs hover:bg-amber-600 font-bold'
                         : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300'
                     }`}
                   >
@@ -389,7 +395,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                         setSavedIds((prev) => new Set(prev).add(c.source_video_id));
                       }}
                       title={savedIds.has(c.source_video_id) ? 'Saved in Library' : 'Save this clip to Library for future use'}
-                      className={`p-2 rounded-xl border transition-all ${
+                      className={`w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer ${
                         savedIds.has(c.source_video_id)
                           ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
                           : 'border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-800 dark:hover:text-amber-400'
@@ -409,7 +415,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                       type="button"
                       onClick={() => onBanCandidate(c)}
                       title="Permanently ban this footage (never show again)"
-                      className="p-2 rounded-xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
                     >
                       <Ban className="w-4 h-4" />
                     </button>
@@ -420,7 +426,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                       type="button"
                       onClick={() => setActivePreviewVideo(c)}
                       title="Watch video preview"
-                      className="p-2 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-800 dark:hover:text-amber-400 transition-colors"
+                      className="w-9 h-9 flex items-center justify-center rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-800 dark:hover:text-amber-400 transition-colors cursor-pointer"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -454,9 +460,9 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
               <button
                 type="button"
                 onClick={() => setActivePreviewVideo(null)}
-                className="p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors shrink-0"
+                className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -483,7 +489,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                       setActivePreviewVideo(null);
                     }}
                     title="Permanently ban this clip from future searches"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-all"
+                    className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 flex items-center gap-1.5 transition-all cursor-pointer"
                   >
                     <Ban className="w-3.5 h-3.5" />
                     <span>Ban Footage</span>
@@ -494,9 +500,9 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   onClick={() => {
                     onToggleSelect(activePreviewVideo.source_video_id);
                   }}
-                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                     selectedIds.includes(activePreviewVideo.source_video_id)
-                      ? 'bg-amber-500 text-stone-950 hover:bg-amber-600'
+                      ? 'bg-amber-500 text-stone-950 hover:bg-amber-600 font-bold shadow-xs'
                       : 'bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-amber-500 hover:text-stone-950'
                   }`}
                 >
@@ -505,7 +511,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActivePreviewVideo(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200"
+                  className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700 cursor-pointer"
                 >
                   Close
                 </button>
