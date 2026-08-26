@@ -50,7 +50,7 @@ export function App() {
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({
     sunlit_forest: {
       id: 'sunlit_forest',
-      name: 'Sunlit Forest & Woodland Canopy',
+      name: 'Sunlit Forest',
       icon: '',
       category: 'Forest',
       clipCount: 4,
@@ -58,7 +58,7 @@ export function App() {
     },
     calm_ocean: {
       id: 'calm_ocean',
-      name: 'Calm Ocean & Turquoise Waves',
+      name: 'Calm Ocean',
       icon: '',
       category: 'Water',
       clipCount: 4,
@@ -66,7 +66,7 @@ export function App() {
     },
     wildflower_meadow: {
       id: 'wildflower_meadow',
-      name: 'Sun-Drenched Wildflower Meadow',
+      name: 'Wildflower Meadow',
       icon: '',
       category: 'Meadow',
       clipCount: 4,
@@ -74,7 +74,7 @@ export function App() {
     },
     mountain_lake: {
       id: 'mountain_lake',
-      name: 'Crystal Mountain Lakes',
+      name: 'Mountain Lakes',
       icon: '',
       category: 'Water',
       clipCount: 4,

@@ -62,34 +62,36 @@ export const INTENT_PRESETS: IntentPreset[] = [
 const renderNatureIcon = (category: string, id: string) => {
   const cat = (category || '').toLowerCase();
   const nameId = (id || '').toLowerCase();
+  const iconClass = "w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0";
+
   if (cat.includes('forest') || nameId.includes('woodland') || nameId.includes('tree') || nameId.includes('rainforest')) {
-    return <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+    return <Trees className={iconClass} />;
   }
   if (cat.includes('water') || nameId.includes('ocean') || nameId.includes('wave') || nameId.includes('sea') || nameId.includes('beach') || nameId.includes('lagoon')) {
-    return <Waves className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />;
+    return <Waves className={iconClass} />;
   }
   if (nameId.includes('waterfall') || nameId.includes('cascade') || nameId.includes('stream')) {
-    return <Droplets className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+    return <Droplets className={iconClass} />;
   }
   if (cat.includes('mountain') || nameId.includes('lake') || nameId.includes('valley') || nameId.includes('alpine')) {
-    return <Mountain className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />;
+    return <Mountain className={iconClass} />;
   }
   if (cat.includes('meadow') || nameId.includes('grass') || nameId.includes('pasture')) {
-    return <Leaf className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400 shrink-0" />;
+    return <Leaf className={iconClass} />;
   }
   if (cat.includes('flora') || nameId.includes('flower') || nameId.includes('blossom') || nameId.includes('lotus')) {
-    return <Flower2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+    return <Flower2 className={iconClass} />;
   }
   if (cat.includes('sky') || nameId.includes('sunrise') || nameId.includes('sun') || nameId.includes('sunset')) {
-    return <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+    return <Sun className={iconClass} />;
   }
   if (nameId.includes('cloud') || nameId.includes('fog') || nameId.includes('mist')) {
-    return <Cloud className="w-3.5 h-3.5 text-indigo-400 shrink-0" />;
+    return <Cloud className={iconClass} />;
   }
   if (cat.includes('zen') || nameId.includes('bamboo') || nameId.includes('pebble')) {
-    return <Compass className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />;
+    return <Compass className={iconClass} />;
   }
-  return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+  return <Sparkles className={iconClass} />;
 };
 
 interface StudioSetupProps {
@@ -644,22 +646,20 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   }`}
                 >
                   {/* Left: Checkbox + Icon + Theme Name */}
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {}} // Handled by container click
-                      className="w-4 h-4 rounded border-stone-300 dark:border-stone-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer shrink-0"
-                    />
-                    <div className="w-5 h-5 rounded-md bg-stone-100 dark:bg-stone-800 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}} // Handled by container click
+                        className="w-4 h-4 rounded border-stone-300 dark:border-stone-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer shrink-0"
+                      />
                       {renderNatureIcon(preset.category, preset.id)}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-xs font-medium text-stone-800 dark:text-stone-200 truncate block">
+                          {preset.name}
+                        </span>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <span className="text-xs font-bold text-stone-900 dark:text-white truncate block">
-                        {preset.name}
-                      </span>
-                    </div>
-                  </div>
 
                   {/* Right: Inline Clip Count Stepper (Only when checked) */}
                   {isSelected && item && (
