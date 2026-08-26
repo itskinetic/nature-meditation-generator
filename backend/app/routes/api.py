@@ -798,3 +798,10 @@ async def upload_music(file: UploadFile = File(...)):
     with open(target_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return {"filename": filename, "path": str(target_path)}
+
+
+@router.post("/cleanup")
+def trigger_manual_cleanup(retention_days: int = 3):
+    """Manually trigger retention cleanup of rendered videos & cache older than N days (default 3)."""
+    from backend.app.services.cleanup_service import cleanup_old_renders
+    return cleanup_old_renders(retention_seconds=retention_days * 24 * 3600)
