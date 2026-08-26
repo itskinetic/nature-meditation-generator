@@ -51,7 +51,7 @@ export function App() {
     sunlit_forest: {
       id: 'sunlit_forest',
       name: 'Sunlit Forest & Woodland Canopy',
-      icon: '🌲',
+      icon: '',
       category: 'Forest',
       clipCount: 4,
       queries: ['sunlight through forest trees', 'bright green woodland canopy', 'sunlit quiet forest path'],
@@ -59,7 +59,7 @@ export function App() {
     calm_ocean: {
       id: 'calm_ocean',
       name: 'Calm Ocean & Turquoise Waves',
-      icon: '🌊',
+      icon: '',
       category: 'Water',
       clipCount: 4,
       queries: ['crystal clear calm sea', 'calm turquoise shoreline', 'gentle shallow sea ripples'],
@@ -67,7 +67,7 @@ export function App() {
     wildflower_meadow: {
       id: 'wildflower_meadow',
       name: 'Sun-Drenched Wildflower Meadow',
-      icon: '🌸',
+      icon: '',
       category: 'Meadow',
       clipCount: 4,
       queries: ['sunlit wildflower meadow', 'blooming wildflower field', 'gentle breeze colorful meadow'],
@@ -75,7 +75,7 @@ export function App() {
     mountain_lake: {
       id: 'mountain_lake',
       name: 'Crystal Mountain Lakes',
-      icon: '🏞️',
+      icon: '',
       category: 'Water',
       clipCount: 4,
       queries: ['still alpine lake reflection', 'crystal clear mountain lake', 'peaceful lake shore'],
@@ -450,7 +450,7 @@ export function App() {
                   className="w-full md:w-auto flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer"
                 >
                   <Play className="w-4 h-4 fill-stone-950" />
-                  {generateMutation.isPending ? 'Queuing Video Job...' : '🚀 Queue for Render'}
+                  {generateMutation.isPending ? 'Queuing Video Job...' : 'Queue for Render'}
                 </button>
               </div>
 

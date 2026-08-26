@@ -1,7 +1,8 @@
 import React, { useRef, useState } from 'react';
 import {
-  Sparkles, Music, VolumeX, Upload, Trees,
-  CheckCircle2, Circle, Plus, RefreshCw, Search, Sliders, Wand2, Compass
+  Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Cloud,
+  Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
+  Search, Sliders, Wand2
 } from 'lucide-react';
 import { GenerationRequest, Preset } from '../types';
 import { SelectedNatureItem } from './NatureSelector';
@@ -9,7 +10,6 @@ import { SelectedNatureItem } from './NatureSelector';
 export interface IntentPreset {
   id: string;
   name: string;
-  icon: string;
   tagline: string;
   themeIds: string[];
 }
@@ -18,53 +18,79 @@ export const INTENT_PRESETS: IntentPreset[] = [
   {
     id: 'heart_opening',
     name: 'Heart Opening & Peace',
-    icon: '🌸',
     tagline: 'Gentle warmth, blooming petals & sunlit foliage',
     themeIds: ['wildflower_meadow', 'cherry_blossoms', 'calm_ocean', 'sunlit_forest'],
   },
   {
     id: 'deep_sleep',
     name: 'Deep Sleep & Slumber',
-    icon: '🌙',
     tagline: 'Soothing waves, quiet clouds & twilight glow',
     themeIds: ['calm_ocean', 'ethereal_clouds', 'sunset_twilight', 'mountain_lake'],
   },
   {
     id: 'zen_mindfulness',
     name: 'Zen Focus & Stillness',
-    icon: '🎋',
     tagline: 'Tranquil bamboo, lotus ponds & quiet stream stones',
     themeIds: ['bamboo_groves', 'lotus_ponds', 'riverbed_pebbles', 'fern_canyon'],
   },
   {
     id: 'morning_vitality',
     name: 'Morning Vitality & Light',
-    icon: '☀️',
     tagline: 'Golden morning light, cascades & sun-drenched hills',
     themeIds: ['golden_sunrise', 'cascading_waterfalls', 'golden_grasslands', 'sunlit_forest'],
   },
   {
     id: 'inner_clarity',
     name: 'Clarity & Mountain Peace',
-    icon: '🏔️',
     tagline: 'Mirror alpine lakes, crisp ridges & pure horizons',
     themeIds: ['mountain_lake', 'alpine_valleys', 'ethereal_clouds', 'sandy_beach'],
   },
   {
     id: 'tropical_grounding',
     name: 'Tropical Paradise',
-    icon: '🌴',
     tagline: 'Turquoise lagoons, lush rainforests & soft sand',
     themeIds: ['tropical_lagoons', 'lush_rainforest', 'sandy_beach', 'calm_ocean'],
   },
   {
     id: 'gratitude_warmth',
     name: 'Warmth & Gratitude',
-    icon: '🍁',
     tagline: 'Autumn golden foliage, sandstone & sunset glow',
     themeIds: ['autumn_woodlands', 'desert_dunes', 'golden_sunrise', 'sunset_twilight'],
   },
 ];
+
+const renderNatureIcon = (category: string, id: string) => {
+  const cat = (category || '').toLowerCase();
+  const nameId = (id || '').toLowerCase();
+  if (cat.includes('forest') || nameId.includes('woodland') || nameId.includes('tree') || nameId.includes('rainforest')) {
+    return <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />;
+  }
+  if (cat.includes('water') || nameId.includes('ocean') || nameId.includes('wave') || nameId.includes('sea') || nameId.includes('beach') || nameId.includes('lagoon')) {
+    return <Waves className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />;
+  }
+  if (nameId.includes('waterfall') || nameId.includes('cascade') || nameId.includes('stream')) {
+    return <Droplets className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
+  }
+  if (cat.includes('mountain') || nameId.includes('lake') || nameId.includes('valley') || nameId.includes('alpine')) {
+    return <Mountain className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />;
+  }
+  if (cat.includes('meadow') || nameId.includes('grass') || nameId.includes('pasture')) {
+    return <Leaf className="w-3.5 h-3.5 text-lime-600 dark:text-lime-400 shrink-0" />;
+  }
+  if (cat.includes('flora') || nameId.includes('flower') || nameId.includes('blossom') || nameId.includes('lotus')) {
+    return <Flower2 className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+  }
+  if (cat.includes('sky') || nameId.includes('sunrise') || nameId.includes('sun') || nameId.includes('sunset')) {
+    return <Sun className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+  }
+  if (nameId.includes('cloud') || nameId.includes('fog') || nameId.includes('mist')) {
+    return <Cloud className="w-3.5 h-3.5 text-indigo-400 shrink-0" />;
+  }
+  if (cat.includes('zen') || nameId.includes('bamboo') || nameId.includes('pebble')) {
+    return <Compass className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />;
+  }
+  return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+};
 
 interface StudioSetupProps {
   title: string;
@@ -265,7 +291,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             <option value="" disabled>Choose Intent Preset...</option>
             {INTENT_PRESETS.map((intent) => (
               <option key={intent.id} value={intent.id}>
-                {intent.icon} {intent.name}
+                {intent.name}
               </option>
             ))}
           </select>
@@ -625,7 +651,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                       onChange={() => {}} // Handled by container click
                       className="w-4 h-4 rounded border-stone-300 dark:border-stone-700 text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer shrink-0"
                     />
-                    <span className="text-base shrink-0 leading-none">{preset.icon || '🌲'}</span>
+                    <div className="w-5 h-5 rounded-md bg-stone-100 dark:bg-stone-800 flex items-center justify-center shrink-0">
+                      {renderNatureIcon(preset.category, preset.id)}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate leading-tight">
                         {preset.name}
