@@ -294,7 +294,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             type="button"
             onClick={onAutoPlanAI}
             disabled={isPlanningAI || !title.trim()}
-            className="h-10 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
+            className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
           >
             <Wand2 className="w-3.5 h-3.5" />
             <span>{isPlanningAI ? 'Analyzing Script...' : '✨ Analyze & Suggest Themes'}</span>
@@ -312,7 +312,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Softening the Heart, Morning Awakening, Deep Sleep..."
-              className="w-full h-11 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
+              className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs sm:text-sm text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
 
@@ -326,7 +326,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               value={script}
               onChange={(e) => setScript(e.target.value)}
               placeholder="Paste guidance script to extract emotional intent, pace, and visual metaphors..."
-              className="w-full h-11 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
+              className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
         </div>
@@ -350,18 +350,18 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               <button
                 type="button"
                 onClick={autoBalanceClips}
-                className="h-8 px-2.5 rounded-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-[11px] font-semibold text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-semibold text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
               >
-                <RefreshCw className="w-3 h-3 text-stone-400" />
+                <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
                 <span>Balance Clips</span>
               </button>
             )}
             <button
               type="button"
               onClick={() => setShowCustomForm(!showCustomForm)}
-              className="h-8 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors"
+              className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-stone-950 font-bold text-xs flex items-center gap-1 shadow-xs transition-colors"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-3.5 h-3.5" />
               <span>Custom Theme</span>
             </button>
           </div>

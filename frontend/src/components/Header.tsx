@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenQueue}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+              className={`h-9 flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                 activeJobsCount > 0
                   ? 'bg-amber-500 text-stone-950 border-amber-500 shadow-md shadow-amber-500/25 animate-pulse'
                   : 'bg-stone-100/90 dark:bg-stone-900/90 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:border-amber-400'
@@ -56,41 +56,40 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <nav className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 rounded-xl bg-stone-100/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800">
+          <nav className="flex items-center gap-1 p-1 rounded-xl bg-stone-100/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800">
             <button
               onClick={() => setActiveTab('generator')}
-              className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              className={`h-7 sm:h-7.5 flex items-center gap-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'generator'
-                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-sm font-bold'
+                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <Film className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-stone-950 shrink-0" />
+              <Film className="w-3.5 h-3.5 text-amber-600 dark:text-stone-950 shrink-0" />
               <span>Studio</span>
             </button>
 
             <button
               onClick={() => setActiveTab('library')}
-              className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              className={`h-7 sm:h-7.5 flex items-center gap-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'library'
-                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-sm font-bold'
+                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-stone-950 shrink-0" />
-              <span className="hidden xs:inline">Library</span>
-              <span className="xs:hidden">Lib</span>
+              <Database className="w-3.5 h-3.5 text-amber-600 dark:text-stone-950 shrink-0" />
+              <span>Library</span>
             </button>
 
             <button
               onClick={() => setActiveTab('history')}
-              className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${
+              className={`h-7 sm:h-7.5 flex items-center gap-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
                 activeTab === 'history'
-                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-sm font-bold'
+                  ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
                   : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 dark:text-stone-950 shrink-0" />
+              <History className="w-3.5 h-3.5 text-amber-600 dark:text-stone-950 shrink-0" />
               <span>History</span>
             </button>
           </nav>
@@ -99,9 +98,9 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={() => setIsDark(!isDark)}
             title={isDark ? 'Switch to Light theme' : 'Switch to Night theme'}
-            className="p-2 sm:p-2.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-100/90 dark:bg-stone-900/90 hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-700 dark:text-amber-400 transition-all shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-100/90 dark:bg-stone-900/90 hover:bg-stone-200 dark:hover:bg-stone-800 text-stone-700 dark:text-amber-400 transition-all shrink-0"
           >
-            {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-700" />}
+            {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-stone-700" />}
           </button>
         </div>
       </div>
