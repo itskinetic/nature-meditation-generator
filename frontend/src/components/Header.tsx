@@ -27,11 +27,8 @@ export const Header: React.FC<HeaderProps> = ({
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-stone-950 font-bold" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm sm:text-lg font-bold tracking-tight text-stone-900 dark:text-white flex items-center gap-1.5">
-              <span className="truncate">ZenHub</span>
-              <span className="hidden md:inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/40">
-                Studio
-              </span>
+            <h1 className="text-sm sm:text-lg font-bold tracking-tight text-stone-900 dark:text-white">
+              ZenHub
             </h1>
           </div>
         </div>
