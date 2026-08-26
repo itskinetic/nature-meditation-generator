@@ -829,6 +829,97 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             />
           </label>
         </div>
+
+        {/* Audio Track & Voiceover Upload */}
+        <div className="lg:col-span-12 space-y-1.5 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+              {isDocMode ? 'Soundtrack & Voiceover Audio' : 'Meditation Audio Bed'}
+            </label>
+            {customMusicName && (
+              <span className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/80 px-2.5 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/60 flex items-center gap-1 font-mono shadow-xs">
+                <Music className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                <span className="truncate max-w-[220px] font-medium">{customMusicName}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateSetting('music_file', undefined);
+                    updateSetting('audio_mode', 'none');
+                  }}
+                  className="hover:text-amber-950 dark:hover:text-white ml-1 cursor-pointer"
+                  title="Remove uploaded audio"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="audio/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  onUploadMusic(file);
+                }
+              }}
+            />
+
+            {/* Audio Mode Selectors */}
+            <div className="p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex flex-wrap items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => updateSetting('audio_mode', 'none')}
+                className={`h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                  settings.audio_mode === 'none'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <VolumeX className="w-3.5 h-3.5" />
+                <span>No Audio</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => updateSetting('audio_mode', 'ambient_synth')}
+                className={`h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                  settings.audio_mode === 'ambient_synth'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Ambient Drone Synth</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
+                  settings.audio_mode === 'upload'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>
+                  {isUploadingMusic
+                    ? 'Uploading Audio...'
+                    : customMusicName
+                    ? 'Change Audio File'
+                    : isDocMode
+                    ? 'Upload Narration / Music (.mp3, .wav)'
+                    : 'Upload Audio Track (.mp3, .wav)'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 5. PRIMARY ACTION BAR */}
