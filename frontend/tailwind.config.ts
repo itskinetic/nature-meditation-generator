@@ -38,8 +38,7 @@ export default {
       },
       fontFamily: {
         sans: ['Figtree', 'system-ui', '-apple-system', 'sans-serif'],
-        serif: ['Corben', 'Georgia', 'serif'],
-        display: ['Corben', 'Georgia', 'serif'],
+        logo: ['Corben', 'Georgia', 'serif'],
       }
     },
   },
