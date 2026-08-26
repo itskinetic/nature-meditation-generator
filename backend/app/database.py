@@ -28,6 +28,7 @@ def init_db():
     # Auto-migration for SQLite tables
     with engine.connect() as conn:
         try:
+            # video_library table columns
             res = conn.execute(text("PRAGMA table_info(video_library)")).fetchall()
             existing_cols = {row[1] for row in res}
 
@@ -42,3 +43,10 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+
+# Execute migrations immediately on import so SQLite columns are guaranteed ready
+try:
+    init_db()
+except Exception:
+    pass

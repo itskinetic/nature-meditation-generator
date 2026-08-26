@@ -197,39 +197,40 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
             # Include matching clips from saved local library (unless history is excluded)
             if not req.exclude_all_history:
-                lib_items = db.query(VideoLibraryItem).filter(
-                    VideoLibraryItem.is_approved == True,
-                    (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
-                    (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
-                    (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
-                ).limit(10).all()
-            else:
-                lib_items = []
-            for li in lib_items:
-                approved.append(CandidateItem(
-                    source="library",
-                    source_video_id=li.source_video_id,
-                    source_url=li.source_url or "",
-                    creator_name=li.creator_name or "Your Library",
-                    creator_url=li.creator_url,
-                    search_query=env_spec.name,
-                    duration=li.duration,
-                    width=li.width,
-                    height=li.height,
-                    preview_url=li.preview_url,
-                    download_url=li.source_url,
-                    local_file_path=li.local_file_path,
-                    intent_match=li.intent_score or 9.5,
-                    theme_match=li.theme_score or 9.5,
-                    calmness=li.calmness_score or 9.5,
-                    motion_intensity=li.motion_score or 2.0,
-                    visual_quality=li.visual_quality_score or 9.5,
-                    shot_type=li.shot_type or "wide_vista",
-                    subtheme=env_spec.name,
-                    environment_id=env_spec.id,
-                    is_approved=True,
-                    rejection_reason=None
-                ))
+                try:
+                    lib_items = db.query(VideoLibraryItem).filter(
+                        VideoLibraryItem.is_approved == True,
+                        (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
+                        (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
+                        (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
+                    ).limit(10).all()
+                    for li in lib_items:
+                        approved.append(CandidateItem(
+                            source="library",
+                            source_video_id=li.source_video_id,
+                            source_url=li.source_url or "",
+                            creator_name=li.creator_name or "Your Library",
+                            creator_url=li.creator_url,
+                            search_query=env_spec.name,
+                            duration=li.duration,
+                            width=li.width,
+                            height=li.height,
+                            preview_url=li.preview_url,
+                            download_url=li.source_url,
+                            local_file_path=li.local_file_path,
+                            intent_match=li.intent_score or 9.5,
+                            theme_match=li.theme_score or 9.5,
+                            calmness=li.calmness_score or 9.5,
+                            motion_intensity=li.motion_score or 2.0,
+                            visual_quality=li.visual_quality_score or 9.5,
+                            shot_type=getattr(li, 'shot_type', None) or "wide_vista",
+                            subtheme=env_spec.name,
+                            environment_id=env_spec.id,
+                            is_approved=True,
+                            rejection_reason=None
+                        ))
+                except Exception as lib_err:
+                    logger.warning(f"Local library query skipped: {lib_err}")
 
             scored = await asyncio.gather(*[score_single(c) for c in env_filtered])
             for c in scored:
