@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-stone-950 font-bold" />
           </div>
           <div className="min-w-0">
-            <h1 className="text-sm sm:text-lg font-bold tracking-tight text-stone-900 dark:text-white">
+            <h1 className="text-base sm:text-xl font-bold tracking-tight text-stone-900 dark:text-white font-serif">
               ZenHub
             </h1>
           </div>
