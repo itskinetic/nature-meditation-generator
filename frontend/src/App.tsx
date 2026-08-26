@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, Sparkles, Film, CheckCircle2 } from 'lucide-react';
+import { Play, Sparkles, Film, CheckCircle2, Loader2, Zap, ArrowRight } from 'lucide-react';
 import { Header } from './components/Header';
 import { StudioSetup } from './components/StudioSetup';
 import { SelectedNatureItem } from './components/NatureSelector';
@@ -109,13 +109,13 @@ export function App() {
     queryFn: api.getHistory,
   });
 
-  // Background Active Queue Polling (Every 2.5s if active, 8s otherwise)
+  // Background Active Queue Polling (Every 1.0s if active for smooth real-time progress)
   const { data: activeJobs = [], refetch: refetchActiveJobs } = useQuery({
     queryKey: ['activeJobs'],
     queryFn: api.getActiveJobs,
     refetchInterval: (query) => {
       const data = query.state.data as ActiveJobItem[] | undefined;
-      return data && data.length > 0 ? 2500 : 8000;
+      return data && data.length > 0 ? 1000 : 5000;
     },
   });
 
@@ -126,11 +126,11 @@ export function App() {
     enabled: !!activeJobId,
     refetchInterval: (query) => {
       const data = query.state.data as JobDetail | undefined;
-      if (!data) return 1500;
+      if (!data) return 1000;
       if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
         return false;
       }
-      return 1500;
+      return 1000;
     },
   });
 
@@ -552,6 +552,47 @@ export function App() {
           />
         )}
       </main>
+
+      {/* Floating Real-Time Rendering Progress Indicator */}
+      {activeJobs.length > 0 && !isQueueOpen && (
+        <div className="fixed bottom-5 right-5 z-40 max-w-sm w-[calc(100vw-2.5rem)] sm:w-88 animate-in slide-in-from-bottom-5 duration-300">
+          <button
+            type="button"
+            onClick={() => setIsQueueOpen(true)}
+            className="w-full text-left p-3.5 rounded-2xl bg-white/95 dark:bg-stone-900/95 border border-amber-300 dark:border-amber-700/80 shadow-2xl backdrop-blur-md hover:border-amber-400 dark:hover:border-amber-500 transition-all cursor-pointer group"
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="p-1 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                </span>
+                <span className="text-xs font-bold text-stone-900 dark:text-white truncate">
+                  {activeJobs[0].title || 'Processing Video'}
+                </span>
+              </div>
+              <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0 flex items-center gap-1">
+                {activeJobs[0].progress}%
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </div>
+
+            {/* Active Moving Progress Bar */}
+            <div className="w-full bg-stone-100 dark:bg-stone-800 rounded-full h-2 overflow-hidden mb-1.5 p-0.5 border border-stone-200 dark:border-stone-700/60">
+              <div
+                className="bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 h-full rounded-full transition-all duration-300 ease-out relative overflow-hidden"
+                style={{ width: `${Math.max(6, activeJobs[0].progress)}%` }}
+              >
+                <div className="absolute inset-0 bg-white/25 animate-pulse" />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium truncate flex items-center justify-between">
+              <span>{activeJobs[0].current_stage || 'Processing...'}</span>
+              <span className="text-stone-400 dark:text-stone-500 text-[10px]">Click to expand</span>
+            </p>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
