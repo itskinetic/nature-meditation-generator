@@ -114,7 +114,6 @@ export interface JobProgress {
   estimated_sequence_duration: number;
   expected_repeat_count: number;
   output_path?: string;
-  download_url?: string;
   error_message?: string;
 }
 
@@ -131,7 +130,6 @@ export interface JobDetail extends JobProgress {
   transition_duration: number;
   metadata?: Record<string, any>;
   candidates?: CandidateItem[];
-  download_url?: string;
 }
 
 export interface LibraryItem {
@@ -179,23 +177,3 @@ export interface ActiveJobItem {
   created_at?: string;
   updated_at?: string;
 }
-
-export interface NotionItem {
-  id: string;
-  title: string;
-  status?: string;
-  script?: string;
-  duration?: number;
-  tags?: string[];
-  url?: string;
-  last_edited_time?: string;
-}
-
-export interface NotionDatabaseResponse {
-  connected: boolean;
-  error?: string;
-  database_id?: string;
-  total?: number;
-  items: NotionItem[];
-}
-

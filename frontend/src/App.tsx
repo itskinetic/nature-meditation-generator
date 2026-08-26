@@ -45,7 +45,6 @@ export function App() {
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [customMusicName, setCustomMusicName] = useState<string>('');
-  const [activeNotionPageId, setActiveNotionPageId] = useState<string | null>(null);
 
   // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
@@ -141,15 +140,6 @@ export function App() {
       );
     }
   }, [jobDetail]);
-
-  // Live Notion Two-Way Status Sync on completion
-  useEffect(() => {
-    if (jobDetail?.status === 'completed' && activeNotionPageId) {
-      api.updateNotionStatus(activeNotionPageId, 'Completed', jobDetail.download_url).catch((err) => {
-        console.warn('Failed to sync completed status back to Notion:', err);
-      });
-    }
-  }, [jobDetail?.status, activeNotionPageId, jobDetail?.download_url]);
 
   // Target duration in seconds
   const targetSeconds = settings.duration_unit === 'hours'
@@ -376,7 +366,6 @@ export function App() {
               analysis={analysis}
               excludeAllHistory={excludeAllHistory}
               setExcludeAllHistory={setExcludeAllHistory}
-              onSelectNotionPage={setActiveNotionPageId}
             />
 
             {/* STAGE 2: FOOTAGE REVIEW & SEQUENCE CURATION (Appears when candidates exist) */}
@@ -443,9 +432,9 @@ export function App() {
                   <button
                     onClick={() => generateMutation.mutate()}
                     disabled={generateMutation.isPending || !title.trim()}
-                    className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 disabled:opacity-50 text-amber-950 dark:text-amber-200 font-medium text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                    className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 disabled:opacity-50 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0 whitespace-nowrap"
                   >
-                    <Play className="w-3.5 h-3.5 fill-amber-950 dark:fill-amber-200 text-amber-950 dark:text-amber-200" />
+                    <Play className="w-3.5 h-3.5 fill-stone-950 dark:fill-amber-200 text-stone-950 dark:text-amber-200" />
                     <span>{generateMutation.isPending ? 'Queuing Video Job...' : 'Queue for Render'}</span>
                   </button>
                 </div>

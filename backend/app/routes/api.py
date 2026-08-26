@@ -913,38 +913,3 @@ def trigger_manual_cleanup(retention_days: int = 3):
     """Manually trigger retention cleanup of rendered videos & cache older than N days (default 3)."""
     from backend.app.services.cleanup_service import cleanup_old_renders
     return cleanup_old_renders(retention_seconds=retention_days * 24 * 3600)
-
-
-# ==========================================
-# 🌿 LIVE NOTION INTEGRATION ROUTES
-# ==========================================
-
-@router.get("/notion/items")
-async def get_notion_items(
-    database_id: Optional[str] = None,
-    api_key: Optional[str] = None,
-    status: Optional[str] = None,
-):
-    """Fetch live titles and scripts from connected Notion database."""
-    from backend.app.services.notion_service import fetch_notion_database_items
-    return await fetch_notion_database_items(database_id=database_id, api_key=api_key, filter_status=status)
-
-
-@router.post("/notion/update-status")
-async def update_notion_status(payload: Dict[str, Any]):
-    """Update Notion page status and optionally add video download link."""
-    from backend.app.services.notion_service import update_notion_page_status
-    page_id = payload.get("page_id")
-    new_status = payload.get("status", "Rendered")
-    download_url = payload.get("download_url")
-
-    if not page_id:
-        raise HTTPException(status_code=400, detail="page_id is required")
-
-    success = await update_notion_page_status(
-        page_id=page_id,
-        new_status=new_status,
-        download_url=download_url
-    )
-    return {"success": success, "page_id": page_id, "status": new_status}
-

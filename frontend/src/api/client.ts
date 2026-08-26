@@ -177,21 +177,4 @@ export const api = {
     if (!res.ok) throw new Error('Failed to get active jobs');
     return res.json();
   },
-
-  async getNotionItems(status?: string): Promise<import('../types').NotionDatabaseResponse> {
-    const query = status ? `?status=${encodeURIComponent(status)}` : '';
-    const res = await fetch(`${API_BASE}/notion/items${query}`);
-    if (!res.ok) throw new Error('Failed to fetch Notion database items');
-    return res.json();
-  },
-
-  async updateNotionStatus(pageId: string, status: string, downloadUrl?: string): Promise<{ success: boolean; page_id: string; status: string }> {
-    const res = await fetch(`${API_BASE}/notion/update-status`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ page_id: pageId, status, download_url: downloadUrl }),
-    });
-    if (!res.ok) throw new Error('Failed to update Notion status');
-    return res.json();
-  },
 };
