@@ -1,0 +1,464 @@
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Play, Sparkles, Film, CheckCircle2 } from 'lucide-react';
+import { Header } from './components/Header';
+import { StudioSetup } from './components/StudioSetup';
+import { SelectedNatureItem } from './components/NatureSelector';
+import { CandidatePanel } from './components/CandidatePanel';
+import { SelectedSequenceTray } from './components/SelectedSequenceTray';
+import { GenerationPanel } from './components/GenerationPanel';
+import { LibraryPanel } from './components/LibraryPanel';
+import { HistoryPanel } from './components/HistoryPanel';
+import { api } from './api/client';
+import {
+  GenerationRequest,
+  JobDetail,
+  CandidateItem
+} from './types';
+
+export function App() {
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history'>('generator');
+
+  // Theme state (default light theme, saved to localStorage)
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    const saved = localStorage.getItem('theme_mode');
+    return saved === 'dark'; // default is false (light)
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme_mode', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme_mode', 'light');
+    }
+  }, [isDark]);
+
+  // Input states
+  const [title, setTitle] = useState('Softening the Heart');
+  const [script, setScript] = useState('');
+  const [analysis, setAnalysis] = useState<import('./types').IntentAnalysisResult | null>(null);
+  const [candidates, setCandidates] = useState<CandidateItem[]>([]);
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [customMusicName, setCustomMusicName] = useState<string>('');
+
+  // 20 Nature Selection state (Default 4 popular themes with 4 clips each = 16 clips)
+  const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({
+    sunlit_forest: {
+      id: 'sunlit_forest',
+      name: 'Sunlit Forest & Woodland Canopy',
+      icon: '🌲',
+      category: 'Forest',
+      clipCount: 4,
+      queries: ['sunlight through forest trees', 'bright green woodland canopy', 'sunlit quiet forest path'],
+    },
+    calm_ocean: {
+      id: 'calm_ocean',
+      name: 'Calm Ocean & Turquoise Waves',
+      icon: '🌊',
+      category: 'Water',
+      clipCount: 4,
+      queries: ['crystal clear calm sea', 'calm turquoise shoreline', 'gentle shallow sea ripples'],
+    },
+    wildflower_meadow: {
+      id: 'wildflower_meadow',
+      name: 'Sun-Drenched Wildflower Meadow',
+      icon: '🌸',
+      category: 'Meadow',
+      clipCount: 4,
+      queries: ['sunlit wildflower meadow', 'blooming wildflower field', 'gentle breeze colorful meadow'],
+    },
+    mountain_lake: {
+      id: 'mountain_lake',
+      name: 'Crystal Mountain Lakes',
+      icon: '🏞️',
+      category: 'Water',
+      clipCount: 4,
+      queries: ['still alpine lake reflection', 'crystal clear mountain lake', 'peaceful lake shore'],
+    },
+  });
+
+  // Generation Settings State
+  const [settings, setSettings] = useState<GenerationRequest>({
+    title: 'Softening the Heart',
+    script: '',
+    preset: 'sunlit_forest',
+    target_duration: 30,
+    duration_unit: 'minutes',
+    maximum_unique_videos: 16,
+    minimum_clip_duration: 15,
+    maximum_clip_duration: undefined,
+    aspect_ratio: '16:9',
+    resolution: '1080p',
+    transition_type: 'crossfade',
+    transition_duration: 2.0,
+    allow_reuse: true,
+    avoid_recently_used: true,
+    enable_pexels: true,
+    enable_pixabay: true,
+    audio_mode: 'none',
+  });
+
+  // Active Job ID
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+  // Sync title / script into settings
+  useEffect(() => {
+    setSettings((prev) => ({ ...prev, title, script }));
+  }, [title, script]);
+
+  // Sync total clips from nature selector into settings.maximum_unique_videos
+  useEffect(() => {
+    const totalSelectedClips = Object.values(selectedNatures).reduce((acc, n) => acc + n.clipCount, 0);
+    if (totalSelectedClips > 0) {
+      setSettings((prev) => ({ ...prev, maximum_unique_videos: totalSelectedClips }));
+    }
+  }, [selectedNatures]);
+
+  // Load Presets
+  const { data: presets = {} } = useQuery({
+    queryKey: ['presets'],
+    queryFn: api.getPresets,
+  });
+
+  // Load Library Items
+  const { data: libraryItems = [], isLoading: isLibraryLoading, refetch: refetchLibrary } = useQuery({
+    queryKey: ['library'],
+    queryFn: () => api.getLibrary(),
+  });
+
+  // Load History Items
+  const { data: historyItems = [], isLoading: isHistoryLoading } = useQuery({
+    queryKey: ['history'],
+    queryFn: api.getHistory,
+  });
+
+  // Active Job Polling
+  const { data: jobDetail, refetch: refetchJob } = useQuery({
+    queryKey: ['job', activeJobId],
+    queryFn: () => (activeJobId ? api.getJobDetail(activeJobId) : null),
+    enabled: !!activeJobId,
+    refetchInterval: (query) => {
+      const data = query.state.data as JobDetail | undefined;
+      if (!data) return 1500;
+      if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+        return false;
+      }
+      return 1500;
+    },
+  });
+
+  // Keep candidates in sync when job updates
+  useEffect(() => {
+    if (jobDetail?.candidates && jobDetail.candidates.length > 0) {
+      setCandidates(jobDetail.candidates);
+      setSelectedCandidateIds(
+        jobDetail.candidates.filter((c: CandidateItem) => c.is_approved).map((c: CandidateItem) => c.source_video_id)
+      );
+    }
+  }, [jobDetail]);
+
+  // Target duration in seconds
+  const targetSeconds = settings.duration_unit === 'hours'
+    ? settings.target_duration * 3600
+    : settings.target_duration * 60;
+
+  // Search Mutation using selected nature specs
+  const searchMutation = useMutation({
+    mutationFn: (envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }>) => {
+      const specs = envSpecs || Object.values(selectedNatures).map((item) => ({
+        id: item.id,
+        name: item.name,
+        queries: item.queries,
+        clip_count: item.clipCount,
+      }));
+
+      return api.searchCandidates({
+        environments_spec: specs,
+        preset_name: settings.preset,
+        enable_pexels: settings.enable_pexels,
+        enable_pixabay: settings.enable_pixabay,
+        min_duration: settings.minimum_clip_duration,
+        max_duration: settings.maximum_clip_duration,
+        aspect_ratio: settings.aspect_ratio,
+        resolution: settings.resolution,
+      });
+    },
+    onSuccess: (data) => {
+      setCandidates(data.candidates);
+      // Auto-select approved candidates up to maximum_unique_videos
+      const approvedIds = data.candidates
+        .filter((c: CandidateItem) => c.is_approved)
+        .slice(0, settings.maximum_unique_videos)
+        .map((c: CandidateItem) => c.source_video_id);
+      setSelectedCandidateIds(approvedIds);
+    },
+  });
+
+  // AI Auto-Plan Mutation
+  const autoPlanMutation = useMutation({
+    mutationFn: () =>
+      api.analyzeContent(
+        title,
+        script,
+        undefined,
+        undefined,
+        settings.maximum_unique_videos
+      ),
+    onSuccess: (data) => {
+      setAnalysis(data);
+      if (data.planned_environments && data.planned_environments.length > 0) {
+        const newSel: Record<string, SelectedNatureItem> = {};
+        data.planned_environments.forEach((pe) => {
+          newSel[pe.id] = {
+            id: pe.id,
+            name: pe.name,
+            icon: pe.icon,
+            category: 'Planned',
+            clipCount: pe.suggested_clips,
+            queries: pe.keywords,
+          };
+        });
+        setSelectedNatures(newSel);
+
+        const envSpecs = data.planned_environments.map((pe) => ({
+          id: pe.id,
+          name: pe.name,
+          queries: pe.keywords,
+          clip_count: pe.suggested_clips,
+        }));
+        searchMutation.mutate(envSpecs);
+      }
+    },
+  });
+
+  // Selection toggle handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedCandidateIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllApproved = () => {
+    const approvedIds = candidates.filter((c: CandidateItem) => c.is_approved).map((c: CandidateItem) => c.source_video_id);
+    setSelectedCandidateIds(approvedIds);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedCandidateIds([]);
+  };
+
+  // Generate Mutation
+  const generateMutation = useMutation({
+    mutationFn: () => {
+      const selectedList = Object.values(selectedNatures);
+      const envTargets: Record<string, number> = {};
+      selectedList.forEach((e) => {
+        envTargets[e.id] = e.clipCount;
+      });
+
+      return api.startGeneration({
+        ...settings,
+        title,
+        script,
+        environments: selectedList.map((e) => e.name),
+        environment_clip_targets: envTargets,
+        selected_candidate_ids: selectedCandidateIds.length > 0 ? selectedCandidateIds : undefined,
+        candidate_pool: candidates.length > 0 ? candidates : undefined,
+      });
+    },
+    onSuccess: (data) => {
+      setActiveJobId(data.job_id);
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+    },
+  });
+
+  // Cancel Mutation
+  const cancelMutation = useMutation({
+    mutationFn: () => (activeJobId ? api.cancelJob(activeJobId) : Promise.resolve({ status: 'none' })),
+    onSuccess: () => {
+      refetchJob();
+    },
+  });
+
+  // Music Upload Mutation
+  const musicUploadMutation = useMutation({
+    mutationFn: (file: File) => api.uploadMusic(file),
+    onSuccess: (data) => {
+      setSettings((prev) => ({ ...prev, music_file: data.filename, audio_mode: 'upload' }));
+      setCustomMusicName(data.filename);
+    },
+  });
+
+  // Library Save & Delete Mutations
+  const saveCandidateMutation = useMutation({
+    mutationFn: (candidate: CandidateItem) => api.saveCandidateToLibrary(candidate),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+    },
+  });
+
+  const deleteLibraryMutation = useMutation({
+    mutationFn: (id: number) => api.deleteLibraryItem(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+    },
+  });
+
+  const clearLibraryMutation = useMutation({
+    mutationFn: () => api.clearLibrary(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+    },
+  });
+
+  // Get selected candidate objects
+  const selectedCandidatesList = candidates.filter((c) =>
+    selectedCandidateIds.includes(c.source_video_id)
+  );
+
+  const numClipsUsed = selectedCandidatesList.length > 0 ? selectedCandidatesList.length : settings.maximum_unique_videos;
+  const estimatedSequenceClipsNeeded = Math.ceil(targetSeconds / (settings.minimum_clip_duration - settings.transition_duration));
+  const estimatedRepeats = estimatedSequenceClipsNeeded > numClipsUsed
+    ? Math.ceil(estimatedSequenceClipsNeeded / numClipsUsed) - 1
+    : 0;
+
+  return (
+    <div className="min-h-screen bg-[#fbfaf7] dark:bg-[#0c0e12] text-stone-800 dark:text-stone-100 flex flex-col transition-colors duration-200">
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isDark={isDark}
+        setIsDark={setIsDark}
+      />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8">
+        {activeTab === 'generator' && (
+          <div className="space-y-10">
+            {/* STAGE 1: UNIFIED STUDIO SETUP & NATURE SELECTOR */}
+            <StudioSetup
+              title={title}
+              setTitle={setTitle}
+              script={script}
+              setScript={setScript}
+              settings={settings}
+              setSettings={setSettings}
+              presets={presets}
+              selectedNatures={selectedNatures}
+              setSelectedNatures={setSelectedNatures}
+              onUploadMusic={(file) => musicUploadMutation.mutate(file)}
+              isUploadingMusic={musicUploadMutation.isPending}
+              customMusicName={customMusicName}
+              onSearchFootage={() => searchMutation.mutate()}
+              isSearching={searchMutation.isPending}
+              onAutoPlanAI={() => autoPlanMutation.mutate()}
+              isPlanningAI={autoPlanMutation.isPending}
+              analysis={analysis}
+            />
+
+            {/* STAGE 2: FOOTAGE REVIEW & SEQUENCE CURATION (Appears when candidates exist) */}
+            {candidates.length > 0 && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 px-1">
+                  <span className="w-6 h-6 rounded-full bg-amber-500 text-stone-950 text-xs font-bold flex items-center justify-center shadow-sm">
+                    2
+                  </span>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300">
+                    Review & Curate Footage
+                  </h3>
+                </div>
+
+                <CandidatePanel
+                  candidates={candidates}
+                  selectedIds={selectedCandidateIds}
+                  onToggleSelect={handleToggleSelect}
+                  onSelectAllApproved={handleSelectAllApproved}
+                  onDeselectAll={handleDeselectAll}
+                  onSaveCandidate={(c) => saveCandidateMutation.mutate(c)}
+                />
+
+                {selectedCandidatesList.length > 0 && (
+                  <SelectedSequenceTray
+                    selectedCandidates={selectedCandidatesList}
+                    onRemove={handleToggleSelect}
+                    transitionDuration={settings.transition_duration}
+                  />
+                )}
+              </div>
+            )}
+
+            {/* STAGE 3: RENDER & EXPORT */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-1">
+                <span className="w-6 h-6 rounded-full bg-amber-500 text-stone-950 text-xs font-bold flex items-center justify-center shadow-sm">
+                  {candidates.length > 0 ? 3 : 2}
+                </span>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-stone-600 dark:text-stone-300">
+                  Render Final Video
+                </h3>
+              </div>
+
+              {/* Render Launch Bar */}
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-400/15 to-amber-500/10 dark:from-stone-900/90 dark:via-amber-950/30 dark:to-stone-900/90 border border-amber-300/80 dark:border-amber-800/40 rounded-2xl p-7 shadow-sm dark:shadow-2xl backdrop-blur-md flex flex-col md:flex-row items-center justify-between gap-6 transition-colors duration-200">
+                <div className="space-y-1.5 text-center md:text-left">
+                  <h3 className="text-base font-semibold text-stone-900 dark:text-white flex items-center gap-2 justify-center md:justify-start">
+                    <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    Ready to Render Meditation Video
+                  </h3>
+                  <p className="text-xs text-stone-600 dark:text-stone-400">
+                    Target: <span className="text-amber-700 dark:text-amber-300 font-semibold">{settings.target_duration} {settings.duration_unit}</span> ({settings.aspect_ratio}, {settings.resolution}) • Using <span className="font-semibold text-stone-900 dark:text-stone-200">{selectedCandidatesList.length || settings.maximum_unique_videos} curated clips</span> from <span className="font-semibold text-amber-800 dark:text-amber-300">{Object.keys(selectedNatures).length} nature themes</span> • Audio: <span className="font-semibold text-amber-800 dark:text-amber-300 capitalize">{settings.audio_mode === 'none' ? 'No Audio (Silent)' : settings.audio_mode}</span>
+                    {estimatedRepeats > 0 && (
+                      <span className="text-amber-800 dark:text-amber-300 ml-1.5 font-semibold">
+                        (Sequence loops ~{estimatedRepeats}x with rotated start)
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => generateMutation.mutate()}
+                  disabled={generateMutation.isPending || !title.trim()}
+                  className="w-full md:w-auto flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-sm transition-all shadow-md shadow-amber-500/25 cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-stone-950" />
+                  {generateMutation.isPending ? 'Queuing Video Job...' : 'Render Meditation Video'}
+                </button>
+              </div>
+
+              {/* Generation Progress & Completed Video Player */}
+              {activeJobId && (
+                <GenerationPanel
+                  job={jobDetail || null}
+                  onCancel={() => cancelMutation.mutate()}
+                  isCancelling={cancelMutation.isPending}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'library' && (
+          <LibraryPanel
+            items={libraryItems}
+            isLoading={isLibraryLoading}
+            onRefresh={() => refetchLibrary()}
+            onDeleteItem={(id) => deleteLibraryMutation.mutate(id)}
+            onClearLibrary={() => clearLibraryMutation.mutate()}
+            isDeleting={deleteLibraryMutation.isPending || clearLibraryMutation.isPending}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <HistoryPanel
+            history={historyItems}
+            isLoading={isHistoryLoading}
+          />
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;

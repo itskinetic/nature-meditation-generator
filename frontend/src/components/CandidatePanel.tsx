@@ -1,0 +1,424 @@
+import React, { useState } from 'react';
+import {
+  Film, CheckCircle2, XCircle, AlertCircle,
+  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck
+} from 'lucide-react';
+import { CandidateItem } from '../types';
+
+interface CandidatePanelProps {
+  candidates: CandidateItem[];
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onSelectAllApproved: () => void;
+  onDeselectAll: () => void;
+  onSaveCandidate?: (candidate: CandidateItem) => void;
+}
+
+export const CandidatePanel: React.FC<CandidatePanelProps> = ({
+  candidates,
+  selectedIds,
+  onToggleSelect,
+  onSelectAllApproved,
+  onDeselectAll,
+  onSaveCandidate,
+}) => {
+  const [filter, setFilter] = useState<'all' | 'approved' | 'selected' | 'rejected'>('all');
+  const [themeFilter, setThemeFilter] = useState<string>('all');
+  const [activePreviewVideo, setActivePreviewVideo] = useState<CandidateItem | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  if (!candidates || candidates.length === 0) return null;
+
+  // Extract unique themes present in the candidate pool
+  const uniqueThemes = Array.from(
+    new Set(candidates.map((c) => c.subtheme || c.environment_id || 'Nature').filter(Boolean))
+  );
+
+  const approvedCandidates = candidates.filter((c) => c.is_approved);
+  const approvedCount = approvedCandidates.length;
+  const rejectedCount = candidates.length - approvedCount;
+  const selectedCount = selectedIds.length;
+
+  const filtered = candidates.filter((c) => {
+    // Theme filter
+    if (themeFilter !== 'all') {
+      const cTheme = c.subtheme || c.environment_id || 'Nature';
+      if (cTheme !== themeFilter) return false;
+    }
+    // Status filter
+    if (filter === 'approved') return c.is_approved;
+    if (filter === 'selected') return selectedIds.includes(c.source_video_id);
+    if (filter === 'rejected') return !c.is_approved;
+    return true;
+  });
+
+  return (
+    <div className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-6 transition-colors duration-200">
+      {/* Header & Filter Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2 border-b border-stone-200 dark:border-stone-800/80">
+        <div className="flex items-center gap-3">
+          <Film className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-stone-900 dark:text-white tracking-tight">
+                Review & Select Footage
+              </h2>
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60 font-semibold font-mono">
+                {selectedCount} selected for render
+              </span>
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              Click any clip to watch preview, and check/uncheck clips to curate your exact video sequence.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Select Actions */}
+          <div className="flex items-center gap-1.5 mr-2">
+            <button
+              onClick={onSelectAllApproved}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-700 transition-colors"
+            >
+              Select All Approved
+            </button>
+            <button
+              onClick={onDeselectAll}
+              className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950/80 p-1 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                filter === 'all'
+                  ? 'bg-white dark:bg-stone-800 text-stone-900 dark:text-white shadow-sm'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              All ({candidates.length})
+            </button>
+            <button
+              onClick={() => setFilter('selected')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                filter === 'selected'
+                  ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
+              }`}
+            >
+              Selected ({selectedCount})
+            </button>
+            <button
+              onClick={() => setFilter('approved')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
+                filter === 'approved'
+                  ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800/50 shadow-sm'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400'
+              }`}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              Approved ({approvedCount})
+            </button>
+            <button
+              onClick={() => setFilter('rejected')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1 ${
+                filter === 'rejected'
+                  ? 'bg-rose-100 dark:bg-rose-950/80 text-rose-900 dark:text-rose-300 border border-rose-300 dark:border-rose-900/50 shadow-sm'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-rose-600 dark:hover:text-rose-400'
+              }`}
+            >
+              <XCircle className="w-3.5 h-3.5 text-rose-500" />
+              Filtered ({rejectedCount})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Theme Filter Row */}
+      {uniqueThemes.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+          <span className="text-stone-400 font-semibold mr-1">Filter by Theme:</span>
+          <button
+            type="button"
+            onClick={() => setThemeFilter('all')}
+            className={`px-3 py-1 rounded-lg font-medium transition-all ${
+              themeFilter === 'all'
+                ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+            }`}
+          >
+            All Themes ({candidates.length})
+          </button>
+          {uniqueThemes.map((th) => {
+            const count = candidates.filter((c) => (c.subtheme || c.environment_id || 'Nature') === th).length;
+            return (
+              <button
+                key={th}
+                type="button"
+                onClick={() => setThemeFilter(th)}
+                className={`px-3 py-1 rounded-lg font-medium transition-all capitalize ${
+                  themeFilter === th
+                    ? 'bg-amber-500 text-stone-950 font-bold shadow-sm'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                {th} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Candidates Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filtered.map((c) => {
+          const isSelected = selectedIds.includes(c.source_video_id);
+          const isCardPlaying = playingId === c.source_video_id;
+          const videoSrc = c.download_url || (c.local_file_path ? `/api/jobs/preview` : undefined);
+
+          return (
+            <div
+              key={c.source_video_id}
+              className={`rounded-2xl border overflow-hidden transition-all bg-stone-50 dark:bg-stone-950/60 flex flex-col ${
+                isSelected
+                  ? 'ring-2 ring-amber-500 border-amber-500 shadow-md bg-amber-50/20 dark:bg-amber-950/20'
+                  : c.is_approved
+                  ? 'border-stone-200 dark:border-stone-800 shadow-sm hover:border-amber-300 dark:hover:border-stone-700'
+                  : 'border-stone-200 dark:border-stone-800/80 opacity-60 hover:opacity-100'
+              }`}
+            >
+              {/* Media Frame (Video or Thumbnail) */}
+              <div className="relative aspect-video bg-black overflow-hidden group flex items-center justify-center">
+                {isCardPlaying && videoSrc ? (
+                  <video
+                    src={videoSrc}
+                    autoPlay
+                    loop
+                    controls
+                    className="w-full h-full object-cover"
+                  />
+                ) : c.preview_url ? (
+                  <img
+                    src={c.preview_url}
+                    alt={c.subtheme || 'Footage Preview'}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-amber-100/60 dark:from-amber-950/40 via-stone-200 dark:via-slate-900 to-stone-300 dark:to-slate-950 flex items-center justify-center">
+                    <Film className="w-8 h-8 text-amber-700/60 dark:text-amber-500/50" />
+                  </div>
+                )}
+
+                {/* Video Play Overlay */}
+                {!isCardPlaying && videoSrc && (
+                  <button
+                    type="button"
+                    onClick={() => setActivePreviewVideo(c)}
+                    className="absolute inset-0 bg-black/30 hover:bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <div className="w-11 h-11 rounded-full bg-amber-500/90 text-stone-950 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                      <Play className="w-5 h-5 fill-stone-950 ml-0.5" />
+                    </div>
+                  </button>
+                )}
+
+                {/* Source and Reused Tags */}
+                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none">
+                  <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-black/70 backdrop-blur-md text-white border border-white/10">
+                    {c.source}
+                  </span>
+                  {c.is_reused && (
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500 text-stone-950 shadow">
+                      Reused
+                    </span>
+                  )}
+                </div>
+
+                {/* Duration Badge */}
+                <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-black/70 backdrop-blur-md text-white border border-white/10 flex items-center gap-1 pointer-events-none">
+                  <Clock className="w-3 h-3 text-stone-300" />
+                  {c.duration ? `${c.duration.toFixed(0)}s` : '--'}
+                </div>
+
+                {/* Approval Badge */}
+                <div className="absolute top-2.5 right-2.5 pointer-events-none">
+                  {c.is_approved ? (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500 text-stone-950 shadow">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Approved
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-600 text-white shadow">
+                      <XCircle className="w-3 h-3" />
+                      Rejected
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Details & Selection Control */}
+              <div className="p-4.5 space-y-3.5 flex-1 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-stone-900 dark:text-stone-200 capitalize truncate">
+                      {c.subtheme || c.search_query || 'Nature Scene'}
+                    </span>
+                    <span className="text-stone-500 font-mono text-[11px]">
+                      {c.width}x{c.height}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+                    Creator: {c.creator_name || 'Public Creator'}
+                  </p>
+                </div>
+
+                {/* Score Pills */}
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-stone-200 dark:border-stone-800/80 text-center">
+                  <div className="bg-white dark:bg-stone-900/80 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 shadow-sm">
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 block uppercase font-medium">Theme</span>
+                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{c.theme_match.toFixed(1)}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900/80 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 shadow-sm">
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 block uppercase font-medium">Calm</span>
+                    <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{c.calmness.toFixed(1)}</span>
+                  </div>
+                  <div className="bg-white dark:bg-stone-900/80 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800 shadow-sm">
+                    <span className="text-[10px] text-stone-500 dark:text-stone-400 block uppercase font-medium">Motion</span>
+                    <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">{c.motion_intensity.toFixed(1)}</span>
+                  </div>
+                </div>
+
+                {/* Rejection / Note */}
+                {!c.is_approved && c.rejection_reason && (
+                  <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/30 text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                    <span className="leading-tight">{c.rejection_reason}</span>
+                  </div>
+                )}
+
+                {/* Selection Button & Actions Bar */}
+                <div className="pt-2 border-t border-stone-200 dark:border-stone-800/80 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onToggleSelect(c.source_video_id)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                      isSelected
+                        ? 'bg-amber-500 text-stone-950 shadow-sm hover:bg-amber-600'
+                        : 'bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300'
+                    }`}
+                  >
+                    {isSelected ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                    <span>{isSelected ? 'Selected for Video' : 'Select for Video'}</span>
+                  </button>
+
+                  {/* Bookmark / Save to Library */}
+                  {onSaveCandidate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSaveCandidate(c);
+                        setSavedIds((prev) => new Set(prev).add(c.source_video_id));
+                      }}
+                      title={savedIds.has(c.source_video_id) ? 'Saved in Library' : 'Save this clip to Library for future use'}
+                      className={`p-2 rounded-xl border transition-all ${
+                        savedIds.has(c.source_video_id)
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-300 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
+                          : 'border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-800 dark:hover:text-amber-400'
+                      }`}
+                    >
+                      {savedIds.has(c.source_video_id) ? (
+                        <BookmarkCheck className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Bookmark className="w-4 h-4" />
+                      )}
+                    </button>
+                  )}
+
+                  {videoSrc && (
+                    <button
+                      type="button"
+                      onClick={() => setActivePreviewVideo(c)}
+                      title="Watch video preview"
+                      className="p-2 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-800 dark:hover:text-amber-400 transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Full Video Preview Modal */}
+      {activePreviewVideo && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl space-y-4 p-6">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800">
+              <div>
+                <h3 className="text-base font-semibold text-stone-900 dark:text-white capitalize">
+                  {activePreviewVideo.subtheme || activePreviewVideo.search_query || 'Footage Preview'}
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Creator: {activePreviewVideo.creator_name} • {activePreviewVideo.width}x{activePreviewVideo.height} • {activePreviewVideo.duration}s
+                </p>
+              </div>
+              <button
+                onClick={() => setActivePreviewVideo(null)}
+                className="p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner">
+              <video
+                src={activePreviewVideo.download_url}
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="text-xs text-stone-500">
+                Source: <span className="font-semibold uppercase">{activePreviewVideo.source}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    onToggleSelect(activePreviewVideo.source_video_id);
+                  }}
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                    selectedIds.includes(activePreviewVideo.source_video_id)
+                      ? 'bg-amber-500 text-stone-950 hover:bg-amber-600'
+                      : 'bg-stone-200 dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-amber-500 hover:text-stone-950'
+                  }`}
+                >
+                  {selectedIds.includes(activePreviewVideo.source_video_id) ? 'Deselect from Video' : 'Select for Video'}
+                </button>
+                <button
+                  onClick={() => setActivePreviewVideo(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

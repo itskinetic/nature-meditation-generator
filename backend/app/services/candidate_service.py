@@ -1,0 +1,131 @@
+import datetime
+import logging
+from typing import List, Set, Optional
+from sqlalchemy.orm import Session
+
+from backend.app.models import VideoLibraryItem
+from backend.app.schemas import CandidateItem, PresetSchema, IntentAnalysisResult
+
+logger = logging.getLogger(__name__)
+
+
+class CandidateService:
+    def filter_candidates(
+        self,
+        candidates: List[CandidateItem],
+        preset: Optional[PresetSchema] = None,
+        analysis: Optional[IntentAnalysisResult] = None,
+        min_duration: float = 15.0,
+        max_duration: Optional[float] = None,
+        aspect_ratio: str = "16:9",
+        resolution: str = "1080p",
+        avoid_recently_used: bool = True,
+        db: Optional[Session] = None
+    ) -> List[CandidateItem]:
+        """
+        Deduplicates and filters candidates based on duration (min & max), resolution,
+        aspect ratio, negative terms, rejected history, and cooldown.
+        """
+        seen_ids: Set[str] = set()
+        seen_urls: Set[str] = set()
+        filtered: List[CandidateItem] = []
+
+        # Load rejected and recently used IDs from DB
+        rejected_ids: Set[str] = set()
+        recently_used_ids: Set[str] = set()
+
+        if db:
+            rejected_items = db.query(VideoLibraryItem.source_video_id).filter(
+                VideoLibraryItem.is_approved == False,
+                VideoLibraryItem.rejected_at.isnot(None)
+            ).all()
+            rejected_ids = {r[0] for r in rejected_items}
+
+            if avoid_recently_used:
+                # e.g., used in last 24 hours
+                cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+                recent_items = db.query(VideoLibraryItem.source_video_id).filter(
+                    VideoLibraryItem.last_used_at > cutoff
+                ).all()
+                recently_used_ids = {r[0] for r in recent_items}
+
+        # Build negative terms list
+        negative_terms = set()
+        if preset:
+            negative_terms.update([term.lower() for term in preset.negative_terms])
+        if analysis:
+            negative_terms.update([term.lower() for term in analysis.avoid_visuals])
+
+        for c in candidates:
+            # 1. Deduplication by ID
+            if not c.source_video_id or c.source_video_id in seen_ids:
+                continue
+            seen_ids.add(c.source_video_id)
+
+            # 2. Deduplication by URL
+            clean_url = (c.source_url or "").strip().rstrip("/")
+            if clean_url:
+                if clean_url in seen_urls:
+                    continue
+                seen_urls.add(clean_url)
+
+            # 3. Check previously rejected
+            if c.source_video_id in rejected_ids:
+                c.is_approved = False
+                c.rejection_reason = "Previously rejected video"
+                continue
+
+            # 4. Check recently used cooldown
+            if avoid_recently_used and c.source_video_id in recently_used_ids:
+                c.is_approved = False
+                c.rejection_reason = "Recently used in last 24 hours"
+                continue
+
+            # 5. Check minimum & maximum duration
+            if c.duration > 0 and c.duration < min_duration:
+                c.is_approved = False
+                c.rejection_reason = f"Duration {c.duration:.1f}s is below minimum {min_duration:.1f}s"
+                continue
+
+            if max_duration and max_duration > 0 and c.duration > max_duration:
+                c.is_approved = False
+                c.rejection_reason = f"Duration {c.duration:.1f}s exceeds maximum {max_duration:.1f}s"
+                continue
+
+            # 6. Check aspect ratio and orientation
+            if c.width > 0 and c.height > 0:
+                is_landscape = c.width >= c.height
+                is_portrait = c.height > c.width
+                is_square = abs(c.width - c.height) < 50
+
+                if aspect_ratio == "16:9" and not is_landscape:
+                    c.is_approved = False
+                    c.rejection_reason = f"Invalid orientation for 16:9 (dimensions {c.width}x{c.height})"
+                    continue
+                elif aspect_ratio == "9:16" and not is_portrait:
+                    c.is_approved = False
+                    c.rejection_reason = f"Invalid orientation for 9:16 (dimensions {c.width}x{c.height})"
+                    continue
+
+                # 7. Check minimum resolution
+                min_w = 1280 if resolution == "1080p" else 1920
+                min_h = 720 if resolution == "1080p" else 1080
+                if aspect_ratio == "16:9" and (c.width < min_w or c.height < min_h):
+                    c.is_approved = False
+                    c.rejection_reason = f"Resolution {c.width}x{c.height} below required standard"
+                    continue
+
+            # 8. Check negative keywords in candidate text / search query / creator
+            text_corpus = f"{c.search_query or ''} {c.creator_name or ''} {c.source_url or ''}".lower()
+            matched_neg = [neg for neg in negative_terms if neg in text_corpus]
+            if matched_neg:
+                c.is_approved = False
+                c.rejection_reason = f"Matched negative term: {matched_neg[0]}"
+                continue
+
+            filtered.append(c)
+
+        return filtered
+
+
+candidate_service = CandidateService()

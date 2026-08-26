@@ -1,0 +1,800 @@
+import asyncio
+import datetime
+import json
+import logging
+import uuid
+from pathlib import Path
+from typing import List, Optional, Dict, Any
+
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy.orm import Session
+
+from backend.app.config import settings
+from backend.app.database import get_db, SessionLocal
+from backend.app.models import GenerationJob, VideoLibraryItem
+from backend.app.schemas import (
+    IntentAnalysisRequest, IntentAnalysisResult,
+    PresetSchema, SearchRequest, SearchResponse,
+    CandidateItem, GenerationRequest, GenerationResponse,
+    JobProgressResponse, JobDetailResponse,
+    LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest
+)
+from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS
+from backend.app.services.intent_service import intent_service
+from backend.app.services.pexels_service import pexels_service
+from backend.app.services.pixabay_service import pixabay_service
+from backend.app.services.candidate_service import candidate_service
+from backend.app.services.scoring_service import scoring_service
+from backend.app.services.library_service import library_service
+from backend.app.services.selection_service import selection_service
+from backend.app.services.ffmpeg_service import ffmpeg_service
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+# In-memory candidate cache per job for UI inspection
+JOB_CANDIDATES: Dict[str, List[CandidateItem]] = {}
+
+
+@router.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "storage": {
+            "library": str(settings.LIBRARY_DIR),
+            "jobs": str(settings.JOBS_DIR),
+            "renders": str(settings.RENDERS_DIR)
+        }
+    }
+
+
+@router.get("/presets", response_model=Dict[str, PresetSchema])
+def get_presets():
+    return NATURE_ENVIRONMENTS
+
+
+@router.post("/analyze", response_model=IntentAnalysisResult)
+async def analyze_content(req: IntentAnalysisRequest):
+    result = await intent_service.analyze(
+        title=req.title,
+        script=req.script,
+        manual_intent=req.manual_intent,
+        manual_mood=req.manual_mood,
+        target_clips=req.target_clips or 16
+    )
+    return result
+
+
+@router.post("/search", response_model=SearchResponse)
+async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
+    all_raw: List[CandidateItem] = []
+    approved: List[CandidateItem] = []
+    rejected: List[CandidateItem] = []
+
+    # If environment specs are provided, search per environment
+    if req.environments_spec and len(req.environments_spec) > 0:
+        for env_spec in req.environments_spec:
+            env_preset = NATURE_ENVIRONMENTS.get(env_spec.id)
+            env_raw: List[CandidateItem] = []
+            
+            # Query top 2 queries for this environment
+            queries_to_run = env_spec.queries[:2] if env_spec.queries else [env_spec.name]
+            for q in queries_to_run:
+                if req.enable_pexels:
+                    px_items = await pexels_service.search(query=q, page=1, per_page=15, db=db)
+                    for item in px_items:
+                        item.environment_id = env_spec.id
+                        item.subtheme = env_spec.name
+                    env_raw.extend(px_items)
+                if req.enable_pixabay:
+                    pb_items = await pixabay_service.search(query=q, page=1, per_page=15, db=db)
+                    for item in pb_items:
+                        item.environment_id = env_spec.id
+                        item.subtheme = env_spec.name
+                    env_raw.extend(pb_items)
+
+            # Filter for this environment
+            env_filtered = candidate_service.filter_candidates(
+                candidates=env_raw,
+                preset=env_preset,
+                min_duration=req.min_duration,
+                max_duration=req.max_duration,
+                aspect_ratio=req.aspect_ratio,
+                resolution=req.resolution,
+                db=db
+            )
+            all_raw.extend(env_raw)
+
+            # Score candidates against this environment
+            env_dummy_analysis = await intent_service.analyze(title=env_spec.name, preset_name=env_spec.id)
+            
+            async def score_single(c: CandidateItem):
+                try:
+                    score_res = await asyncio.wait_for(
+                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset),
+                        timeout=4.0
+                    )
+                except Exception:
+                    score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset)
+                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset)
+
+                c.intent_match = score_res.intent_match
+                c.theme_match = score_res.theme_match
+                c.calmness = score_res.calmness
+                c.motion_intensity = score_res.motion_intensity
+                c.visual_quality = score_res.visual_quality
+                c.subtheme = env_spec.name
+                c.environment_id = env_spec.id
+                c.is_approved = score_res.keep
+                c.rejection_reason = score_res.reason if not score_res.keep else None
+                return c
+
+            scored_env = await asyncio.gather(*[score_single(c) for c in env_filtered[:15]])
+            for c in scored_env:
+                if c.is_approved:
+                    approved.append(c)
+                else:
+                    rejected.append(c)
+
+    else:
+        # Fallback to query search
+        queries_to_run = req.queries[:4] if req.queries else ["peaceful nature landscape"]
+        preset = NATURE_PRESETS.get(req.preset_name) if req.preset_name else None
+
+        for q in queries_to_run:
+            if req.enable_pexels:
+                res = await pexels_service.search(query=q, page=1, per_page=20, db=db)
+                all_raw.extend(res)
+            if req.enable_pixabay:
+                res = await pixabay_service.search(query=q, page=1, per_page=20, db=db)
+                all_raw.extend(res)
+
+        filtered = candidate_service.filter_candidates(
+            candidates=all_raw,
+            preset=preset,
+            min_duration=req.min_duration,
+            max_duration=req.max_duration,
+            aspect_ratio=req.aspect_ratio,
+            resolution=req.resolution,
+            db=db
+        )
+
+        dummy_analysis = await intent_service.analyze(title=" ".join(queries_to_run), preset_name=req.preset_name)
+
+        async def score_single_generic(c: CandidateItem):
+            try:
+                score_res = await asyncio.wait_for(
+                    scoring_service.score_candidate(c, dummy_analysis, preset),
+                    timeout=4.0
+                )
+            except Exception:
+                score_res = scoring_service._score_heuristic(c, dummy_analysis, preset)
+                score_res = scoring_service._apply_scoring_thresholds(score_res, preset)
+
+            c.intent_match = score_res.intent_match
+            c.theme_match = score_res.theme_match
+            c.calmness = score_res.calmness
+            c.motion_intensity = score_res.motion_intensity
+            c.visual_quality = score_res.visual_quality
+            c.subtheme = score_res.subtheme
+            c.is_approved = score_res.keep
+            c.rejection_reason = score_res.reason if not score_res.keep else None
+            return c
+
+        scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:30]])
+        for c in scored_generic:
+            if c.is_approved:
+                approved.append(c)
+            else:
+                rejected.append(c)
+
+    return SearchResponse(
+        candidates=approved + rejected,
+        total_found=len(all_raw),
+        approved_count=len(approved),
+        rejected_count=len(rejected)
+    )
+
+
+async def run_generation_pipeline(job_id: str, req: GenerationRequest):
+    """Background async worker for end-to-end video generation."""
+    db = SessionLocal()
+    try:
+        job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+        if not job:
+            return
+
+        def update_job(status: str, progress: int, stage: str, **kwargs):
+            job.status = status
+            job.progress = progress
+            job.current_stage = stage
+            for k, v in kwargs.items():
+                setattr(job, k, v)
+            db.commit()
+
+        update_job("analyzing", 5, "Analyzing emotional intent and mood")
+
+        # 1. Intent Analysis
+        analysis = await intent_service.analyze(
+            title=req.title,
+            script=req.script,
+            manual_intent=req.manual_intent,
+            manual_mood=req.manual_mood,
+            preset_name=req.preset
+        )
+
+        preset = NATURE_PRESETS.get(req.preset) if req.preset else NATURE_PRESETS.get("Calm Misty Forest")
+
+        update_job(
+            "analyzing", 10, "Visual query generation complete",
+            detected_intent=analysis.intent,
+            detected_mood=json.dumps(analysis.mood)
+        )
+
+        # Check if user manually reviewed and supplied a candidate pool
+        if req.candidate_pool and len(req.candidate_pool) > 0:
+            update_job("scoring", 30, "Using reviewed candidate pool")
+            collected_candidates = req.candidate_pool
+            if req.selected_candidate_ids:
+                sel_ids = set(req.selected_candidate_ids)
+                approved_pool = [c for c in collected_candidates if c.source_video_id in sel_ids]
+            else:
+                approved_pool = [c for c in collected_candidates if c.is_approved]
+            rejected_count = len(collected_candidates) - len(approved_pool)
+        else:
+            # 2. Check local video library first for reusable assets
+            reused_candidates: List[CandidateItem] = []
+            if req.allow_reuse:
+                update_job("searching", 15, "Checking local video library for high-scoring assets")
+                reused_candidates = library_service.find_reusable_candidates(
+                    db=db,
+                    analysis=analysis,
+                    preset=preset,
+                    min_duration=req.minimum_clip_duration,
+                    avoid_recently_used=req.avoid_recently_used,
+                    max_results=req.maximum_unique_videos
+                )
+
+            # 3. Search online providers if more candidates are needed
+            collected_candidates: List[CandidateItem] = list(reused_candidates)
+            queries = analysis.generated_queries or (preset.queries if preset else ["misty forest", "peaceful nature"])
+
+            if len(collected_candidates) < req.maximum_unique_videos:
+                update_job("searching", 20, "Searching Pexels and Pixabay for nature footage")
+                for q in queries[:4]:
+                    if req.enable_pexels:
+                        px_items = await pexels_service.search(query=q, page=1, per_page=30, db=db)
+                        collected_candidates.extend(px_items)
+                    if req.enable_pixabay:
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=20, db=db)
+                        collected_candidates.extend(pb_items)
+
+            # 4. Filter Candidate Pool
+            update_job("scoring", 25, "Filtering and deduplicating candidates")
+            filtered_candidates = candidate_service.filter_candidates(
+                candidates=collected_candidates,
+                preset=preset,
+                analysis=analysis,
+                min_duration=req.minimum_clip_duration,
+                max_duration=req.maximum_clip_duration,
+                aspect_ratio=req.aspect_ratio,
+                resolution=req.resolution,
+                avoid_recently_used=req.avoid_recently_used,
+                db=db
+            )
+
+            # 5. Score candidates
+            update_job("scoring", 30, "Visual scoring and calmness evaluation")
+            approved_pool = []
+            rejected_count = 0
+
+            for cand in filtered_candidates:
+                if cand.is_reused and cand.is_approved:
+                    approved_pool.append(cand)
+                    continue
+
+                score_res = await scoring_service.score_candidate(cand, analysis, preset)
+                cand.intent_match = score_res.intent_match
+                cand.theme_match = score_res.theme_match
+                cand.calmness = score_res.calmness
+                cand.motion_intensity = score_res.motion_intensity
+                cand.visual_quality = score_res.visual_quality
+                cand.subtheme = score_res.subtheme
+                cand.is_approved = score_res.keep
+                cand.rejection_reason = score_res.reason if not score_res.keep else None
+
+                if score_res.keep:
+                    approved_pool.append(cand)
+                else:
+                    rejected_count += 1
+
+        JOB_CANDIDATES[job_id] = approved_pool
+
+        if not approved_pool:
+            # Add at least procedural fallback items
+            logger.info("No online clips approved, generating procedural clips")
+            for idx, q in enumerate(queries[:4]):
+                approved_pool.append(CandidateItem(
+                    source="procedural",
+                    source_video_id=f"procedural_{idx}",
+                    source_url="",
+                    creator_name="Nature Synthesizer",
+                    search_query=q,
+                    duration=30.0,
+                    width=1920,
+                    height=1080,
+                    preview_url="",
+                    intent_match=9.0,
+                    theme_match=9.0,
+                    calmness=9.0,
+                    motion_intensity=2.0,
+                    visual_quality=9.0,
+                    subtheme=preset.subthemes[idx % len(preset.subthemes)] if preset and preset.subthemes else "misty forest",
+                    is_approved=True
+                ))
+
+        # 6. Calculate target duration in seconds
+        if req.duration_unit == "hours":
+            target_dur_sec = req.target_duration * 3600.0
+        elif req.duration_unit == "seconds":
+            target_dur_sec = req.target_duration
+        else:
+            target_dur_sec = req.target_duration * 60.0
+
+        # 7. Plan varied clip sequence
+        update_job("rendering", 35, "Planning balanced clip sequence")
+        sequence_data = selection_service.plan_sequence(
+            approved_candidates=approved_pool,
+            target_duration_seconds=target_dur_sec,
+            max_unique_videos=req.maximum_unique_videos,
+            transition_duration=req.transition_duration
+        )
+
+        job_dir = settings.JOBS_DIR / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save selected_clips.json and sequence.json
+        with open(job_dir / "selected_clips.json", "w", encoding="utf-8") as f:
+            json.dump([c.model_dump() for c in sequence_data["unique_clips"]], f, indent=2, default=str)
+
+        with open(job_dir / "sequence.json", "w", encoding="utf-8") as f:
+            json.dump(sequence_data["sequence"], f, indent=2, default=str)
+
+        # Save credits.txt
+        credits_lines = [
+            f"Meditation Video: {req.title}",
+            f"Intent: {analysis.intent}",
+            f"Preset: {req.preset}",
+            "Footage Credits & Attributions:\n"
+        ]
+        for c in sequence_data["unique_clips"]:
+            credits_lines.append(f"- {c.creator_name}: {c.source_url or c.source}")
+        with open(job_dir / "credits.txt", "w", encoding="utf-8") as f:
+            f.write("\n".join(credits_lines))
+
+        update_job(
+            "rendering", 40, "Beginning FFmpeg rendering pipeline",
+            candidate_count=len(collected_candidates),
+            approved_video_count=len(approved_pool),
+            rejected_video_count=rejected_count,
+            reused_video_count=sequence_data["reused_count"],
+            new_video_count=sequence_data["new_count"],
+            selected_video_count=sequence_data["unique_clip_count"],
+            sequence_repeat_count=sequence_data["repeat_count"],
+            unique_sequence_duration=sequence_data["unique_sequence_duration"]
+        )
+
+        # 8. Render video with progress callback
+        def on_render_progress(pct: int, msg: str):
+            update_job("rendering", pct, msg)
+
+        final_video_path = await ffmpeg_service.render_video(
+            job_id=job_id,
+            sequence_data=sequence_data,
+            aspect_ratio=req.aspect_ratio,
+            resolution=req.resolution,
+            transition_type=req.transition_type,
+            transition_duration=req.transition_duration,
+            music_file=req.music_file,
+            audio_mode=req.audio_mode,
+            progress_callback=on_render_progress
+        )
+
+        # 9. Verify actual duration
+        probe = await ffmpeg_service.probe_file(final_video_path)
+        actual_dur = probe.get("duration", target_dur_sec)
+
+        # 10. Update library and usage stats
+        for cand in sequence_data["unique_clips"]:
+            if cand.is_reused:
+                library_service.record_usage(db, cand.source_video_id)
+            else:
+                library_file = settings.LIBRARY_DIR / f"{cand.source_video_id}.mp4"
+                library_service.save_or_update_video(
+                    db=db,
+                    candidate=cand,
+                    local_path=str(library_file) if library_file.exists() else None,
+                    is_approved=True
+                )
+                library_service.record_usage(db, cand.source_video_id)
+
+        # Save metadata.json
+        metadata = {
+            "job_id": job_id,
+            "title": req.title,
+            "script": req.script,
+            "detected_intent": analysis.intent,
+            "detected_mood": analysis.mood,
+            "preset": req.preset,
+            "target_duration_seconds": target_dur_sec,
+            "actual_duration_seconds": actual_dur,
+            "selected_video_count": sequence_data["unique_clip_count"],
+            "reused_video_count": sequence_data["reused_count"],
+            "new_video_count": sequence_data["new_count"],
+            "sequence_repeat_count": sequence_data["repeat_count"],
+            "transition_type": req.transition_type,
+            "transition_duration": req.transition_duration,
+            "music_file": req.music_file or "meditation_ambient_drone",
+            "source_videos": [
+                {
+                    "id": c.source_video_id,
+                    "source": c.source,
+                    "creator": c.creator_name,
+                    "url": c.source_url
+                }
+                for c in sequence_data["unique_clips"]
+            ]
+        }
+        with open(job_dir / "metadata.json", "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
+
+        update_job(
+            "completed", 100, "Final render complete",
+            output_path=str(final_video_path),
+            actual_duration_seconds=actual_dur,
+            metadata_json=json.dumps(metadata)
+        )
+
+    except Exception as e:
+        logger.error(f"Generation pipeline error: {e}", exc_info=True)
+        job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+        if job:
+            job.status = "failed"
+            job.error_message = str(e)
+            job.current_stage = f"Failed: {str(e)[:100]}"
+            db.commit()
+    finally:
+        db.close()
+
+
+@router.post("/generate", response_model=GenerationResponse)
+async def generate_video(
+    req: GenerationRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    job_id = str(uuid.uuid4())
+
+    # Calculate target seconds
+    if req.duration_unit == "hours":
+        target_sec = req.target_duration * 3600.0
+    elif req.duration_unit == "seconds":
+        target_sec = req.target_duration
+    else:
+        target_sec = req.target_duration * 60.0
+
+    job = GenerationJob(
+        id=job_id,
+        title=req.title,
+        script=req.script,
+        preset=req.preset,
+        target_duration_seconds=target_sec,
+        aspect_ratio=req.aspect_ratio,
+        resolution=req.resolution,
+        transition_type=req.transition_type,
+        transition_duration=req.transition_duration,
+        music_file=req.music_file,
+        status="pending",
+        progress=0,
+        current_stage="Job submitted"
+    )
+    db.add(job)
+    db.commit()
+
+    background_tasks.add_task(run_generation_pipeline, job_id, req)
+
+    return GenerationResponse(
+        job_id=job_id,
+        status="pending",
+        message="Video generation job has been queued."
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=JobDetailResponse)
+def get_job_detail(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    meta = json.loads(job.metadata_json) if job.metadata_json else None
+    mood = json.loads(job.detected_mood) if job.detected_mood else []
+    candidates = JOB_CANDIDATES.get(job_id, [])
+
+    return JobDetailResponse(
+        job_id=job.id,
+        title=job.title,
+        script=job.script,
+        detected_intent=job.detected_intent,
+        detected_mood=mood,
+        preset=job.preset,
+        target_duration_seconds=job.target_duration_seconds,
+        actual_duration_seconds=job.actual_duration_seconds,
+        selected_video_count=job.selected_video_count,
+        transition_type=job.transition_type,
+        transition_duration=job.transition_duration,
+        status=job.status,
+        progress=job.progress,
+        current_stage=job.current_stage,
+        candidate_count=job.candidate_count,
+        approved_video_count=job.approved_video_count,
+        rejected_video_count=job.rejected_video_count,
+        reused_video_count=job.reused_video_count,
+        new_video_count=job.new_video_count,
+        estimated_sequence_duration=job.unique_sequence_duration,
+        expected_repeat_count=job.sequence_repeat_count,
+        output_path=job.output_path,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        metadata=meta,
+        candidates=candidates
+    )
+
+
+@router.get("/jobs/{job_id}/progress", response_model=JobProgressResponse)
+def get_job_progress(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return JobProgressResponse(
+        job_id=job.id,
+        status=job.status,
+        progress=job.progress,
+        current_stage=job.current_stage,
+        candidate_count=job.candidate_count,
+        approved_video_count=job.approved_video_count,
+        rejected_video_count=job.rejected_video_count,
+        reused_video_count=job.reused_video_count,
+        new_video_count=job.new_video_count,
+        estimated_sequence_duration=job.unique_sequence_duration,
+        expected_repeat_count=job.sequence_repeat_count,
+        output_path=job.output_path,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at
+    )
+
+
+@router.get("/jobs/{job_id}/preview")
+def preview_job_video(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job or not job.output_path or not Path(job.output_path).exists():
+        raise HTTPException(status_code=404, detail="Video render file not available")
+    return FileResponse(path=job.output_path, media_type="video/mp4")
+
+
+@router.get("/jobs/{job_id}/download")
+def download_job_video(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job or not job.output_path or not Path(job.output_path).exists():
+        raise HTTPException(status_code=404, detail="Rendered video not found")
+    safe_title = "".join(c for c in (job.title or "meditation") if c.isalnum() or c in " _-").strip()
+    filename = f"{safe_title}_{job_id[:8]}.mp4"
+    return FileResponse(
+        path=job.output_path,
+        media_type="video/mp4",
+        filename=filename
+    )
+
+
+@router.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str, db: Session = Depends(get_db)):
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    ffmpeg_service.cancel_job(job_id)
+    job.status = "cancelled"
+    job.current_stage = "Job cancelled by user"
+    db.commit()
+    return {"status": "cancelled", "job_id": job_id}
+
+
+@router.get("/library", response_model=List[LibraryItemSchema])
+def get_library(
+    search: Optional[str] = None,
+    approved_only: bool = True,
+    db: Session = Depends(get_db)
+):
+    query = db.query(VideoLibraryItem)
+    if approved_only:
+        query = query.filter(VideoLibraryItem.is_approved == True)
+    if search:
+        s = f"%{search}%"
+        query = query.filter(
+            (VideoLibraryItem.creator_name.like(s)) |
+            (VideoLibraryItem.subtheme.like(s)) |
+            (VideoLibraryItem.source.like(s))
+        )
+    items = query.order_by(VideoLibraryItem.last_used_at.desc().nullslast()).all()
+    
+    result = []
+    for item in items:
+        result.append(LibraryItemSchema(
+            id=item.id,
+            source=item.source,
+            source_video_id=item.source_video_id,
+            source_url=item.source_url,
+            local_file_path=item.local_file_path,
+            preview_url=item.preview_url,
+            creator_name=item.creator_name,
+            creator_url=item.creator_url,
+            duration=item.duration,
+            width=item.width,
+            height=item.height,
+            intent_tags=json.loads(item.intent_tags) if item.intent_tags else [],
+            mood_tags=json.loads(item.mood_tags) if item.mood_tags else [],
+            subtheme=item.subtheme,
+            intent_score=item.intent_score,
+            theme_score=item.theme_score,
+            calmness_score=item.calmness_score,
+            motion_score=item.motion_score,
+            visual_quality_score=item.visual_quality_score,
+            times_used=item.times_used,
+            last_used_at=item.last_used_at,
+            is_approved=item.is_approved,
+            rejection_reason=item.rejection_reason,
+            created_at=item.created_at
+        ))
+    return result
+
+
+@router.post("/library/save-candidate")
+def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(get_db)):
+    """Save any discovered candidate clip with its theme and tags directly into SQLite Video Library."""
+    existing = db.query(VideoLibraryItem).filter(
+        VideoLibraryItem.source == candidate.source,
+        VideoLibraryItem.source_video_id == candidate.source_video_id
+    ).first()
+    
+    if existing:
+        existing.subtheme = candidate.subtheme or existing.subtheme
+        existing.is_approved = True
+        db.commit()
+        return {"status": "already_saved", "id": existing.id, "message": "Video is already in library"}
+
+    tags = getattr(candidate, 'tags', []) or ([candidate.search_query] if candidate.search_query else [])
+    item = VideoLibraryItem(
+        source=candidate.source,
+        source_video_id=candidate.source_video_id,
+        source_url=candidate.source_url,
+        preview_url=candidate.preview_url,
+        creator_name=candidate.creator_name,
+        creator_url=candidate.creator_url,
+        duration=candidate.duration,
+        width=candidate.width,
+        height=candidate.height,
+        subtheme=candidate.subtheme or candidate.environment_id or "Nature Scene",
+        intent_tags=json.dumps(tags),
+        mood_tags=json.dumps([candidate.subtheme] if candidate.subtheme else []),
+        intent_score=candidate.intent_match or 8.5,
+        theme_score=candidate.theme_match or 8.5,
+        calmness_score=candidate.calmness or 8.5,
+        motion_score=candidate.motion_intensity or 2.0,
+        visual_quality_score=candidate.visual_quality or 8.5,
+        is_approved=True,
+        times_used=0
+    )
+    db.add(item)
+    db.commit()
+    return {"status": "saved", "id": item.id, "message": "Saved to Library with theme tags"}
+
+
+@router.delete("/library/{item_id}")
+def delete_library_item(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(VideoLibraryItem).filter(VideoLibraryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Library item not found")
+    
+    # Remove local file if exists
+    if item.local_file_path:
+        p = Path(item.local_file_path)
+        if p.exists():
+            try:
+                p.unlink()
+            except Exception as e:
+                logger.warning(f"Failed to delete local video file {p}: {e}")
+
+    db.delete(item)
+    db.commit()
+    return {"status": "deleted", "id": item_id}
+
+
+@router.delete("/library")
+def clear_library(db: Session = Depends(get_db)):
+    items = db.query(VideoLibraryItem).all()
+    for item in items:
+        if item.local_file_path:
+            p = Path(item.local_file_path)
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception as e:
+                    logger.warning(f"Failed to delete local file {p}: {e}")
+        db.delete(item)
+    db.commit()
+    return {"status": "cleared", "count": len(items)}
+
+
+@router.get("/history", response_model=List[HistoryItemSchema])
+def get_history(db: Session = Depends(get_db)):
+    jobs = db.query(GenerationJob).order_by(GenerationJob.created_at.desc()).all()
+    res = []
+    for j in jobs:
+        res.append(HistoryItemSchema(
+            job_id=j.id,
+            title=j.title,
+            detected_intent=j.detected_intent,
+            duration=j.actual_duration_seconds or j.target_duration_seconds,
+            target_duration=j.target_duration_seconds,
+            number_of_clips=j.selected_video_count,
+            number_of_reused_clips=j.reused_video_count,
+            number_of_new_clips=j.new_video_count,
+            repeat_count=j.sequence_repeat_count,
+            render_date=j.created_at,
+            status=j.status,
+            download_url=f"/api/jobs/{j.id}/download" if j.status == "completed" else None
+        ))
+    return res
+
+
+@router.post("/webhooks/generate")
+async def webhook_generate(
+    req: WebhookGenerateRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """n8n integration endpoint."""
+    duration_val = req.duration_hours or 1.0
+    duration_unit = "hours"
+    if req.duration_minutes is not None:
+        duration_val = req.duration_minutes
+        duration_unit = "minutes"
+
+    gen_req = GenerationRequest(
+        title=req.title,
+        script=req.script,
+        target_duration=duration_val,
+        duration_unit=duration_unit,
+        maximum_unique_videos=req.maximum_unique_videos,
+        aspect_ratio=req.aspect_ratio,
+        resolution=req.resolution,
+        transition_type=req.transition_type,
+        transition_duration=req.transition_duration,
+        allow_reuse=req.allow_reuse,
+        avoid_recently_used=req.avoid_recently_used
+    )
+
+    return await generate_video(gen_req, background_tasks, db)
+
+
+@router.post("/music/upload")
+async def upload_music(file: UploadFile = File(...)):
+    filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    target_path = settings.MUSIC_DIR / filename
+    with open(target_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    return {"filename": filename, "path": str(target_path)}

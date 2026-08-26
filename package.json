@@ -1,0 +1,12 @@
+{
+  "name": "calm-nature-video-generator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "backend": ".venv\\Scripts\\python.exe -m uvicorn backend.app.main:app --reload --port 8000",
+    "dry-run": ".venv\\Scripts\\python.exe backend/run.py --dry-run --duration 60",
+    "test": ".venv\\Scripts\\pytest.exe tests"
+  }
+}
