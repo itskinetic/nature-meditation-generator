@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
   ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck
@@ -27,6 +28,18 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   const [activePreviewVideo, setActivePreviewVideo] = useState<CandidateItem | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+
+  // Prevent background scrolling when preview modal is open
+  useEffect(() => {
+    if (activePreviewVideo) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [activePreviewVideo]);
 
   if (!candidates || candidates.length === 0) return null;
 
@@ -361,22 +374,29 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
         })}
       </div>
 
-      {/* Full Video Preview Modal */}
-      {activePreviewVideo && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl space-y-4 p-6">
+      {/* Full Video Preview Modal (Rendered via React Portal at document.body for instant screen-center positioning) */}
+      {activePreviewVideo && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => setActivePreviewVideo(null)}
+        >
+          <div
+            className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4 p-4 sm:p-6 my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800">
-              <div>
-                <h3 className="text-base font-semibold text-stone-900 dark:text-white capitalize">
+              <div className="min-w-0 flex-1 mr-2">
+                <h3 className="text-base font-semibold text-stone-900 dark:text-white capitalize truncate">
                   {activePreviewVideo.subtheme || activePreviewVideo.search_query || 'Footage Preview'}
                 </h3>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
+                <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
                   Creator: {activePreviewVideo.creator_name} • {activePreviewVideo.width}x{activePreviewVideo.height} • {activePreviewVideo.duration}s
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setActivePreviewVideo(null)}
-                className="p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors"
+                className="p-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -384,19 +404,20 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
 
             <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner">
               <video
-                src={activePreviewVideo.download_url}
+                src={activePreviewVideo.download_url || activePreviewVideo.preview_url}
                 controls
                 autoPlay
                 className="w-full h-full object-contain"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <div className="text-xs text-stone-500">
                 Source: <span className="font-semibold uppercase">{activePreviewVideo.source}</span>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <button
+                  type="button"
                   onClick={() => {
                     onToggleSelect(activePreviewVideo.source_video_id);
                   }}
@@ -409,6 +430,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   {selectedIds.includes(activePreviewVideo.source_video_id) ? 'Deselect from Video' : 'Select for Video'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => setActivePreviewVideo(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200"
                 >
@@ -417,7 +439,8 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

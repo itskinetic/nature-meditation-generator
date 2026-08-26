@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import {
   Zap, X, Loader2, Download, Trash2, Clock, CheckCircle2,
   Film, AlertCircle
@@ -29,8 +30,13 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
     ['pending', 'queued'].includes(j.status)
   );
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200">
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-md bg-white dark:bg-stone-900 border-l border-stone-200 dark:border-stone-800 h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300"
         onClick={(e) => e.stopPropagation()}
@@ -224,6 +230,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
