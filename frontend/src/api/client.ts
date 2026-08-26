@@ -42,11 +42,45 @@ export const api = {
     return res.json();
   },
 
+  async breakdownStoryboard(params: {
+    title?: string;
+    script: string;
+    target_duration?: number;
+    studio_mode?: string;
+    audio_file?: string;
+  }): Promise<import('../types').StoryboardBreakdownResult> {
+    const res = await fetch(`${API_BASE}/storyboard/breakdown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) throw new Error('Failed to breakdown storyboard beats');
+    return res.json();
+  },
+
+  async generateSubtitles(
+    script: string,
+    target_duration: number = 30.0,
+    style: string = 'documentary_classic'
+  ): Promise<{ segments: any[]; srt: string; ass: string }> {
+    const res = await fetch(
+      `${API_BASE}/subtitles/generate?target_duration=${target_duration}&style=${encodeURIComponent(style)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ script }),
+      }
+    );
+    if (!res.ok) throw new Error('Failed to generate subtitles');
+    return res.json();
+  },
+
   async searchCandidates(params: {
     queries?: string[];
     preset_name?: string;
     environments?: string[];
     environments_spec?: Array<{ id: string; name: string; queries: string[]; clip_count: number }>;
+    storyboard_beats?: import('../types').VisualBeat[];
     enable_pexels: boolean;
     enable_pixabay: boolean;
     min_duration: number;

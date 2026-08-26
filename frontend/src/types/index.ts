@@ -48,6 +48,7 @@ export interface CandidateItem {
   media_type?: 'video' | 'image';
   image_url?: string;
   motion_style?: 'zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right' | 'tilt_up' | 'tilt_down';
+  beat_index?: number;
   intent_match: number;
   theme_match: number;
   calmness: number;
@@ -60,6 +61,35 @@ export interface CandidateItem {
   rejection_reason?: string;
   is_reused?: boolean;
   times_used?: number;
+}
+
+export interface VisualBeat {
+  beat_index: number;
+  narrative_cue: string;
+  visual_subject: string;
+  habitat: string;
+  action_type?: string;
+  camera_shot?: string;
+  keywords: string[];
+  duration_seconds: number;
+  start_time: number;
+  end_time: number;
+  assigned_candidate_id?: string;
+  assigned_candidate?: CandidateItem;
+}
+
+export interface StoryboardBreakdownResult {
+  title: string;
+  total_beats: number;
+  estimated_total_duration: number;
+  visual_beats: VisualBeat[];
+}
+
+export interface SubtitleConfig {
+  enabled: boolean;
+  style: 'documentary_classic' | 'dynamic_highlight' | 'minimal_clean';
+  burn_into_video: boolean;
+  font_size?: number;
 }
 
 export interface EnvironmentSearchSpec {
@@ -87,6 +117,9 @@ export interface GenerationRequest {
   manual_intent?: string;
   manual_mood?: string[];
   shot_preference?: 'balanced' | 'still' | 'macro' | 'wide';
+  storyboard_beats?: VisualBeat[];
+  subtitle_config?: SubtitleConfig;
+  voiceover_file?: string;
   target_duration: number;
   duration_unit: 'minutes' | 'hours' | 'seconds';
   maximum_unique_videos: number;

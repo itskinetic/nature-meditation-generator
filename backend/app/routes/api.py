@@ -18,7 +18,8 @@ from backend.app.schemas import (
     PresetSchema, SearchRequest, SearchResponse,
     CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
-    LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest
+    LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
+    StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat
 )
 from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
@@ -31,6 +32,7 @@ from backend.app.services.library_service import library_service
 from backend.app.services.selection_service import selection_service
 from backend.app.services.ffmpeg_service import ffmpeg_service
 from backend.app.services.queue_service import queue_service
+from backend.app.services.subtitle_service import subtitle_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -42,11 +44,12 @@ JOB_CANDIDATES: Dict[str, List[CandidateItem]] = {}
 @router.get("/health")
 def health_check():
     return {
-        "status": "healthy",
+        "status": "ok",
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "storage": {
+            "data_dir": str(settings.DATA_DIR),
             "library": str(settings.LIBRARY_DIR),
-            "jobs": str(settings.JOBS_DIR),
+            "music": str(settings.MUSIC_DIR),
             "renders": str(settings.RENDERS_DIR)
         }
     }
@@ -68,6 +71,33 @@ async def analyze_content(req: IntentAnalysisRequest):
         studio_mode=req.studio_mode or "meditation"
     )
     return result
+
+
+@router.post("/storyboard/breakdown", response_model=StoryboardBreakdownResult)
+async def breakdown_storyboard(req: StoryboardBreakdownRequest):
+    return await intent_service.breakdown_script_beats(
+        title=req.title or "",
+        script=req.script,
+        target_duration=req.target_duration,
+        studio_mode=req.studio_mode or "documentary",
+        audio_file=req.audio_file
+    )
+
+
+@router.post("/subtitles/generate")
+async def generate_subtitles(
+    script: str = Query(""),
+    target_duration: float = Query(30.0),
+    style: str = Query("documentary_classic")
+):
+    segments = subtitle_service.synthesize_subtitles_from_script(script or "", total_duration=target_duration)
+    srt_content = subtitle_service.generate_srt_content(segments)
+    ass_content = subtitle_service.generate_ass_content(segments, config=SubtitleConfig(style=style))
+    return {
+        "segments": segments,
+        "srt": srt_content,
+        "ass": ass_content
+    }
 
 
 @router.post("/search", response_model=SearchResponse)
@@ -200,13 +230,74 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                     rejection_reason=None
                 ))
 
-            scored_env = await asyncio.gather(*[score_single(c) for c in env_filtered[:15]])
-            for c in scored_env:
+            scored = await asyncio.gather(*[score_single(c) for c in env_filtered])
+            for c in scored:
                 if c.is_approved:
                     approved.append(c)
                 else:
                     rejected.append(c)
 
+    elif req.storyboard_beats and len(req.storyboard_beats) > 0:
+        for beat in req.storyboard_beats:
+            beat_raw: List[CandidateItem] = []
+            queries_to_run = list(beat.keywords[:2]) if beat.keywords else [beat.visual_subject]
+
+            for q in queries_to_run:
+                if req.media_type in ("video", "both", None):
+                    if req.enable_pexels:
+                        px_items = await pexels_service.search(query=q, page=1, per_page=8, db=db)
+                        for item in px_items:
+                            item.beat_index = beat.beat_index
+                            item.subtheme = beat.visual_subject
+                            item.media_type = "video"
+                        beat_raw.extend(px_items)
+                    if req.enable_pixabay:
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=8, db=db)
+                        for item in pb_items:
+                            item.beat_index = beat.beat_index
+                            item.subtheme = beat.visual_subject
+                            item.media_type = "video"
+                        beat_raw.extend(pb_items)
+
+                if req.media_type in ("image", "both"):
+                    img_items = await image_fetch_service.search(query=q, page=1, per_page=8, db=db)
+                    for item in img_items:
+                        item.beat_index = beat.beat_index
+                        item.subtheme = beat.visual_subject
+                    beat_raw.extend(img_items)
+
+            # Filter for this beat
+            beat_filtered = candidate_service.filter_candidates(
+                candidates=beat_raw,
+                preset=None,
+                min_duration=req.min_duration if req.media_type != "image" else 5.0,
+                max_duration=req.max_duration,
+                aspect_ratio=req.aspect_ratio,
+                resolution=req.resolution,
+                exclude_all_history=req.exclude_all_history,
+                db=db
+            )
+            all_raw.extend(beat_raw)
+
+            # Score candidates
+            beat_dummy_analysis = await intent_service.analyze(
+                title=beat.visual_subject,
+                studio_mode="documentary"
+            )
+            for c in beat_filtered:
+                score_res = scoring_service._score_heuristic(c, beat_dummy_analysis, None)
+                c.intent_match = score_res.intent_match
+                c.theme_match = score_res.theme_match
+                c.calmness = score_res.calmness
+                c.motion_intensity = score_res.motion_intensity
+                c.visual_quality = score_res.visual_quality
+                c.shot_type = score_res.shot_type or beat.camera_shot or "wide_vista"
+                c.is_approved = score_res.keep
+                c.rejection_reason = score_res.reason if not score_res.keep else None
+                if score_res.keep:
+                    approved.append(c)
+                else:
+                    rejected.append(c)
     else:
         # Fallback to query search
         queries_to_run = list(req.queries[:4]) if req.queries else ["peaceful nature landscape"]
@@ -415,17 +506,42 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
         else:
             target_dur_sec = req.target_duration * 60.0
 
-        # 7. Plan varied clip sequence
-        update_job("rendering", 35, "Planning balanced clip sequence")
-        sequence_data = selection_service.plan_sequence(
-            approved_candidates=approved_pool,
-            target_duration_seconds=target_dur_sec,
-            max_unique_videos=req.maximum_unique_videos,
-            transition_duration=req.transition_duration
-        )
+        # 7. Plan clip sequence (Storyboard sequential vs Standard loop)
+        update_job("rendering", 35, "Planning clip sequence")
+        if req.storyboard_beats and len(req.storyboard_beats) > 0:
+            sequence_data = selection_service.plan_storyboard_sequence(
+                storyboard_beats=req.storyboard_beats,
+                candidate_pool=approved_pool,
+                transition_duration=req.transition_duration
+            )
+            target_dur_sec = sequence_data["actual_duration_seconds"]
+        else:
+            sequence_data = selection_service.plan_sequence(
+                approved_candidates=approved_pool,
+                target_duration_seconds=target_dur_sec,
+                max_unique_videos=req.maximum_unique_videos,
+                transition_duration=req.transition_duration
+            )
 
         job_dir = settings.JOBS_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
+
+        # Prepare subtitles if configured
+        sub_file = None
+        if req.subtitle_config and req.subtitle_config.enabled:
+            sub_file = job_dir / "subtitles.ass"
+            sub_segments = subtitle_service.synthesize_subtitles_from_script(
+                req.script or req.title,
+                total_duration=target_dur_sec
+            )
+            ass_content = subtitle_service.generate_ass_content(sub_segments, config=req.subtitle_config)
+            with open(sub_file, "w", encoding="utf-8") as f:
+                f.write(ass_content)
+
+            # Also generate standard .srt
+            srt_file = job_dir / "subtitles.srt"
+            with open(srt_file, "w", encoding="utf-8") as f:
+                f.write(subtitle_service.generate_srt_content(sub_segments))
 
         # Save selected_clips.json and sequence.json
         with open(job_dir / "selected_clips.json", "w", encoding="utf-8") as f:
@@ -470,6 +586,9 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             transition_type=req.transition_type,
             transition_duration=req.transition_duration,
             music_file=req.music_file,
+            voiceover_file=req.voiceover_file,
+            subtitle_file=sub_file,
+            burn_subtitles=bool(req.subtitle_config and req.subtitle_config.burn_into_video),
             audio_mode=req.audio_mode,
             progress_callback=on_render_progress
         )

@@ -3,7 +3,7 @@ import logging
 from typing import Optional, List, Dict
 import httpx
 from backend.app.config import settings
-from backend.app.schemas import IntentAnalysisResult, PlannedEnvironment
+from backend.app.schemas import IntentAnalysisResult, PlannedEnvironment, VisualBeat, StoryboardBreakdownResult
 from backend.app.presets.nature_presets import NATURE_ENVIRONMENTS
 
 logger = logging.getLogger(__name__)
@@ -371,6 +371,169 @@ Return ONLY valid JSON matching this schema:
             ],
             generated_queries=all_queries,
             planned_environments=selected_envs
+        )
+
+    async def breakdown_script_beats(
+        self,
+        title: str = "",
+        script: str = "",
+        target_duration: Optional[float] = None,
+        studio_mode: str = "documentary",
+        audio_file: Optional[str] = None
+    ) -> StoryboardBreakdownResult:
+        """
+        AI Script Storyboard Director:
+        Breaks down narration into sequential Visual Beats with animal subjects, actions,
+        habitats, camera shot preferences, timestamps, and targeted search queries.
+        """
+        if not script or not script.strip():
+            # Generate default visual beats based on title or mode
+            script = f"Exploring the incredible wildlife dynamics and natural behaviors of {title or 'the wilderness'}."
+
+        if self.api_key and len(self.api_key.strip()) > 5:
+            try:
+                res = await self._breakdown_beats_gemini(title, script, target_duration, studio_mode)
+                if res and res.visual_beats:
+                    return res
+            except Exception as e:
+                logger.warning(f"Gemini script beat breakdown failed, falling back to heuristic breakdown: {e}")
+
+        return self._breakdown_beats_heuristic(title, script, target_duration, studio_mode)
+
+    async def _breakdown_beats_gemini(
+        self,
+        title: str,
+        script: str,
+        target_duration: Optional[float],
+        studio_mode: str
+    ) -> Optional[StoryboardBreakdownResult]:
+        prompt = f"""You are a professional BBC Earth / National Geographic Creative Director and Editor.
+Break down this documentary / ambient narration script into a sequential timeline of 3 to 10 Visual Beats (individual scenes).
+For each beat, extract the spoken narrative excerpt, the exact animal subject or nature focal point, the habitat, action, camera shot type, targeted search keywords, and calculated duration in seconds.
+
+Title: {title or 'Wildlife Documentary'}
+Script:
+{script}
+Target Total Duration: {target_duration if target_duration else 'Auto-calculate based on natural narration speed (~130-150 words per minute)'}
+
+Return ONLY valid JSON matching this schema:
+{{
+  "title": "{title or 'Wildlife Documentary'}",
+  "visual_beats": [
+    {{
+      "beat_index": 0,
+      "narrative_cue": "Dawn breaks over the Serengeti, warming the golden grasslands.",
+      "visual_subject": "Serengeti sunrise landscape",
+      "habitat": "Savanna",
+      "action_type": "ambient",
+      "camera_shot": "wide_vista",
+      "keywords": ["serengeti golden sunrise landscape 4k", "african savanna morning light vista", "african grassland dawn"],
+      "duration_seconds": 12.0
+    }},
+    {{
+      "beat_index": 1,
+      "narrative_cue": "A pride of lions awakens, surveying the horizon for their morning hunt.",
+      "visual_subject": "Lion pride in grass",
+      "habitat": "Savanna",
+      "action_type": "stalking",
+      "camera_shot": "tracking_shot",
+      "keywords": ["lion pride savanna grass 4k", "lioness stalking golden grassland", "lion cub waking savanna"],
+      "duration_seconds": 15.0
+    }}
+  ]
+}}
+"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.2,
+                "response_mime_type": "application/json"
+            }
+        }
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=payload)
+            if resp.status_code == 200:
+                data = resp.json()
+                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(text)
+                beats_data = parsed.get("visual_beats", [])
+
+                visual_beats = []
+                curr_time = 0.0
+                for i, b in enumerate(beats_data):
+                    dur = float(b.get("duration_seconds", 12.0))
+                    dur = max(6.0, min(30.0, dur))
+                    start = curr_time
+                    end = curr_time + dur
+                    curr_time = end
+
+                    visual_beats.append(VisualBeat(
+                        beat_index=i,
+                        narrative_cue=b.get("narrative_cue", f"Scene {i+1}"),
+                        visual_subject=b.get("visual_subject", "Wildlife Scene"),
+                        habitat=b.get("habitat", "Wilderness"),
+                        action_type=b.get("action_type", "ambient"),
+                        camera_shot=b.get("camera_shot", "wide_vista"),
+                        keywords=b.get("keywords", [f"wildlife {title} 4k"]),
+                        duration_seconds=round(dur, 1),
+                        start_time=round(start, 1),
+                        end_time=round(end, 1)
+                    ))
+
+                if visual_beats:
+                    return StoryboardBreakdownResult(
+                        title=title or parsed.get("title", "Wildlife Documentary"),
+                        total_beats=len(visual_beats),
+                        estimated_total_duration=round(curr_time, 1),
+                        visual_beats=visual_beats
+                    )
+        return None
+
+    def _breakdown_beats_heuristic(
+        self,
+        title: str,
+        script: str,
+        target_duration: Optional[float],
+        studio_mode: str
+    ) -> StoryboardBreakdownResult:
+        import re
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+|\n+', script) if len(s.strip()) > 8]
+        if not sentences:
+            sentences = [script.strip()] if script.strip() else ["Cinematic nature and wildlife journey."]
+
+        visual_beats = []
+        curr_time = 0.0
+
+        for i, sent in enumerate(sentences):
+            words = len(sent.split())
+            dur = max(8.0, min(25.0, round(words * 0.45 + 3.0, 1)))
+            start = curr_time
+            end = curr_time + dur
+            curr_time = end
+
+            # Extract keywords from sentence
+            clean_sent = re.sub(r'[^a-zA-Z0-9\s]', '', sent.lower())
+            keywords = [f"{clean_sent[:40]} 4k", f"{title} wildlife 4k" if title else "nature 4k"]
+
+            visual_beats.append(VisualBeat(
+                beat_index=i,
+                narrative_cue=sent,
+                visual_subject=f"Scene {i+1}: {title or 'Wild Narrative'}",
+                habitat="Natural Habitat",
+                action_type="ambient",
+                camera_shot="wide_vista",
+                keywords=keywords,
+                duration_seconds=dur,
+                start_time=round(start, 1),
+                end_time=round(end, 1)
+            ))
+
+        return StoryboardBreakdownResult(
+            title=title or "Wildlife Storyboard",
+            total_beats=len(visual_beats),
+            estimated_total_duration=round(curr_time, 1),
+            visual_beats=visual_beats
         )
 
 

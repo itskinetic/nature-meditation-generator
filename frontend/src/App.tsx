@@ -15,12 +15,14 @@ import {
   GenerationRequest,
   JobDetail,
   CandidateItem,
-  ActiveJobItem
+  ActiveJobItem,
+  VisualBeat
 } from './types';
 
 export function App() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history'>('generator');
+  const [previewCandidate, setPreviewCandidate] = useState<CandidateItem | null>(null);
 
   // Theme state (default light theme, saved to localStorage)
   const [isDark, setIsDark] = useState<boolean>(() => {
@@ -45,6 +47,7 @@ export function App() {
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [customMusicName, setCustomMusicName] = useState<string>('');
+  const [storyboardBeats, setStoryboardBeats] = useState<VisualBeat[]>([]);
 
   // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
@@ -247,6 +250,29 @@ export function App() {
     }
   };
 
+  // AI Script Storyboard Breakdown Mutation
+  const breakdownStoryboardMutation = useMutation({
+    mutationFn: () =>
+      api.breakdownStoryboard({
+        title,
+        script,
+        target_duration: targetSeconds,
+        studio_mode: settings.studio_mode || 'documentary',
+      }),
+    onSuccess: (data) => {
+      setStoryboardBeats(data.visual_beats);
+      // Auto-search footage matching each beat
+      searchMutation.mutate(
+        Object.values(selectedNatures).map((item) => ({
+          id: item.id,
+          name: item.name,
+          queries: item.queries,
+          clip_count: item.clipCount,
+        }))
+      );
+    },
+  });
+
   // Generate Mutation
   const generateMutation = useMutation({
     mutationFn: () => {
@@ -262,6 +288,8 @@ export function App() {
         script,
         environments: selectedList.map((e) => e.name),
         environment_clip_targets: envTargets,
+        storyboard_beats: storyboardBeats.length > 0 ? storyboardBeats : undefined,
+        subtitle_config: settings.subtitle_config,
         selected_candidate_ids: selectedCandidateIds.length > 0 ? selectedCandidateIds : undefined,
         candidate_pool: candidates.length > 0 ? candidates : undefined,
       });
@@ -378,6 +406,12 @@ export function App() {
               analysis={analysis}
               excludeAllHistory={excludeAllHistory}
               setExcludeAllHistory={setExcludeAllHistory}
+              storyboardBeats={storyboardBeats}
+              onBreakdownStoryboard={() => breakdownStoryboardMutation.mutate()}
+              isBreakingDownStoryboard={breakdownStoryboardMutation.isPending}
+              candidates={candidates}
+              selectedCandidateIds={selectedCandidateIds}
+              onPreviewCandidate={(cand) => setPreviewCandidate(cand)}
             />
 
             {/* STAGE 2: FOOTAGE REVIEW & SEQUENCE CURATION (Appears when candidates exist) */}

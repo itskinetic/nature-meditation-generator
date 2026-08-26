@@ -76,6 +76,7 @@ class CandidateItem(BaseModel):
     media_type: str = "video"  # "video" | "image"
     image_url: Optional[str] = None
     motion_style: Optional[str] = None  # "zoom_in", "zoom_out", "pan_left", "pan_right", "tilt_up", "tilt_down"
+    beat_index: Optional[int] = None
 
     # Scores and status
     intent_match: float = 0.0
@@ -93,6 +94,52 @@ class CandidateItem(BaseModel):
     last_used_at: Optional[datetime] = None
 
 
+class VisualBeat(BaseModel):
+    beat_index: int
+    narrative_cue: str
+    visual_subject: str
+    habitat: str
+    action_type: str = "ambient"
+    camera_shot: str = "wide_vista"
+    keywords: List[str] = []
+    duration_seconds: float = 12.0
+    start_time: float = 0.0
+    end_time: float = 12.0
+    assigned_candidate_id: Optional[str] = None
+    assigned_candidate: Optional[CandidateItem] = None
+
+
+class StoryboardBreakdownRequest(BaseModel):
+    title: Optional[str] = ""
+    script: str
+    target_duration: Optional[float] = None
+    studio_mode: Optional[str] = "documentary"
+    audio_file: Optional[str] = None
+
+
+class StoryboardBreakdownResult(BaseModel):
+    title: str
+    total_beats: int
+    estimated_total_duration: float
+    visual_beats: List[VisualBeat]
+
+
+class SubtitleSegment(BaseModel):
+    start_seconds: float
+    end_seconds: float
+    text: str
+    words: Optional[List[Dict[str, Any]]] = None
+
+
+class SubtitleConfig(BaseModel):
+    enabled: bool = False
+    style: str = "documentary_classic"  # "documentary_classic", "dynamic_highlight", "minimal_clean"
+    burn_into_video: bool = True
+    font_size: int = 24
+    primary_color: str = "#FFFFFF"
+    highlight_color: str = "#F59E0B"
+
+
 class EnvironmentSearchSpec(BaseModel):
     id: str
     name: str
@@ -105,9 +152,10 @@ class SearchRequest(BaseModel):
     preset_name: Optional[str] = None
     environments: Optional[List[str]] = None
     environments_spec: Optional[List[EnvironmentSearchSpec]] = None
+    storyboard_beats: Optional[List[VisualBeat]] = None
     enable_pexels: bool = True
     enable_pixabay: bool = True
-    min_duration: float = 10.0
+    min_duration: float = 15.0
     max_duration: Optional[float] = None
     aspect_ratio: str = "16:9"
     resolution: str = "1080p"
@@ -157,6 +205,9 @@ class GenerationRequest(BaseModel):
     manual_intent: Optional[str] = None
     manual_mood: Optional[List[str]] = None
     shot_preference: Optional[str] = "balanced"
+    storyboard_beats: Optional[List[VisualBeat]] = None
+    subtitle_config: Optional[SubtitleConfig] = None
+    voiceover_file: Optional[str] = None
 
     target_duration: float = 30.0  # value in unit
     duration_unit: str = "minutes"  # "minutes" or "hours" or "seconds" (for dry-run)
@@ -179,6 +230,8 @@ class GenerationRequest(BaseModel):
 
     audio_mode: str = "none"  # "none", "upload", "ambient_synth"
     music_file: Optional[str] = None
+    music_volume: float = 0.5
+    voiceover_volume: float = 1.0
 
     selected_candidate_ids: Optional[List[str]] = None
     candidate_pool: Optional[List[CandidateItem]] = None

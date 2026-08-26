@@ -159,5 +159,81 @@ class SelectionService:
             "warning": "Sequence will repeat clips to achieve the requested target duration." if repeat_count > 0 else None
         }
 
+    def plan_storyboard_sequence(
+        self,
+        storyboard_beats: List[Any],
+        candidate_pool: List[CandidateItem],
+        transition_duration: float = 2.0
+    ) -> Dict[str, Any]:
+        """
+        Plans a chronological narrative clip sequence where each clip maps
+        directly to its corresponding Visual Beat in time order.
+        """
+        if not storyboard_beats:
+            raise ValueError("No storyboard beats provided.")
+
+        cand_map: Dict[str, CandidateItem] = {c.source_video_id: c for c in candidate_pool}
+        full_sequence: List[Dict[str, Any]] = []
+        accumulated_duration = 0.0
+        unique_clips: List[CandidateItem] = []
+        seen_ids = set()
+
+        for idx, beat in enumerate(storyboard_beats):
+            beat_dur = float(getattr(beat, "duration_seconds", 12.0) if hasattr(beat, "duration_seconds") else beat.get("duration_seconds", 12.0))
+            beat_cue = getattr(beat, "narrative_cue", "") if hasattr(beat, "narrative_cue") else beat.get("narrative_cue", "")
+            assigned_id = getattr(beat, "assigned_candidate_id", None) if hasattr(beat, "assigned_candidate_id") else beat.get("assigned_candidate_id")
+
+            # Resolve candidate
+            candidate: Optional[CandidateItem] = None
+            if assigned_id and assigned_id in cand_map:
+                candidate = cand_map[assigned_id]
+            else:
+                # Find candidate matching beat index or best available
+                beat_matches = [c for c in candidate_pool if c.beat_index == idx and c.source_video_id not in seen_ids]
+                if beat_matches:
+                    candidate = beat_matches[0]
+                elif candidate_pool:
+                    # Pick round robin
+                    candidate = candidate_pool[idx % len(candidate_pool)]
+
+            if not candidate:
+                continue
+
+            if candidate.source_video_id not in seen_ids:
+                seen_ids.add(candidate.source_video_id)
+                unique_clips.append(candidate)
+
+            eff_add = beat_dur if idx == 0 else max(1.0, beat_dur - transition_duration)
+
+            full_sequence.append({
+                "index": idx,
+                "beat_index": idx,
+                "narrative_cue": beat_cue,
+                "source_video_id": candidate.source_video_id,
+                "source": candidate.source,
+                "media_type": candidate.media_type,
+                "image_url": candidate.image_url,
+                "motion_style": candidate.motion_style,
+                "duration": beat_dur,
+                "effective_duration": eff_add,
+                "preview_url": candidate.preview_url,
+                "local_file_path": candidate.local_file_path,
+                "download_url": candidate.download_url
+            })
+            accumulated_duration += eff_add
+
+        return {
+            "unique_clips": unique_clips,
+            "unique_clip_count": len(unique_clips),
+            "unique_sequence_duration": round(accumulated_duration, 2),
+            "target_duration_seconds": round(accumulated_duration, 2),
+            "actual_duration_seconds": round(accumulated_duration, 2),
+            "sequence": full_sequence,
+            "repeat_count": 0,
+            "reused_count": sum(1 for c in unique_clips if c.is_reused),
+            "new_count": len(unique_clips) - sum(1 for c in unique_clips if c.is_reused),
+            "is_storyboard": True
+        }
+
 
 selection_service = SelectionService()

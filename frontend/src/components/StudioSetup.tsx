@@ -2,10 +2,11 @@ import React, { useRef, useState } from 'react';
 import {
   Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Moon, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
-  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye, Film, Image as ImageIcon, Layers
+  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye, Film, Image as ImageIcon, Layers, Mic, FileText
 } from 'lucide-react';
-import { GenerationRequest, Preset, IntentAnalysisResult } from '../types';
+import { GenerationRequest, Preset, IntentAnalysisResult, VisualBeat, CandidateItem } from '../types';
 import { SelectedNatureItem } from './NatureSelector';
+import { StoryboardBeatTimeline } from './StoryboardBeatTimeline';
 
 export interface IntentPreset {
   id: string;
@@ -177,6 +178,12 @@ interface StudioSetupProps {
   analysis?: IntentAnalysisResult | null;
   excludeAllHistory?: boolean;
   setExcludeAllHistory?: (val: boolean) => void;
+  storyboardBeats?: VisualBeat[];
+  onBreakdownStoryboard?: () => void;
+  isBreakingDownStoryboard?: boolean;
+  candidates?: CandidateItem[];
+  selectedCandidateIds?: string[];
+  onPreviewCandidate?: (candidate: CandidateItem) => void;
 }
 
 export const StudioSetup: React.FC<StudioSetupProps> = ({
@@ -199,6 +206,12 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   analysis,
   excludeAllHistory = false,
   setExcludeAllHistory,
+  storyboardBeats = [],
+  onBreakdownStoryboard,
+  isBreakingDownStoryboard = false,
+  candidates = [],
+  selectedCandidateIds = [],
+  onPreviewCandidate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -441,7 +454,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Action button placed directly below the inputs (left-aligned) */}
-        <div className="flex justify-start pt-0.5">
+        <div className="flex flex-wrap items-center gap-2 pt-0.5">
           <button
             type="button"
             onClick={onAutoPlanAI}
@@ -451,8 +464,30 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             <Wand2 className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
             <span>{isPlanningAI ? 'Analyzing Concept...' : (isDocMode ? 'AI Director: Plan Wildlife Scenes' : 'Analyze & Suggest Themes')}</span>
           </button>
+
+          {onBreakdownStoryboard && (
+            <button
+              type="button"
+              onClick={onBreakdownStoryboard}
+              disabled={isBreakingDownStoryboard || !script.trim()}
+              className="w-full sm:w-auto h-9 px-4 rounded-xl bg-white dark:bg-stone-900 hover:bg-amber-50 dark:hover:bg-stone-800 border border-amber-300/80 dark:border-amber-700/60 disabled:opacity-50 text-amber-950 dark:text-amber-200 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
+            >
+              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>{isBreakingDownStoryboard ? 'Matching Visual Beats...' : 'AI Director: Match Visual Beats to Script'}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Visual Storyboard Beats Timeline (When script beats are extracted) */}
+      {storyboardBeats && storyboardBeats.length > 0 && (
+        <StoryboardBeatTimeline
+          beats={storyboardBeats}
+          candidates={candidates}
+          selectedCandidateIds={selectedCandidateIds}
+          onPreviewCandidate={onPreviewCandidate}
+        />
+      )}
 
       {/* 2. SUGGESTED VISUAL JOURNEY (Only appears when AI Analyzes or themes are selected) */}
       {(selectedList.length > 0 || !!analysis) && (
@@ -728,6 +763,52 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             <option value="macro">Mindful Close-Ups</option>
             <option value="still">Deep Stillness</option>
             <option value="wide">Expansive Vistas</option>
+          </select>
+        </div>
+
+        {/* Auto-Subtitles / WhisperFlow */}
+        <div className="lg:col-span-3 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+              Auto-Subtitles
+            </label>
+            {settings.subtitle_config?.enabled && (
+              <label className="text-[10px] text-amber-800 dark:text-amber-300 flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.subtitle_config?.burn_into_video !== false}
+                  onChange={(e) =>
+                    updateSetting('subtitle_config', {
+                      ...(settings.subtitle_config || { style: 'documentary_classic', enabled: true, burn_into_video: true }),
+                      burn_into_video: e.target.checked,
+                    })
+                  }
+                  className="w-3 h-3 rounded accent-amber-500"
+                />
+                <span>Burn</span>
+              </label>
+            )}
+          </div>
+          <select
+            value={settings.subtitle_config?.enabled ? settings.subtitle_config.style : 'off'}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === 'off') {
+                updateSetting('subtitle_config', { enabled: false, style: 'documentary_classic', burn_into_video: false });
+              } else {
+                updateSetting('subtitle_config', {
+                  enabled: true,
+                  style: val as any,
+                  burn_into_video: true,
+                });
+              }
+            }}
+            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
+          >
+            <option value="off">Off (No Subtitles)</option>
+            <option value="documentary_classic">Documentary Classic</option>
+            <option value="dynamic_highlight">Dynamic Highlight</option>
+            <option value="minimal_clean">Minimal Lower-Third</option>
           </select>
         </div>
 

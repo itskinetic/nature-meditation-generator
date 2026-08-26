@@ -302,11 +302,14 @@ class FFmpegService:
         transition_type: str = "crossfade",
         transition_duration: float = 2.0,
         music_file: Optional[str] = None,
+        voiceover_file: Optional[str] = None,
+        subtitle_file: Optional[Path] = None,
+        burn_subtitles: bool = False,
         audio_mode: str = "none",
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Path:
         """
-        Main video rendering pipeline with xfade transitions, audio soundscape, and duration verification.
+        Main video rendering pipeline with xfade transitions, audio soundscape, subtitle burn-in, and duration verification.
         """
         job_dir = settings.JOBS_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -318,31 +321,26 @@ class FFmpegService:
 
         if not clips_info:
             raise ValueError("Empty clip sequence provided.")
-
-        with open(render_log_path, "w", encoding="utf-8") as log_file:
-            log_file.write(f"Starting render job {job_id}\n")
-            log_file.write(f"Target duration: {target_duration}s, Resolution: {width}x{height}, Transition: {transition_type} ({transition_duration}s), Audio: {audio_mode}\n")
-
         if progress_callback:
-            progress_callback(30, "Downloading & preparing video clips")
+            progress_callback(25, "Preparing and normalizing video clips")
 
-        # Step 1: Download / resolve all unique clips in the sequence
+        # Step 1: Normalize all clips
         normalized_clips: List[Path] = []
         for idx, clip_item in enumerate(clips_info):
             raw_clip = await self.download_candidate(clip_item, job_dir, idx)
             play_dur = clip_item.get("duration", 25.0)
             motion = clip_item.get("motion_style") or "zoom_in"
+            norm_clip = job_dir / f"norm_clip_{idx:03d}.mp4"
             await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion)
             normalized_clips.append(norm_clip)
 
-            pct = 30 + int(25 * (idx + 1) / len(clips_info))
+            pct = 25 + int(30 * (idx + 1) / len(clips_info))
             if progress_callback:
                 progress_callback(pct, f"Prepared clip {idx + 1}/{len(clips_info)}")
 
-        # Step 2: Prepare meditation audio
+        # Step 2: Prepare audio tracks (Music + Voiceover)
         if progress_callback:
-            stage_msg = "Preparing audio track" if audio_mode != "none" else "Preparing clean audio track"
-            progress_callback(60, stage_msg)
+            progress_callback(60, "Preparing voiceover and soundtrack audio")
 
         from backend.app.services.music_service import music_service
         meditation_audio = await music_service.prepare_meditation_audio(
@@ -353,7 +351,30 @@ class FFmpegService:
             fade_duration=min(3.0, target_duration / 4.0)
         )
 
-        # Step 3: Render transitions using xfade filter graph (or fallback)
+        final_audio_path = meditation_audio
+        if voiceover_file:
+            vo_path = settings.MUSIC_DIR / voiceover_file
+            if not vo_path.exists():
+                vo_path = Path(voiceover_file)
+            if vo_path.exists():
+                mixed_audio = job_dir / "mixed_voiceover.aac"
+                amix_cmd = [
+                    "ffmpeg", "-y",
+                    "-i", str(vo_path),
+                    "-i", str(meditation_audio),
+                    "-filter_complex", "[0:a]volume=1.0[vo];[1:a]volume=0.25[bg];[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[aout]",
+                    "-map", "[aout]",
+                    "-c:a", "aac",
+                    "-b:a", "192k",
+                    "-t", str(target_duration),
+                    str(mixed_audio)
+                ]
+                proc_amix = await asyncio.create_subprocess_exec(*amix_cmd)
+                await proc_amix.communicate()
+                if mixed_audio.exists():
+                    final_audio_path = mixed_audio
+
+        # Step 3: Render transitions using xfade filter graph
         if progress_callback:
             progress_callback(70, "Applying smooth video crossfades")
 
@@ -370,26 +391,44 @@ class FFmpegService:
         )
 
         if not success or not video_only_output.exists():
-            # Fallback to concat with crossfades
             if progress_callback:
                 progress_callback(75, "Applying fallback transition pipeline")
             await self._render_concat_fallback(normalized_clips, video_only_output, render_log_path)
 
-        # Step 4: Mux meditation audio and clamp to exact target duration
+        # Step 4: Subtitle burn-in & final audio mux
         if progress_callback:
-            progress_callback(90, "Mastering final audio-video mix")
+            stage_msg = "Burning subtitles and mastering final video" if (burn_subtitles and subtitle_file) else "Mastering final audio-video mix"
+            progress_callback(88, stage_msg)
 
-        mux_cmd = [
-            "ffmpeg", "-y",
-            "-i", str(video_only_output),
-            "-i", str(meditation_audio),
-            "-t", str(target_duration),
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-b:a", "192k",
-            "-shortest",
-            str(final_video_output)
-        ]
+        if burn_subtitles and subtitle_file and subtitle_file.exists():
+            # Escape path for FFmpeg subtitles filter on Windows
+            sub_escaped = str(subtitle_file).replace("\\", "/").replace(":", "\\:")
+            mux_cmd = [
+                "ffmpeg", "-y",
+                "-i", str(video_only_output),
+                "-i", str(final_audio_path),
+                "-vf", f"subtitles='{sub_escaped}'",
+                "-t", str(target_duration),
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "18",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-shortest",
+                str(final_video_output)
+            ]
+        else:
+            mux_cmd = [
+                "ffmpeg", "-y",
+                "-i", str(video_only_output),
+                "-i", str(final_audio_path),
+                "-t", str(target_duration),
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-shortest",
+                str(final_video_output)
+            ]
 
         proc_mux = await asyncio.create_subprocess_exec(
             *mux_cmd,
