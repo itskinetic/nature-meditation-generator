@@ -118,11 +118,12 @@ class FFmpegService:
         clip_index: int
     ) -> Path:
         """Downloads or resolves a candidate video or photo file."""
+        cand_id = str(candidate.get("candidate_id") or candidate.get("source_video_id") or f"clip_{clip_index}")
         media_type = candidate.get("media_type", "video")
-        is_image = media_type == "image" or "photo" in str(candidate.get("source", "")).lower() or "_img_" in str(candidate.get("candidate_id", ""))
+        is_image = media_type == "image" or "photo" in str(candidate.get("source", "")).lower() or "_img_" in cand_id
         ext = ".jpg" if is_image else ".mp4"
 
-        local_target = job_dir / f"clip_{clip_index:03d}_{candidate['candidate_id']}{ext}"
+        local_target = job_dir / f"clip_{clip_index:03d}_{cand_id}{ext}"
         needed_duration = float(candidate.get("duration", 30.0))
 
         # 1. If candidate already has an existing local file
@@ -136,7 +137,7 @@ class FFmpegService:
                 return local_target
 
         # 2. Check if already cached in data/library
-        library_file = settings.LIBRARY_DIR / f"{candidate['candidate_id']}{ext}"
+        library_file = settings.LIBRARY_DIR / f"{cand_id}{ext}"
         if library_file.exists():
             if is_image:
                 shutil.copy2(library_file, local_target)
@@ -161,17 +162,17 @@ class FFmpegService:
                             shutil.copy2(local_target, library_file)
                             return local_target
             except Exception as e:
-                logger.warning(f"Download failed for {candidate['candidate_id']}: {e}")
+                logger.warning(f"Download failed for {cand_id}: {e}")
 
         # 4. Fallback: create high quality soothing procedural nature clip
         gen_duration = max(35.0, needed_duration + 5.0)
-        local_mp4 = job_dir / f"clip_{clip_index:03d}_{candidate['candidate_id']}.mp4"
+        local_mp4 = job_dir / f"clip_{clip_index:03d}_{cand_id}.mp4"
         await self.generate_procedural_nature_clip(
             output_path=local_mp4,
             duration=gen_duration,
             subtheme=candidate.get("subtheme", "misty forest")
         )
-        shutil.copy2(local_mp4, settings.LIBRARY_DIR / f"{candidate['candidate_id']}.mp4")
+        shutil.copy2(local_mp4, settings.LIBRARY_DIR / f"{cand_id}.mp4")
         return local_mp4
 
     async def apply_ken_burns_to_image(

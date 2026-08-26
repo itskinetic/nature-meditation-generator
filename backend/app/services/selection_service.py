@@ -247,8 +247,10 @@ class SelectionService:
 
             full_sequence.append({
                 "index": idx,
+                "sequence_index": idx,
                 "beat_index": idx,
                 "narrative_cue": beat_cue,
+                "candidate_id": candidate.source_video_id,
                 "source_video_id": candidate.source_video_id,
                 "source": candidate.source,
                 "media_type": candidate.media_type,
