@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Desktop Nav Tabs & Header Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Desktop Navigation Tabs (Hidden on Mobile) */}
+            {/* Desktop Unified Navigation & Action Bar (Hidden on Mobile) */}
             <nav className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-stone-100/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800">
               <button
                 type="button"
@@ -79,21 +79,44 @@ export const Header: React.FC<HeaderProps> = ({
                 <History className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
                 <span>History</span>
               </button>
+
+              {/* Subtle divider */}
+              <div className="w-px h-4 bg-stone-300/80 dark:bg-stone-700/80 mx-0.5" />
+
+              {/* Queue Button integrated into the same bar */}
+              {onOpenQueue && (
+                <button
+                  type="button"
+                  onClick={onOpenQueue}
+                  className={`h-7.5 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    activeJobsCount > 0
+                      ? 'bg-amber-200/80 dark:bg-amber-900/80 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-semibold animate-pulse'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
+                  <span>Queue</span>
+                  {activeJobsCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-stone-950 dark:bg-amber-500 text-white dark:text-stone-950 text-[10px] flex items-center justify-center font-mono font-bold">
+                      {activeJobsCount}
+                    </span>
+                  )}
+                </button>
+              )}
             </nav>
 
-            {/* Active Queue Drawer Trigger */}
+            {/* Mobile Queue Button (shown on mobile header) */}
             {onOpenQueue && (
               <button
                 type="button"
                 onClick={onOpenQueue}
-                className={`h-8 sm:h-9 flex items-center gap-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                className={`sm:hidden h-8 flex items-center gap-1.5 px-2.5 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
                   activeJobsCount > 0
                     ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-950 dark:text-amber-200 border-amber-300 dark:border-amber-800 shadow-xs animate-pulse'
-                    : 'bg-stone-100/90 dark:bg-stone-900/90 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 hover:border-amber-300'
+                    : 'bg-stone-100/90 dark:bg-stone-900/90 border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300'
                 }`}
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Queue</span>
                 {activeJobsCount > 0 && (
                   <span className="w-4 h-4 rounded-full bg-stone-950 dark:bg-amber-500 text-white dark:text-stone-950 text-[10px] flex items-center justify-center font-mono font-bold">
                     {activeJobsCount}
