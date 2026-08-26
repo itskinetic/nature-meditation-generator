@@ -50,6 +50,7 @@ export interface CandidateItem {
   calmness: number;
   motion_intensity: number;
   visual_quality: number;
+  shot_type?: string;
   subtheme?: string;
   environment_id?: string;
   is_approved: boolean;
@@ -80,6 +81,7 @@ export interface GenerationRequest {
   environment_clip_targets?: Record<string, number>;
   manual_intent?: string;
   manual_mood?: string[];
+  shot_preference?: 'balanced' | 'still' | 'macro' | 'wide';
   target_duration: number;
   duration_unit: 'minutes' | 'hours' | 'seconds';
   maximum_unique_videos: number;

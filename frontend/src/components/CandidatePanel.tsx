@@ -16,6 +16,43 @@ interface CandidatePanelProps {
   onBanCandidate?: (candidate: CandidateItem) => void;
 }
 
+const renderShotTypeBadge = (shotType?: string) => {
+  const st = (shotType || 'wide_vista').toLowerCase();
+  if (st.includes('macro') || st.includes('close')) {
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600/90 text-white shadow backdrop-blur-md">
+        🔍 Macro
+      </span>
+    );
+  }
+  if (st.includes('low') || st.includes('ground')) {
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-600/90 text-white shadow backdrop-blur-md">
+        🌱 Low Angle
+      </span>
+    );
+  }
+  if (st.includes('still') || st.includes('ambient') || st.includes('static')) {
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-700/90 text-white shadow backdrop-blur-md">
+        🧘 Still Ambient
+      </span>
+    );
+  }
+  if (st.includes('glide') || st.includes('pan') || st.includes('drift')) {
+    return (
+      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-600/90 text-white shadow backdrop-blur-md">
+        ✨ Slow Glide
+      </span>
+    );
+  }
+  return (
+    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-stone-950 shadow backdrop-blur-md">
+      🏔️ Wide Vista
+    </span>
+  );
+};
+
 export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   candidates,
   selectedIds,
@@ -246,11 +283,12 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   </button>
                 )}
 
-                {/* Source and Reused Tags */}
-                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 pointer-events-none">
+                {/* Source, Reused, and Shot Type Tags */}
+                <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 pointer-events-none">
                   <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-black/70 backdrop-blur-md text-white border border-white/10">
                     {c.source}
                   </span>
+                  {renderShotTypeBadge(c.shot_type)}
                   {c.is_reused && (
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500 text-stone-950 shadow">
                       Reused
@@ -426,8 +464,9 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <div className="text-xs text-stone-500">
-                Source: <span className="font-semibold uppercase">{activePreviewVideo.source}</span>
+              <div className="flex items-center gap-2 text-xs text-stone-500">
+                <span>Source: <strong className="uppercase">{activePreviewVideo.source}</strong></span>
+                {renderShotTypeBadge(activePreviewVideo.shot_type)}
               </div>
               <div className="flex items-center gap-2 sm:gap-3">
                 {onBanCandidate && (

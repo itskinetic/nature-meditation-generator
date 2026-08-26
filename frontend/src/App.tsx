@@ -199,6 +199,7 @@ export function App() {
         aspect_ratio: settings.aspect_ratio,
         resolution: settings.resolution,
         exclude_all_history: excludeAllHistory,
+        shot_preference: settings.shot_preference,
       });
     },
     onSuccess: (data) => {

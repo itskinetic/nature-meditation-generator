@@ -59,6 +59,13 @@ Keep the video ONLY if:
 - the atmosphere is peaceful, spacious, and meditative
 - the movement is slow and subtle
 
+Shot Type Classification (Classify into one of these 5 types):
+- "wide_vista": Grounded expansive wide-angle landscape, horizon, or panoramic natural vista.
+- "close_up": Macro or intimate close-up (dew drops, leaf texture, flower petal, water ripple).
+- "low_angle": Ground-level shot looking upward through trees, grass, or rocks toward the sky.
+- "still_ambient": Stationary locked-off tripod shot with subtle natural motion.
+- "slow_glide": Smooth, gentle floating tracking shot or ultra-slow drift.
+
 STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
 - REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
 - REJECT ANY docks, piers, marinas, harbors, ports, jetties, or boat slips.
@@ -76,6 +83,7 @@ Return ONLY valid JSON matching this schema:
   "calmness": 8,
   "motion_intensity": 3,
   "visual_quality": 9,
+  "shot_type": "wide_vista",
   "unwanted_elements": [],
   "subtheme": "{preset.subthemes[0] if preset and preset.subthemes else 'nature landscape'}",
   "keep": true,
@@ -129,12 +137,23 @@ Return ONLY valid JSON matching this schema:
         preset: Optional[PresetSchema]
     ) -> ScoringResult:
         """
-        Conservative heuristic scorer matching nature keywords, subthemes, and quality indicators.
+        Conservative heuristic scorer matching nature keywords, subthemes, shot types, and quality indicators.
         """
         import re
         raw_corpus = f"{candidate.source_url or ''} {candidate.search_query or ''} {candidate.creator_name or ''} {candidate.preview_url or ''} {candidate.subtheme or ''}".lower()
         cleaned_corpus = re.sub(r'[^a-z0-9\s]', ' ', raw_corpus)
         corpus_words = set(cleaned_corpus.split())
+
+        # Classify Shot Type from corpus
+        detected_shot_type = "wide_vista"
+        if any(w in corpus_words for w in ["macro", "close", "closeup", "detail", "petal", "dew", "vein", "texture"]):
+            detected_shot_type = "close_up"
+        elif any(w in corpus_words for w in ["ground", "roots", "floor", "pebbles", "mossy"]):
+            detected_shot_type = "low_angle"
+        elif any(w in corpus_words for w in ["still", "static", "tripod", "lock", "mirror"]):
+            detected_shot_type = "still_ambient"
+        elif any(w in corpus_words for w in ["glide", "drift", "pan", "tracking"]):
+            detected_shot_type = "slow_glide"
 
         # Check subtheme
         assigned_subtheme = preset.subthemes[0] if preset and preset.subthemes else "nature landscape"
@@ -167,6 +186,7 @@ Return ONLY valid JSON matching this schema:
                 calmness=3.0,
                 motion_intensity=8.0,
                 visual_quality=5.0,
+                shot_type=detected_shot_type,
                 unwanted_elements=unwanted,
                 subtheme=assigned_subtheme,
                 keep=False,
@@ -194,6 +214,7 @@ Return ONLY valid JSON matching this schema:
             calmness=calmness,
             motion_intensity=motion_intensity,
             visual_quality=visual_quality,
+            shot_type=detected_shot_type,
             unwanted_elements=[],
             subtheme=assigned_subtheme,
             keep=True,

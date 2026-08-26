@@ -80,17 +80,27 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             env_preset = NATURE_ENVIRONMENTS.get(env_spec.id)
             env_raw: List[CandidateItem] = []
             
-            # Query top 2 queries for this environment
-            queries_to_run = env_spec.queries[:2] if env_spec.queries else [env_spec.name]
+            # Query top queries for this environment + shot variations
+            queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+            if req.shot_preference == "macro":
+                queries_to_run.append(f"{env_spec.name} macro close up")
+            elif req.shot_preference == "still":
+                queries_to_run.append(f"{env_spec.name} calm still")
+            elif req.shot_preference == "wide":
+                queries_to_run.append(f"{env_spec.name} wide vista")
+            else:
+                # Balanced mix: add close-up detail
+                queries_to_run.append(f"{env_spec.name} close up detail")
+
             for q in queries_to_run:
                 if req.enable_pexels:
-                    px_items = await pexels_service.search(query=q, page=1, per_page=15, db=db)
+                    px_items = await pexels_service.search(query=q, page=1, per_page=12, db=db)
                     for item in px_items:
                         item.environment_id = env_spec.id
                         item.subtheme = env_spec.name
                     env_raw.extend(px_items)
                 if req.enable_pixabay:
-                    pb_items = await pixabay_service.search(query=q, page=1, per_page=15, db=db)
+                    pb_items = await pixabay_service.search(query=q, page=1, per_page=12, db=db)
                     for item in pb_items:
                         item.environment_id = env_spec.id
                         item.subtheme = env_spec.name
@@ -127,6 +137,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 c.calmness = score_res.calmness
                 c.motion_intensity = score_res.motion_intensity
                 c.visual_quality = score_res.visual_quality
+                c.shot_type = score_res.shot_type or "wide_vista"
                 c.subtheme = env_spec.name
                 c.environment_id = env_spec.id
                 c.is_approved = score_res.keep
@@ -162,6 +173,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                     calmness=li.calmness_score or 9.5,
                     motion_intensity=li.motion_score or 2.0,
                     visual_quality=li.visual_quality_score or 9.5,
+                    shot_type=li.shot_type or "wide_vista",
                     subtheme=env_spec.name,
                     environment_id=env_spec.id,
                     is_approved=True,
@@ -177,7 +189,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
     else:
         # Fallback to query search
-        queries_to_run = req.queries[:4] if req.queries else ["peaceful nature landscape"]
+        queries_to_run = list(req.queries[:4]) if req.queries else ["peaceful nature landscape"]
         preset = NATURE_PRESETS.get(req.preset_name) if req.preset_name else None
 
         for q in queries_to_run:
@@ -195,6 +207,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             max_duration=req.max_duration,
             aspect_ratio=req.aspect_ratio,
             resolution=req.resolution,
+            exclude_all_history=req.exclude_all_history,
             db=db
         )
 
@@ -215,9 +228,11 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             c.calmness = score_res.calmness
             c.motion_intensity = score_res.motion_intensity
             c.visual_quality = score_res.visual_quality
+            c.shot_type = score_res.shot_type or "wide_vista"
             c.subtheme = score_res.subtheme
             c.is_approved = score_res.keep
             c.rejection_reason = score_res.reason if not score_res.keep else None
+            return c
             return c
 
         scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:30]])

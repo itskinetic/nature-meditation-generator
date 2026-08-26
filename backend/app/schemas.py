@@ -76,6 +76,7 @@ class CandidateItem(BaseModel):
     calmness: float = 0.0
     motion_intensity: float = 0.0
     visual_quality: float = 0.0
+    shot_type: Optional[str] = None  # "wide_vista", "close_up", "low_angle", "still_ambient", "slow_glide"
     subtheme: Optional[str] = None
     environment_id: Optional[str] = None
     is_approved: bool = False
@@ -104,6 +105,7 @@ class SearchRequest(BaseModel):
     aspect_ratio: str = "16:9"
     resolution: str = "1080p"
     exclude_all_history: bool = False
+    shot_preference: Optional[str] = "balanced"  # "balanced", "still", "macro", "wide"
 
 
 class BanCandidateRequest(BaseModel):
@@ -128,6 +130,7 @@ class ScoringResult(BaseModel):
     calmness: float
     motion_intensity: float
     visual_quality: float
+    shot_type: Optional[str] = "wide_vista"
     unwanted_elements: List[str] = []
     subtheme: str = "nature"
     keep: bool = False
@@ -142,6 +145,7 @@ class GenerationRequest(BaseModel):
     environment_clip_targets: Optional[Dict[str, int]] = None
     manual_intent: Optional[str] = None
     manual_mood: Optional[List[str]] = None
+    shot_preference: Optional[str] = "balanced"
 
     target_duration: float = 30.0  # value in unit
     duration_unit: str = "minutes"  # "minutes" or "hours" or "seconds" (for dry-run)

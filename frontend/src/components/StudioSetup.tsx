@@ -547,8 +547,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       </div>
 
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-stone-200 dark:border-stone-800">
-        {/* Target Duration & Clip Length */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2 border-t border-stone-200 dark:border-stone-800">
+        {/* Target Duration */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
             Target Duration
@@ -595,7 +595,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-1 w-24">
+            <div className="grid grid-cols-2 gap-1 w-20">
               {(['1080p', '4K'] as const).map((res) => (
                 <button
                   key={res}
@@ -614,14 +614,31 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           </div>
         </div>
 
+        {/* Shot Diversity Selector */}
+        <div className="space-y-1.5">
+          <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
+            Cinematic Shot Cadence
+          </label>
+          <select
+            value={settings.shot_preference || 'balanced'}
+            onChange={(e) => updateSetting('shot_preference', e.target.value as any)}
+            className="w-full bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 cursor-pointer"
+          >
+            <option value="balanced">🎬 Balanced Variety (Wide, Macro, Low-Angle)</option>
+            <option value="macro">🔍 Mindful Close-Ups (Macro & Textures)</option>
+            <option value="still">🧘 Deep Stillness (Static & Locked-Off)</option>
+            <option value="wide">🏔️ Expansive Vistas (Wide Horizons)</option>
+          </select>
+        </div>
+
         {/* History Control Toggle */}
         <div className="space-y-1.5">
           <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider">
-            History Reuse Filter
+            History Filter
           </label>
           <label className="flex items-center justify-between p-2 rounded-xl bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 cursor-pointer">
             <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
-              Exclude Past History Videos
+              Exclude Past History
             </span>
             <input
               type="checkbox"

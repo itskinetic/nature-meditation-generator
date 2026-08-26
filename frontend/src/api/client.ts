@@ -53,6 +53,7 @@ export const api = {
     aspect_ratio: string;
     resolution: string;
     exclude_all_history?: boolean;
+    shot_preference?: string;
   }): Promise<SearchResponse> {
     const res = await fetch(`${API_BASE}/search`, {
       method: 'POST',
