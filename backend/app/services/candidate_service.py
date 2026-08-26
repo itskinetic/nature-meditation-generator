@@ -31,9 +31,8 @@ class CandidateService:
         seen_urls: Set[str] = set()
         filtered: List[CandidateItem] = []
 
-        # Load rejected, existing library, and recently used IDs from DB
+        # Load rejected and existing library IDs from DB
         rejected_ids: Set[str] = set()
-        recently_used_ids: Set[str] = set()
         library_ids: Set[str] = set()
 
         if db:
@@ -45,16 +44,9 @@ class CandidateService:
                 rejected_ids = {r[0] for r in rejected_items}
 
                 if exclude_all_history:
-                    # Exclude ANY video already in the library or previously used in past jobs
+                    # Exclude ANY video already in the library or previously generated
                     all_library_items = db.query(VideoLibraryItem.source_video_id).all()
                     library_ids = {r[0] for r in all_library_items}
-                elif avoid_recently_used:
-                    # Exclude videos used in last 24 hours
-                    cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
-                    recent_items = db.query(VideoLibraryItem.source_video_id).filter(
-                        (VideoLibraryItem.last_used_at > cutoff) | (VideoLibraryItem.times_used > 0)
-                    ).all()
-                    recently_used_ids = {r[0] for r in recent_items}
             except Exception as db_err:
                 logger.warning(f"Error querying history in candidate filter: {db_err}")
 
@@ -78,25 +70,19 @@ class CandidateService:
                     continue
                 seen_urls.add(clean_url)
 
-            # 3. Check previously rejected
+            # 3. Check previously rejected / banned
             if c.source_video_id in rejected_ids:
                 c.is_approved = False
-                c.rejection_reason = "Previously rejected video"
+                c.rejection_reason = "Previously rejected/banned video"
                 continue
 
-            # 4. Check existing library and past history exclusion
+            # 4. Check existing library and past history exclusion (if Exclude History enabled)
             if exclude_all_history and c.source_video_id in library_ids:
                 c.is_approved = False
                 c.rejection_reason = "Already exists in Video Library"
                 continue
 
-            # 5. Check recently used cooldown
-            if avoid_recently_used and c.source_video_id in recently_used_ids:
-                c.is_approved = False
-                c.rejection_reason = "Recently used in last 24 hours"
-                continue
-
-            # 6. Check minimum & maximum duration
+            # 5. Check minimum & maximum duration
             if c.duration > 0 and c.duration < min_duration:
                 c.is_approved = False
                 c.rejection_reason = f"Duration {c.duration:.1f}s is below minimum {min_duration:.1f}s"
