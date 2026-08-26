@@ -17,32 +17,83 @@ class ScoringService:
         self,
         candidate: CandidateItem,
         analysis: IntentAnalysisResult,
-        preset: Optional[PresetSchema] = None
+        preset: Optional[PresetSchema] = None,
+        studio_mode: str = "meditation"
     ) -> ScoringResult:
         """
         Scores a candidate video using vision API or heuristic evaluation.
-        Enforces strict scoring criteria.
+        Enforces strict mode-aware scoring criteria (meditation vs wildlife documentary).
         """
         # If Gemini API Key is available and preview_url is reachable, call Gemini Vision
         if self.api_key and len(self.api_key.strip()) > 5 and candidate.preview_url:
             try:
-                result = await self._score_with_gemini(candidate, analysis, preset)
+                result = await self._score_with_gemini(candidate, analysis, preset, studio_mode)
                 if result:
-                    return self._apply_scoring_thresholds(result, preset)
+                    return self._apply_scoring_thresholds(result, preset, studio_mode)
             except Exception as e:
                 logger.warning(f"Gemini vision scoring failed for {candidate.source_video_id}: {e}")
 
         # Fallback heuristic scoring
-        result = self._score_heuristic(candidate, analysis, preset)
-        return self._apply_scoring_thresholds(result, preset)
+        result = self._score_heuristic(candidate, analysis, preset, studio_mode)
+        return self._apply_scoring_thresholds(result, preset, studio_mode)
 
     async def _score_with_gemini(
         self,
         candidate: CandidateItem,
         analysis: IntentAnalysisResult,
-        preset: Optional[PresetSchema]
+        preset: Optional[PresetSchema],
+        studio_mode: str = "meditation"
     ) -> Optional[ScoringResult]:
-        prompt = f"""
+        is_doc = (studio_mode == "documentary")
+        
+        if is_doc:
+            prompt = f"""
+Evaluate this video/preview for a high-production BBC Planet Earth / National Geographic style Wildlife Documentary.
+
+Target Theme / Animal Subject: {analysis.intent}
+Target Mood: {', '.join(analysis.mood)}
+Visual Style: {analysis.visual_style}
+Preferred Motifs: {', '.join(analysis.visual_motifs)}
+Avoid Elements: {', '.join(analysis.avoid_visuals)}
+Preset Name: {preset.name if preset else 'Wildlife'}
+
+Keep the video ONLY if:
+- it features authentic, living wild animals, birds, marine life, or dynamic fauna in their natural habitat
+- it fits the wildlife theme ({preset.name if preset else analysis.intent})
+- the visual quality is crisp, cinematic, high production value, vibrant, and well-lit
+- the animals are active, majestic, or engaged in natural behavior (flying, hunting, resting, swimming, grazing)
+
+Shot Type Classification (Classify into one of these 5 types):
+- "wide_vista": Wide panoramic landscape showing wildlife in its expansive habitat.
+- "close_up": Intimate portrait or macro close-up of animal features (eyes, paws, feathers, scales).
+- "low_angle": Dramatic low-angle view tracking animal movement across terrain.
+- "still_ambient": Steady tripod recording peaceful animal presence or resting.
+- "slow_glide": Smooth gliding or tracking shot following wildlife action.
+
+STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT ANY empty landscapes or generic scenery with NO animals or wildlife visible.
+- REJECT ANY cages, zoo enclosures, concrete pens, fences, or captivity signs.
+- REJECT ANY domestic household pets (dogs, pet cats, hamsters, cows in barns) unless specifically requested.
+- REJECT ANY tourists, safari buses, cars, roads, buildings, boats, or human interference.
+- REJECT blurry, low-resolution, pixelated, or heavily compressed footage.
+- REJECT RAW/LOG flat profile unedited footage.
+
+Return ONLY valid JSON matching this schema:
+{{
+  "intent_match": 9,
+  "theme_match": 9,
+  "calmness": 7,
+  "motion_intensity": 5,
+  "visual_quality": 9,
+  "shot_type": "wide_vista",
+  "unwanted_elements": [],
+  "subtheme": "{preset.subthemes[0] if preset and preset.subthemes else 'wildlife action'}",
+  "keep": true,
+  "reason": "Authentic wildlife footage showing animal subject in natural habitat with cinematic quality."
+}}
+"""
+        else:
+            prompt = f"""
 Evaluate this video/preview for a calm nature meditation and relaxation video.
 
 Target Emotional Intent: {analysis.intent}
@@ -134,29 +185,31 @@ Return ONLY valid JSON matching this schema:
         self,
         candidate: CandidateItem,
         analysis: IntentAnalysisResult,
-        preset: Optional[PresetSchema]
+        preset: Optional[PresetSchema],
+        studio_mode: str = "meditation"
     ) -> ScoringResult:
         """
-        Conservative heuristic scorer matching nature keywords, subthemes, shot types, and quality indicators.
+        Mode-aware heuristic scorer matching keywords, subthemes, shot types, and quality indicators.
         """
         import re
         raw_corpus = f"{candidate.source_url or ''} {candidate.search_query or ''} {candidate.creator_name or ''} {candidate.preview_url or ''} {candidate.subtheme or ''}".lower()
         cleaned_corpus = re.sub(r'[^a-z0-9\s]', ' ', raw_corpus)
         corpus_words = set(cleaned_corpus.split())
+        is_doc = (studio_mode == "documentary")
 
         # Classify Shot Type from corpus
         detected_shot_type = "wide_vista"
-        if any(w in corpus_words for w in ["macro", "close", "closeup", "detail", "petal", "dew", "vein", "texture"]):
+        if any(w in corpus_words for w in ["macro", "close", "closeup", "detail", "portrait", "feather", "eye"]):
             detected_shot_type = "close_up"
-        elif any(w in corpus_words for w in ["ground", "roots", "floor", "pebbles", "mossy"]):
+        elif any(w in corpus_words for w in ["ground", "roots", "floor", "pebbles", "prowl", "track"]):
             detected_shot_type = "low_angle"
-        elif any(w in corpus_words for w in ["still", "static", "tripod", "lock", "mirror"]):
+        elif any(w in corpus_words for w in ["still", "static", "tripod", "lock", "rest", "perch"]):
             detected_shot_type = "still_ambient"
-        elif any(w in corpus_words for w in ["glide", "drift", "pan", "tracking"]):
+        elif any(w in corpus_words for w in ["glide", "drift", "pan", "tracking", "flight", "soar", "swim"]):
             detected_shot_type = "slow_glide"
 
         # Check subtheme
-        assigned_subtheme = preset.subthemes[0] if preset and preset.subthemes else "nature landscape"
+        assigned_subtheme = preset.subthemes[0] if preset and preset.subthemes else ("wildlife action" if is_doc else "nature landscape")
         if preset and preset.subthemes:
             for st in preset.subthemes:
                 st_words = st.lower().split()
@@ -224,12 +277,14 @@ Return ONLY valid JSON matching this schema:
     def _apply_scoring_thresholds(
         self,
         res: ScoringResult,
-        preset: Optional[PresetSchema]
+        preset: Optional[PresetSchema],
+        studio_mode: str = "meditation"
     ) -> ScoringResult:
-        min_intent = getattr(preset, 'minimum_intent_score', 8.0) if preset else 8.0
-        min_theme = getattr(preset, 'minimum_theme_score', 8.0) if preset else 8.0
-        min_calmness = getattr(preset, 'minimum_calmness_score', 8.0) if preset else 8.0
-        max_motion = getattr(preset, 'maximum_motion_intensity', getattr(preset, 'maximum_motion_score', 4.0)) if preset else 4.0
+        is_doc = (studio_mode == "documentary")
+        min_intent = getattr(preset, 'minimum_intent_score', 8.0) if preset else 7.5
+        min_theme = getattr(preset, 'minimum_theme_score', 8.0) if preset else 7.5
+        min_calmness = getattr(preset, 'minimum_calmness_score', 8.0) if (preset and not is_doc) else (4.0 if is_doc else 8.0)
+        max_motion = getattr(preset, 'maximum_motion_intensity', getattr(preset, 'maximum_motion_score', 4.0)) if (preset and not is_doc) else (8.5 if is_doc else 4.0)
         min_quality = getattr(preset, 'minimum_visual_quality', 7.0) if preset else 7.0
 
         passed = (

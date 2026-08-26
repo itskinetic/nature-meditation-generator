@@ -115,30 +115,27 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
             env_raw: List[CandidateItem] = []
             
-            # Query top queries for this environment + shot variations
-            queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
-            if req.shot_preference == "macro":
-                queries_to_run.append(f"{env_spec.name} macro close up")
-            elif req.shot_preference == "still":
-                queries_to_run.append(f"{env_spec.name} calm still")
-            elif req.shot_preference == "wide":
-                queries_to_run.append(f"{env_spec.name} wide vista")
-            else:
-                # Balanced mix: add close-up detail
-                queries_to_run.append(f"{env_spec.name} close up detail")
+            # Dynamic budget scaling based on requested clip count per environment
+            target_clips = env_spec.clip_count or 4
+            # Request only 1.5x - 2x the needed clips per provider to save API quota & prevent rejected overload
+            per_page = min(8, max(4, int(target_clips * 1.5)))
+
+            # Use 1 focused query (or 2 if requesting > 6 clips)
+            num_queries = 2 if target_clips >= 6 else 1
+            queries_to_run = list(env_spec.queries[:num_queries]) if env_spec.queries else [env_spec.name]
 
             for q in queries_to_run:
                 # 1. Fetch videos if media_type is "video" or "both"
                 if req.media_type in ("video", "both", None):
                     if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=1, per_page=12, db=db)
+                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page, db=db)
                         for item in px_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
                             item.media_type = "video"
                         env_raw.extend(px_items)
                     if req.enable_pixabay:
-                        pb_items = await pixabay_service.search(query=q, page=1, per_page=12, db=db)
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=per_page, db=db)
                         for item in pb_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
@@ -147,7 +144,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
                 # 2. Fetch photos if media_type is "image" or "both"
                 if req.media_type in ("image", "both"):
-                    img_items = await image_fetch_service.search(query=q, page=1, per_page=12, db=db)
+                    img_items = await image_fetch_service.search(query=q, page=1, per_page=per_page, db=db)
                     for item in img_items:
                         item.environment_id = env_spec.id
                         item.subtheme = env_spec.name
@@ -167,21 +164,22 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             all_raw.extend(env_raw)
 
             # Score candidates against this environment
+            active_mode = req.studio_mode or "meditation"
             env_dummy_analysis = await intent_service.analyze(
                 title=env_spec.name,
                 preset_name=env_spec.id,
-                studio_mode=req.studio_mode or "meditation"
+                studio_mode=active_mode
             )
             
             async def score_single(c: CandidateItem):
                 try:
                     score_res = await asyncio.wait_for(
-                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset),
+                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset, studio_mode=active_mode),
                         timeout=4.0
                     )
                 except Exception:
-                    score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset)
-                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset)
+                    score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
+                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode)
 
                 c.intent_match = score_res.intent_match
                 c.theme_match = score_res.theme_match

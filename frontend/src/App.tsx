@@ -398,6 +398,10 @@ export function App() {
             media_type: mode === 'meditation' ? 'video' : prev.media_type || 'video',
           }));
           setSelectedNatures({});
+          setCandidates([]);
+          setSelectedCandidateIds([]);
+          setStoryboardBeats([]);
+          setAnalysis(null);
         }}
       />
 
