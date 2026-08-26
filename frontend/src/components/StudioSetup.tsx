@@ -355,8 +355,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             </p>
           </div>
 
-          {/* Mode Switcher Segmented Toggle */}
-          <div className="inline-flex p-1 bg-stone-100 dark:bg-stone-800/90 rounded-2xl border border-stone-200/80 dark:border-stone-700/80 text-xs font-medium">
+          {/* Mode Switcher Segmented Toggle (Icon only with tooltips) */}
+          <div className="inline-flex p-1 bg-stone-100 dark:bg-stone-800/90 rounded-2xl border border-stone-200/80 dark:border-stone-700/80">
             <button
               type="button"
               onClick={() => {
@@ -365,14 +365,15 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 setSelectedNatures({});
                 setActiveIntentPreset(null);
               }}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              title="Nature Meditation"
+              aria-label="Nature Meditation"
+              className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
                 !isDocMode
-                  ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
+                  ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-xs border border-stone-200/80 dark:border-stone-700/80'
+                  : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
               }`}
             >
-              <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-              <span>Nature Meditation</span>
+              <Trees className="w-4 h-4" />
             </button>
             <button
               type="button"
@@ -381,14 +382,15 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 setSelectedNatures({});
                 setActiveIntentPreset(null);
               }}
-              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+              title="Wildlife Documentary"
+              aria-label="Wildlife Documentary"
+              className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
                 isDocMode
-                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
-                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
+                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
+                  : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
               }`}
             >
-              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span>Wildlife Documentary</span>
+              <Compass className="w-4 h-4" />
             </button>
           </div>
         </div>
