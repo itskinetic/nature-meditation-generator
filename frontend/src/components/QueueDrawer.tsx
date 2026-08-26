@@ -205,9 +205,9 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       <a
                         href={job.download_url}
                         download
-                        className="h-9 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shrink-0"
+                        className="h-9 px-3.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 hover:bg-emerald-200/80 dark:hover:bg-emerald-900/80 border border-emerald-300/80 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-200 text-xs font-medium flex items-center gap-1.5 transition-all shrink-0"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <Download className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                         <span>Download</span>
                       </a>
                     )}

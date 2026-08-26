@@ -511,9 +511,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   key={cat}
                   type="button"
                   onClick={() => setFilterCategory(cat)}
-                  className={`px-2.5 py-1 rounded-md font-semibold capitalize transition-all ${
+                  className={`px-2.5 py-1 rounded-md font-medium capitalize transition-all ${
                     filterCategory === cat
-                      ? 'bg-amber-500 text-stone-950 shadow-xs'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
                       : 'bg-stone-200/70 dark:bg-stone-800/80 text-stone-600 dark:text-stone-400 hover:text-stone-900'
                   }`}
                 >
@@ -533,7 +533,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                     onClick={() => toggleNature(preset)}
                     className={`h-9 flex items-center justify-between px-2.5 rounded-lg border text-left transition-all ${
                       isSelected
-                        ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500 text-amber-950 dark:text-amber-200 shadow-xs'
+                        ? 'bg-amber-100/70 dark:bg-amber-950/60 border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 shadow-xs font-medium'
                         : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:border-stone-300'
                     }`}
                   >
@@ -541,7 +541,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                       {renderNatureIcon(preset.category, preset.id)}
                       <span className="text-xs font-medium truncate">{preset.name}</span>
                     </div>
-                    {isSelected ? <Check className="w-3.5 h-3.5 text-amber-600 shrink-0" /> : <div className="w-3.5 h-3.5 rounded border border-stone-300 dark:border-stone-700 shrink-0" />}
+                    {isSelected ? <Check className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" /> : <div className="w-3.5 h-3.5 rounded border border-stone-300 dark:border-stone-700 shrink-0" />}
                   </button>
                 );
               })}
@@ -564,13 +564,13 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               max={360}
               value={settings.target_duration}
               onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-16 h-full bg-transparent px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none"
+              className="w-16 h-full bg-transparent px-3 text-xs font-semibold text-stone-900 dark:text-white focus:outline-none"
             />
             <div className="w-[1px] h-4 my-auto bg-stone-300 dark:bg-stone-800" />
             <select
               value={settings.duration_unit}
               onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-              className="flex-1 h-full bg-transparent px-2 text-xs font-semibold text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
+              className="flex-1 h-full bg-transparent px-2 text-xs font-medium text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
             >
               <option value="minutes">Mins</option>
               <option value="hours">Hours</option>
@@ -590,9 +590,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   key={ar}
                   type="button"
                   onClick={() => updateSetting('aspect_ratio', ar)}
-                  className={`flex-1 h-full rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex-1 h-full rounded-lg text-xs font-medium transition-all ${
                     settings.aspect_ratio === ar
-                      ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
@@ -606,9 +606,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   key={res}
                   type="button"
                   onClick={() => updateSetting('resolution', res)}
-                  className={`flex-1 h-full rounded-lg text-xs font-semibold transition-all ${
+                  className={`flex-1 h-full rounded-lg text-xs font-medium transition-all ${
                     settings.resolution === res
-                      ? 'bg-white dark:bg-amber-500 text-stone-900 dark:text-stone-950 shadow-xs font-bold'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
                   }`}
                 >
