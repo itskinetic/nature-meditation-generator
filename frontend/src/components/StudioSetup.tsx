@@ -497,7 +497,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         >
           <div className="flex items-center gap-2">
             <Sliders className="w-3.5 h-3.5 text-stone-400" />
-            <span>Customize / Pick Themes Manually (20 Nature Environments)</span>
+            <span>Customize / Pick Themes Manually</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] text-stone-400">{showManualThemes ? 'Hide' : 'Show'}</span>
