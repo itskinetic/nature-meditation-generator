@@ -335,6 +335,15 @@ export function App() {
         setIsDark={setIsDark}
         activeJobsCount={activeJobs.length}
         onOpenQueue={() => setIsQueueOpen(true)}
+        studioMode={settings.studio_mode || 'meditation'}
+        onToggleStudioMode={(mode) => {
+          setSettings((prev) => ({
+            ...prev,
+            studio_mode: mode,
+            media_type: mode === 'meditation' ? 'video' : prev.media_type || 'video',
+          }));
+          setSelectedNatures({});
+        }}
       />
 
       <QueueDrawer

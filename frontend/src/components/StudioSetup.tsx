@@ -342,57 +342,16 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       
       {/* 1. STUDIO MODE & MEDIA TYPE TOGGLE */}
       <div className="space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
-          <div>
-            <h2 className="text-base font-semibold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>{isDocMode ? 'Wildlife Documentary AI Studio' : 'Meditation Concept & AI Script Director'}</span>
-            </h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-              {isDocMode
-                ? 'Generate cinematic 4K wildlife documentaries featuring authentic animals in natural habitats'
-                : 'Enter your meditation title or guidance script to automatically discover matching nature themes'}
-            </p>
-          </div>
-
-          {/* Mode Switcher Segmented Toggle (Icon only with tooltips) */}
-          <div className="inline-flex p-1 bg-stone-100 dark:bg-stone-800/90 rounded-2xl border border-stone-200/80 dark:border-stone-700/80">
-            <button
-              type="button"
-              onClick={() => {
-                updateSetting('studio_mode', 'meditation');
-                updateSetting('media_type', 'video');
-                setSelectedNatures({});
-                setActiveIntentPreset(null);
-              }}
-              title="Nature Meditation"
-              aria-label="Nature Meditation"
-              className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
-                !isDocMode
-                  ? 'bg-white dark:bg-stone-900 text-emerald-700 dark:text-emerald-400 shadow-xs border border-stone-200/80 dark:border-stone-700/80'
-                  : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
-              }`}
-            >
-              <Trees className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                updateSetting('studio_mode', 'documentary');
-                setSelectedNatures({});
-                setActiveIntentPreset(null);
-              }}
-              title="Wildlife Documentary"
-              aria-label="Wildlife Documentary"
-              className={`w-8 h-8 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
-                isDocMode
-                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
-                  : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
-              }`}
-            >
-              <Compass className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="pb-3 border-b border-stone-200 dark:border-stone-800/80">
+          <h2 className="text-base font-semibold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <span>{isDocMode ? 'Wildlife Documentary AI Studio' : 'Meditation Concept & AI Script Director'}</span>
+          </h2>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+            {isDocMode
+              ? 'Generate cinematic 4K wildlife documentaries featuring authentic animals in natural habitats'
+              : 'Enter your meditation title or guidance script to automatically discover matching nature themes'}
+          </p>
         </div>
 
         {/* Media Format Selector (Only visible in Wildlife Documentary Mode) */}

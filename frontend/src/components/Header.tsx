@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Film, Database, History, Sun, Moon, Zap } from 'lucide-react';
+import { Sparkles, Film, Database, History, Sun, Moon, Zap, Trees, Compass } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'generator' | 'library' | 'history';
@@ -8,6 +8,8 @@ interface HeaderProps {
   setIsDark: (dark: boolean) => void;
   activeJobsCount?: number;
   onOpenQueue?: () => void;
+  studioMode?: 'meditation' | 'documentary';
+  onToggleStudioMode?: (mode: 'meditation' | 'documentary') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,24 +19,56 @@ export const Header: React.FC<HeaderProps> = ({
   setIsDark,
   activeJobsCount = 0,
   onOpenQueue,
+  studioMode = 'meditation',
+  onToggleStudioMode,
 }) => {
   return (
     <>
       {/* Top Header Bar */}
       <header className="border-b border-stone-200/80 dark:border-stone-800/80 bg-white/85 dark:bg-[#0c0e12]/85 backdrop-blur-md sticky top-0 z-40 transition-colors duration-200 w-full">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 sm:h-20 flex items-center justify-between gap-3">
-          {/* Brand / Logo */}
+          {/* Brand / Logo + Studio Mode Toggle */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <img
               src="/logo.png"
               alt="ZenHub Logo"
-              className="w-7 h-7 sm:w-9 sm:h-9 object-contain drop-shadow-sm shrink-0"
+              className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-sm shrink-0"
             />
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-normal tracking-wide text-stone-900 dark:text-white font-logo">
-                ZenHub
-              </h1>
-            </div>
+            <h1 className="text-base sm:text-lg font-normal tracking-wide text-stone-900 dark:text-white font-logo">
+              ZenHub
+            </h1>
+
+            {/* Studio Mode Segmented Toggle */}
+            {onToggleStudioMode && (
+              <div className="inline-flex p-0.5 bg-stone-100/90 dark:bg-stone-900/90 rounded-xl border border-stone-200 dark:border-stone-800 ml-1">
+                <button
+                  type="button"
+                  onClick={() => onToggleStudioMode('meditation')}
+                  title="Nature Meditation Mode"
+                  aria-label="Nature Meditation Mode"
+                  className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                    studioMode !== 'documentary'
+                      ? 'bg-white dark:bg-stone-800 text-emerald-700 dark:text-emerald-400 shadow-xs border border-stone-200/80 dark:border-stone-700/80'
+                      : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Trees className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleStudioMode('documentary')}
+                  title="Wildlife Documentary Mode"
+                  aria-label="Wildlife Documentary Mode"
+                  className={`w-7 h-7 rounded-lg transition-all flex items-center justify-center cursor-pointer ${
+                    studioMode === 'documentary'
+                      ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
+                      : 'text-stone-400 hover:text-stone-800 dark:hover:text-stone-200'
+                  }`}
+                >
+                  <Compass className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Desktop Nav Tabs & Header Actions */}
