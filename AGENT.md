@@ -28,7 +28,37 @@ This guide serves as the single source of truth for **ZenHub** (Nature Meditatio
 
 ---
 
-## 3. Color Palette & Tone (Meditation Calm Yellow)
+## 3. Strict NO Emoji Rule (Clean SVG Icons Only)
+
+- **NEVER use raw Unicode emojis** (e.g. `✨`, `🎬`, `🔍`, `🌱`, `🏔️`, `🧘`, `🚫`, `🌲`, `🌊`) in UI buttons, badges, headings, dropdown options, or status indicators.
+- **ALWAYS use clean Lucide SVG icons** with explicit dimensions (`w-3.5 h-3.5`, `w-4 h-4`) paired with clean typography.
+- Examples:
+  - Button: `<Wand2 className="w-3.5 h-3.5" /> Analyze & Suggest Themes` (NOT `✨ Analyze`)
+  - Badges: `<Mountain className="w-2.5 h-2.5" /> Wide Vista`, `<Leaf className="w-2.5 h-2.5" /> Low Angle`, `<Search className="w-2.5 h-2.5" /> Macro`
+  - Select options: Plain text (`Balanced Variety`, `Mindful Close-Ups`, `Deep Stillness`, `Expansive Vistas`).
+
+---
+
+## 4. Mobile-First Responsive Optimization System
+
+ZenHub is designed with mobile-first responsiveness across all screen sizes (from 360px phones to 4K monitors):
+
+1. **Responsive Grid Cascades**:
+   - Form inputs & Theme grids: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` with tight `gap-2.5` / `gap-3.5`.
+   - Settings row: `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`.
+2. **Touch Target Dimensions**:
+   - All interactive controls have at least 36px–44px touch targets (`h-9` buttons, `h-10` inputs/selects).
+   - Spacing includes `touch-manipulation` to prevent tap delays on iOS Safari and Android Chrome.
+3. **Adaptive Action Bars**:
+   - Primary action buttons: `w-full sm:w-auto` so mobile users get full-width thumb-friendly buttons.
+   - Header tabs: Compact pill indicators on mobile (`hidden xs:inline` for secondary labels).
+4. **Zero Viewport Overflow**:
+   - Main container: `w-full overflow-x-hidden max-w-5xl mx-auto px-4 sm:px-6`.
+   - Modals and drawers: Max viewport height `max-h-[92vh]` with internal smooth scrolling (`overflow-y-auto`).
+
+---
+
+## 5. Color Palette & Tone (Meditation Calm Yellow)
 
 - **Primary Accent**: **Soft Luminous Meditation Yellow** (`#fef9c3`, `#fde047`, `#facc15`, `#eab308`).
   - **NEVER use harsh amber/orange** (`#f59e0b`, `#d97706`).
@@ -43,14 +73,14 @@ This guide serves as the single source of truth for **ZenHub** (Nature Meditatio
 
 ---
 
-## 4. Layout Dimensions & Universal Button Sizing
+## 6. Layout Dimensions & Universal Button Sizing
 
 ### Container Width
 - **Main Dashboard & Header**: Strictly **`max-w-5xl`** (`w-full mx-auto px-4 sm:px-6`).
-- **NEVER use `max-w-7xl`** or unbounded full-width on dashboards (causes overstretched, incohesive UI).
+- **NEVER use `max-w-7xl`** or unbounded full-width on dashboards.
 
 ### Universal Button Standards
-- **Standard Action Buttons** (`✨ Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Queue`, `Select for Video`, etc.):
+- **Standard Action Buttons** (`Analyze & Suggest Themes`, `Balance Clips`, `+ Custom Theme`, `Queue`, `Select for Video`, etc.):
   - **Height**: Strictly **`h-9`** (36px).
   - **Border Radius**: Strictly **`rounded-xl`** (12px).
   - **Padding**: `px-3.5`.
@@ -65,7 +95,7 @@ This guide serves as the single source of truth for **ZenHub** (Nature Meditatio
 
 ---
 
-## 5. Strict Visual Banned Filters (Zero Tolerance)
+## 7. Strict Visual Banned Filters (Zero Tolerance)
 
 The search engine, heuristics, and Gemini Vision prompt MUST strictly reject and ban:
 
@@ -79,17 +109,17 @@ The search engine, heuristics, and Gemini Vision prompt MUST strictly reject and
 
 ---
 
-## 6. Cinematic Shot Type Diversity Engine
+## 8. Cinematic Shot Type Diversity Engine
 
 Every clip is classified into one of 5 cinematic perspectives:
 
-| Shot Type | Badge | Description & Meditation Role |
+| Shot Type | Badge Icon + Label | Description & Meditation Role |
 | :--- | :--- | :--- |
-| **`close_up`** | `🔍 Macro` | Dew drops, leaf veins, petal flutter, ripples (Mindfulness & Presence) |
-| **`low_angle`** | `🌱 Low Angle` | Ground-level looking up through grass/roots/trees (Grounding & Stability) |
-| **`wide_vista`** | `🏔️ Wide Vista` | Expansive sunlit valley, lake, horizon (Spaciousness & Calm) |
-| **`still_ambient`** | `🧘 Still Ambient` | Locked-off static tripod shot with natural motion (Deep Stillness & Sleep) |
-| **`slow_glide`** | `✨ Slow Glide` | Ultra-slow smooth tracking glide or pan (Flow & Transition) |
+| **`close_up`** | `<Search /> Macro` | Dew drops, leaf veins, petal flutter, ripples (Mindfulness & Presence) |
+| **`low_angle`** | `<Leaf /> Low Angle` | Ground-level looking up through grass/roots/trees (Grounding & Stability) |
+| **`wide_vista`** | `<Mountain /> Wide Vista` | Expansive sunlit valley, lake, horizon (Spaciousness & Calm) |
+| **`still_ambient`** | `<Clock /> Still` | Locked-off static tripod shot with natural motion (Deep Stillness & Sleep) |
+| **`slow_glide`** | `<Waves /> Slow Glide` | Ultra-slow smooth tracking glide or pan (Flow & Transition) |
 
 - **Shot Cadence Options**:
   - `Balanced Variety` (Default — sequences wide, macro, low-angle, still)
@@ -99,10 +129,10 @@ Every clip is classified into one of 5 cinematic perspectives:
 
 ---
 
-## 7. AI Script Director & Interactive Theme Review Flow
+## 9. AI Script Director & Interactive Theme Review Flow
 
 1. User enters **Meditation Title** or **Script Guidance**.
-2. User clicks **`✨ Analyze & Suggest Themes`**.
+2. User clicks **`Analyze & Suggest Themes`**.
 3. AI analyzes emotional intent, mood, energy level, and visual metaphors.
 4. **Suggested Visual Journey Card** renders interactively:
    - Displays Detected Intent & Mood tags.
@@ -112,16 +142,16 @@ Every clip is classified into one of 5 cinematic perspectives:
 
 ---
 
-## 8. Single Theme Presets (Zero Ampersands)
+## 10. Single Theme Presets (Zero Ampersands)
 
 All nature environment presets use punchy single titles without ampersands (`&`):
 - `Sunlit Forest`, `Calm Ocean`, `Wildflower Meadow`, `Mountain Lakes`, `Golden Sunrise`, `Rainforest`, `Waterfalls`, `Grasslands`, `Bamboo`, `Cherry Blossoms`, `Sandy Beach`, `Clouds`, `Autumn Woods`, `Desert Dunes`, `Lotus Ponds`, `Alpine Valleys`, `Tropical Lagoons`, `Riverbed`, `Fern Canyon`, `Sunset Twilight`.
 
 ---
 
-## 9. Footage Control: 1-Click Ban & History Filter
+## 11. Footage Control: 1-Click Ban & History Filter
 
-1. **1-Click Video Ban (`🚫 Ban`)**:
+1. **1-Click Video Ban (`<Ban /> Ban`)**:
    - Present on candidate cards and inside the full video preview modal.
    - Banning instantly removes clip from UI and saves record with `is_approved = False` in SQLite so it is **never fetched or recommended again**.
 2. **Exclude Past History Filter**:
@@ -130,14 +160,14 @@ All nature environment presets use punchy single titles without ampersands (`&`)
 
 ---
 
-## 10. React Portal Rule for Modals
+## 12. React Portal Rule for Modals
 
 - **ALWAYS** render floating modals, preview players, and drawers using **`createPortal(jsx, document.body)`**.
 - Standard modal layout:
   ```tsx
   createPortal(
     <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in">
-      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 my-auto">
+      <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl p-6 my-auto">
         ...
       </div>
     </div>,

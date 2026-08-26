@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
-  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban
+  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban,
+  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass
 } from 'lucide-react';
 import { CandidateItem } from '../types';
 
@@ -20,35 +21,40 @@ const renderShotTypeBadge = (shotType?: string) => {
   const st = (shotType || 'wide_vista').toLowerCase();
   if (st.includes('macro') || st.includes('close')) {
     return (
-      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600/90 text-white shadow backdrop-blur-md">
-        🔍 Macro
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-600/90 text-white shadow backdrop-blur-md">
+        <SearchIcon className="w-2.5 h-2.5" />
+        <span>Macro</span>
       </span>
     );
   }
   if (st.includes('low') || st.includes('ground')) {
     return (
-      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-600/90 text-white shadow backdrop-blur-md">
-        🌱 Low Angle
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-600/90 text-white shadow backdrop-blur-md">
+        <Leaf className="w-2.5 h-2.5" />
+        <span>Low Angle</span>
       </span>
     );
   }
   if (st.includes('still') || st.includes('ambient') || st.includes('static')) {
     return (
-      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-700/90 text-white shadow backdrop-blur-md">
-        🧘 Still Ambient
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-cyan-700/90 text-white shadow backdrop-blur-md">
+        <Clock className="w-2.5 h-2.5" />
+        <span>Still</span>
       </span>
     );
   }
   if (st.includes('glide') || st.includes('pan') || st.includes('drift')) {
     return (
-      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-600/90 text-white shadow backdrop-blur-md">
-        ✨ Slow Glide
+      <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-600/90 text-white shadow backdrop-blur-md">
+        <Waves className="w-2.5 h-2.5" />
+        <span>Slow Glide</span>
       </span>
     );
   }
   return (
-    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-stone-950 shadow backdrop-blur-md">
-      🏔️ Wide Vista
+    <span className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500 text-stone-950 shadow backdrop-blur-md">
+      <Mountain className="w-2.5 h-2.5" />
+      <span>Wide Vista</span>
     </span>
   );
 };

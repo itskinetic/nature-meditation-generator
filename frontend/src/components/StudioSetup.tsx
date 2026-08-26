@@ -297,7 +297,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
           >
             <Wand2 className="w-3.5 h-3.5" />
-            <span>{isPlanningAI ? 'Analyzing Script...' : '✨ Analyze & Suggest Themes'}</span>
+            <span>{isPlanningAI ? 'Analyzing Script...' : 'Analyze & Suggest Themes'}</span>
           </button>
         </div>
 
@@ -389,7 +389,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         {/* Active Themes Review List */}
         {selectedList.length === 0 ? (
           <div className="py-6 text-center text-xs text-stone-500 dark:text-stone-400">
-            No themes active. Click <strong>"✨ Analyze & Suggest Themes"</strong> above or pick themes from the manual list below.
+            No themes active. Click <strong>"Analyze & Suggest Themes"</strong> above or pick themes from the manual list below.
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
@@ -627,10 +627,10 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             onChange={(e) => updateSetting('shot_preference', e.target.value as any)}
             className="w-full h-10 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
           >
-            <option value="balanced">🎬 Balanced Variety</option>
-            <option value="macro">🔍 Mindful Close-Ups</option>
-            <option value="still">🧘 Deep Stillness</option>
-            <option value="wide">🏔️ Expansive Vistas</option>
+            <option value="balanced">Balanced Variety</option>
+            <option value="macro">Mindful Close-Ups</option>
+            <option value="still">Deep Stillness</option>
+            <option value="wide">Expansive Vistas</option>
           </select>
         </div>
 
