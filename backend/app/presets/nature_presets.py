@@ -358,6 +358,54 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         subthemes=["fern canyon walls", "mossy rock alcove", "sunlit fern fronds", "lush forest hollow"],
         preferred_colors=["fern green", "moss emerald", "spring jade", "sunlit gold"]
     ),
+    "starry_night": EnvironmentTheme(
+        id="starry_night",
+        name="Starry Night Sky",
+        icon="",
+        category="Night",
+        description="Peaceful clear night skies, calm twinkling stars, and deep serene cosmos",
+        queries=[
+            "peaceful starry night sky stars",
+            "calm clear starry night horizon",
+            "gentle night sky stars nature",
+            "still night sky peaceful stars",
+            "tranquil starry night landscape"
+        ],
+        subthemes=["starry night sky", "gentle stars", "peaceful cosmic sky", "clear night horizon"],
+        preferred_colors=["midnight blue", "deep indigo", "starlight gold", "soft silver"]
+    ),
+    "moonlit_water": EnvironmentTheme(
+        id="moonlit_water",
+        name="Moonlit Calm Waters",
+        icon="",
+        category="Night",
+        description="Gentle silver moonlight reflecting on placid lakes and calm dark ocean waters",
+        queries=[
+            "calm water moonlight reflection",
+            "peaceful moonlit lake still water",
+            "gentle moon reflection ocean calm",
+            "still night lake water calm",
+            "serene moonlit ocean ripples"
+        ],
+        subthemes=["moonlight on water", "calm moonlit lake", "silver water reflection", "serene night ocean"],
+        preferred_colors=["silver white", "deep navy", "moonlit pearl", "ocean indigo"]
+    ),
+    "night_forest": EnvironmentTheme(
+        id="night_forest",
+        name="Night Forest Stillness",
+        icon="",
+        category="Night",
+        description="Serene pine trees silhouetted against deep starry night skies and peaceful dusk",
+        queries=[
+            "peaceful night forest trees stars",
+            "calm pine trees night sky",
+            "serene twilight forest calm",
+            "quiet night woods stars landscape",
+            "peaceful dark forest canopy stars"
+        ],
+        subthemes=["night pine silhouette", "forest night sky", "peaceful night woods", "twilight forest"],
+        preferred_colors=["pine shadow", "midnight indigo", "soft starlight", "deep forest blue"]
+    ),
 }
 
 # Compatibility dictionary for preset lookups by id and legacy names

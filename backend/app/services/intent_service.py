@@ -46,58 +46,65 @@ class IntentService:
         target_clips: int
     ) -> Optional[IntentAnalysisResult]:
         prompt = f"""
-You are an expert AI Video Creative Director for a relaxing nature meditation video channel.
-Analyze the meditation content, and plan a bright, uplifting, peaceful visual journey composed of 3 to 5 distinct nature environment scenes.
+You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
+Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, and mood, then intelligently select 3 to 5 matching nature environment scenes.
 
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
 Target Total Video Clips Needed: {target_clips}
 
-IMPORTANT VISUAL DIRECTIVE:
-- ALL scenes must be visually bright, softly sunlit, vibrant, clear, and serene.
-- STRICTLY EXCLUDE gloomy, dark, dreary, overcast, foggy-grey, stormy, or shadowy footage.
-- Choose a diverse variety of environments (e.g. mix forests, wildflower meadows, crystal lakes, sunrise valleys, or turquoise oceans).
+DIRECTOR RULES:
+- TIME & ATMOSPHERE MATCHING:
+  * If the meditation is for Sleep, Rest, Deep Relaxation, Night, Bedtime, Slumber, or Wind-down:
+    Prioritize peaceful night skies with stars, serene moonlit waters, sunset twilight horizons, and quiet night pine stillness.
+  * If the meditation is for Morning, Waking, Energy, Gratitude, or Daytime Focus:
+    Prioritize golden sunrise valleys, bright sunlit forest paths, wildflower meadows, and alpine mountain vistas.
+  * If the meditation is for Emotional Healing, Self-Love, Grief, or Calm:
+    Prioritize soothing turquoise ocean ripples, blooming lotus ponds, gentle pebble streams, and tranquil fern canyons.
+  * If the meditation is for Zen, Mindfulness, Breathwork, or Deep Grounding:
+    Prioritize green bamboo groves, still mirror mountain lakes, and gentle sand ripples.
+- Visual Quality: Always ensure footage is calm, crystal clear, aesthetically pleasing, and free of people, buildings, vehicles, boats, fast movement, and text.
 
 Return ONLY valid JSON matching this schema:
 {{
-  "intent": "emotional softening and peaceful inner spaciousness",
-  "mood": ["peaceful", "gentle", "warm", "spacious", "uplifting"],
+  "intent": "gentle calming of the nervous system and deep restful sleep",
+  "mood": ["restful", "peaceful", "calm", "soothing", "serene"],
   "energy_level": "very low",
-  "visual_style": "bright softly-sunlit natural landscape",
-  "preferred_colors": ["warm gold", "fresh green", "turquoise blue", "soft white"],
-  "visual_motifs": ["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle morning light"],
-  "avoid_visuals": ["raw footage", "log profile", "flat color", "ungraded", "grey", "gray", "dull", "washed out", "desaturated", "drab", "gloomy", "dark", "overcast", "dreary", "depressing", "storms", "people", "buildings", "vehicles", "timelapse", "text"],
-  "generated_queries": ["sunlight through forest trees", "sunlit wildflower meadow", "crystal clear calm sea", "still alpine lake reflection"],
+  "visual_style": "peaceful starry night skies and calm moonlit waters",
+  "preferred_colors": ["midnight blue", "soft silver", "starlight gold", "deep navy"],
+  "visual_motifs": ["clear starry night sky", "gentle moonlight reflecting on lake", "silhouetted pine trees under stars"],
+  "avoid_visuals": ["boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "generated_queries": ["peaceful starry night sky stars", "calm water moonlight reflection", "still night lake water calm"],
   "planned_environments": [
     {{
-      "id": "sunlit_forest",
-      "name": "Sunlit Forest & Woodland Canopy",
+      "id": "starry_night",
+      "name": "Starry Night Sky",
+      "icon": "✨",
+      "keywords": ["peaceful starry night sky stars", "calm clear starry night horizon", "gentle night sky stars nature"],
+      "suggested_clips": 4,
+      "enabled": true
+    }},
+    {{
+      "id": "moonlit_water",
+      "name": "Moonlit Calm Waters",
+      "icon": "🌙",
+      "keywords": ["calm water moonlight reflection", "peaceful moonlit lake still water", "gentle moon reflection ocean calm"],
+      "suggested_clips": 4,
+      "enabled": true
+    }},
+    {{
+      "id": "sunset_twilight",
+      "name": "Sunset Twilight",
+      "icon": "🌅",
+      "keywords": ["soft pastel sunset sky ocean", "gentle golden evening horizon calm", "calm sunset lake reflection soft glow"],
+      "suggested_clips": 4,
+      "enabled": true
+    }},
+    {{
+      "id": "night_forest",
+      "name": "Night Forest Stillness",
       "icon": "🌲",
-      "keywords": ["sunlight through forest trees", "bright green woodland canopy", "sunlit quiet forest path"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "wildflower_meadow",
-      "name": "Sun-Drenched Wildflower Meadow",
-      "icon": "🌸",
-      "keywords": ["sunlit wildflower meadow", "blooming wildflower field", "gentle breeze colorful meadow"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "mountain_lake",
-      "name": "Crystal Mountain Lakes",
-      "icon": "🏞️",
-      "keywords": ["still alpine lake reflection", "crystal clear mountain lake", "peaceful lake shore"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "calm_ocean",
-      "name": "Calm Ocean & Turquoise Waves",
-      "icon": "🌊",
-      "keywords": ["crystal clear calm sea", "calm turquoise shoreline", "gentle shallow sea ripples"],
+      "keywords": ["peaceful night forest trees stars", "calm pine trees night sky", "quiet night woods stars landscape"],
       "suggested_clips": 4,
       "enabled": true
     }}
@@ -129,39 +136,81 @@ Return ONLY valid JSON matching this schema:
     ) -> IntentAnalysisResult:
         combined = f"{title or ''} {script or ''}".lower()
 
-        # Extract emotional intent
+        # 1. Detect Intent, Mood & Thematic Category
         if manual_intent and manual_intent.strip():
             intent = manual_intent.strip()
-        elif "heart" in combined or "soften" in combined:
-            intent = "emotional softening, warmth, and peaceful self-acceptance"
-        elif "sleep" in combined or "rest" in combined:
-            intent = "gentle calming of the nervous system and serene tranquility"
-        elif "clarity" in combined or "focus" in combined:
-            intent = "gentle mental clarity and spacious daytime peace"
-        else:
-            intent = "peaceful grounding, bright warmth, and deep relaxation"
+            mood = manual_mood or ["peaceful", "warm", "gentle", "soothing"]
+            visual_style = "calm, crystal-clear serene nature landscape"
+            pref_colors = ["soft green", "warm gold", "turquoise blue", "soft white"]
+            motifs = ["sunbeams through green trees", "blooming wildflowers", "crystal clear water"]
+            keys = ["sunlit_forest", "wildflower_meadow", "mountain_lake", "calm_ocean"]
 
-        # Determine moods
-        mood = manual_mood if (manual_mood and len(manual_mood) > 0) else ["peaceful", "warm", "gentle", "spacious", "uplifting"]
+        # SLEEP / REST / NIGHT / EVENING
+        elif any(w in combined for w in ["rest", "sleep", "night", "bed", "evening", "slumber", "dream", "moon", "twilight", "dusk", "darkness", "insomnia", "tired", "recharge"]):
+            intent = "deep nervous system relaxation, peaceful evening rest, and gentle sleep"
+            mood = ["restful", "peaceful", "serene", "calm", "soothing"]
+            visual_style = "peaceful starry night skies, soft twilight horizons, and tranquil moonlit waters"
+            pref_colors = ["midnight blue", "soft silver", "starlight gold", "lavender twilight"]
+            motifs = ["peaceful starry night sky", "gentle moonlit lake reflections", "silhouetted pine canopy under stars", "soft evening twilight glow"]
+            keys = ["starry_night", "moonlit_water", "sunset_twilight", "night_forest"]
 
-        # Select 4 complementary bright environments from the 20 available
-        selected_envs = []
-        if "ocean" in combined or "beach" in combined or "sea" in combined:
-            keys = ["calm_ocean", "sandy_beach", "tropical_lagoons", "sunset_twilight"]
-        elif "mountain" in combined or "lake" in combined or "stream" in combined:
-            keys = ["mountain_lake", "cascading_waterfalls", "alpine_valleys", "sunlit_forest"]
-        elif "meadow" in combined or "flower" in combined or "grass" in combined:
-            keys = ["wildflower_meadow", "golden_grasslands", "cherry_blossoms", "golden_sunrise"]
-        elif "zen" in combined or "bamboo" in combined or "lotus" in combined:
-            keys = ["bamboo_groves", "lotus_ponds", "fern_canyon", "sunlit_forest"]
-        elif "autumn" in combined or "fall" in combined:
-            keys = ["autumn_woodlands", "golden_sunrise", "riverbed_pebbles", "mountain_lake"]
+        # MORNING / SUNRISE / AWAKEN / ENERGY / CLARITY
+        elif any(w in combined for w in ["morning", "sunrise", "dawn", "awaken", "awake", "energy", "vitality", "start", "day", "clarity", "focus", "shine"]):
+            intent = "energizing morning presence, mental clarity, and bright uplifting peace"
+            mood = ["uplifting", "radiant", "peaceful", "warm", "spacious"]
+            visual_style = "bright golden sunrise light, sun-dappled forests, and vibrant alpine vistas"
+            pref_colors = ["warm gold", "fresh emerald", "sky blue", "amber yellow"]
+            motifs = ["golden sunrise over rolling hills", "sunbeams through green trees", "dew drops on lush grass", "crystal clear mountain vistas"]
+            keys = ["golden_sunrise", "sunlit_forest", "wildflower_meadow", "alpine_valleys"]
+
+        # HEART / EMOTIONAL HEALING / LOVE / COMPASSION / GRIEF / SOFTEN
+        elif any(w in combined for w in ["heart", "soften", "heal", "healing", "love", "compassion", "grief", "forgive", "kindness", "gentle", "embrace"]):
+            intent = "emotional softening, warmth, inner self-compassion, and gentle presence"
+            mood = ["gentle", "warm", "comforting", "peaceful", "tender"]
+            visual_style = "soft pastel landscapes, soothing turquoise waves, and blooming lotus flowers"
+            pref_colors = ["soft rose", "lotus pink", "turquoise blue", "warm amber"]
+            motifs = ["gentle turquoise ocean waves", "blooming pink water lilies", "delicate cherry blossoms", "warm sunlit meadows"]
+            keys = ["calm_ocean", "lotus_ponds", "wildflower_meadow", "cherry_blossoms"]
+
+        # WATER / OCEAN / SEA / BEACH / WAVES / RIVERS
+        elif any(w in combined for w in ["ocean", "sea", "beach", "water", "waves", "shore", "tide", "coast", "lagoon"]):
+            intent = "soothing aquatic stillness, rhythmic wave breathing, and fluid peace"
+            mood = ["flowing", "peaceful", "spacious", "refreshing", "calm"]
+            visual_style = "crystal clear turquoise water, gentle sand ripples, and pristine shorelines"
+            pref_colors = ["turquoise", "azure blue", "golden sand", "seafoam white"]
+            motifs = ["crystal clear shallow ocean ripples", "gentle beach shoreline", "smooth river pebbles in clear water", "tropical turquoise lagoon"]
+            keys = ["calm_ocean", "sandy_beach", "tropical_lagoons", "riverbed_pebbles"]
+
+        # ZEN / MINDFULNESS / MEDITATION / STILLNESS / BREATH / GROUNDING
+        elif any(w in combined for w in ["zen", "mindful", "mindfulness", "breath", "breathe", "still", "stillness", "ground", "grounding", "space", "spacious", "center"]):
+            intent = "deep grounding presence, mindful breath awareness, and serene inner stillness"
+            mood = ["grounded", "still", "spacious", "tranquil", "peaceful"]
+            visual_style = "zen bamboo groves, mirror-like mountain lakes, and tranquil moss gardens"
+            pref_colors = ["bamboo green", "slate grey", "sapphire blue", "moss emerald"]
+            motifs = ["gently swaying tall bamboo", "still mirror mountain lake reflection", "smooth river stones", "lush fern alcoves"]
+            keys = ["bamboo_groves", "mountain_lake", "riverbed_pebbles", "fern_canyon"]
+
+        # AUTUMN / FOREST / NATURE WOODS
+        elif any(w in combined for w in ["autumn", "fall", "forest", "woods", "trees", "rainforest", "woodland"]):
+            intent = "peaceful woodland shelter, grounding earth connection, and leafy tranquility"
+            mood = ["grounded", "peaceful", "sheltered", "warm", "serene"]
+            visual_style = "lush green canopies, sunlit mossy paths, and golden autumn leaves"
+            pref_colors = ["emerald green", "autumn gold", "warm amber", "moss jade"]
+            motifs = ["sunbeams through green trees", "golden autumn maple leaves", "lush tropical rainforest canopy", "mossy fern hollows"]
+            keys = ["sunlit_forest", "autumn_woodlands", "lush_rainforest", "fern_canyon"]
+
+        # DEFAULT BALANCED HARMONY
         else:
-            # Default balanced diverse nature journey
+            intent = "peaceful grounding, bright warmth, and deep holistic relaxation"
+            mood = ["peaceful", "warm", "gentle", "spacious", "uplifting"]
+            visual_style = "crystal-clear serene nature landscape with balanced forest, meadow, and water"
+            pref_colors = ["warm gold", "fresh green", "turquoise blue", "soft white"]
+            motifs = ["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle daytime light"]
             keys = ["sunlit_forest", "wildflower_meadow", "mountain_lake", "calm_ocean"]
 
         clips_per_env = max(2, target_clips // len(keys))
         all_queries = []
+        selected_envs = []
 
         for k in keys:
             env_def = NATURE_ENVIRONMENTS.get(k)
@@ -178,11 +227,11 @@ Return ONLY valid JSON matching this schema:
 
         return IntentAnalysisResult(
             intent=intent,
-            mood=mood,
+            mood=manual_mood if (manual_mood and len(manual_mood) > 0) else mood,
             energy_level="very low",
-            visual_style="bright, sunlit, crystal-clear serene nature landscape",
-            preferred_colors=["warm gold", "fresh green", "turquoise blue", "soft white"],
-            visual_motifs=["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle morning light"],
+            visual_style=visual_style,
+            preferred_colors=pref_colors,
+            visual_motifs=motifs,
             avoid_visuals=[
                 "boat", "boats", "ship", "ships", "yacht", "vessel", "canoe", "kayak", "speedboat", "motorboat", "jetski", "sailing", "ferry",
                 "dock", "docks", "pier", "piers", "marina", "harbor", "harbour", "port", "wharf", "jetty",
@@ -191,8 +240,8 @@ Return ONLY valid JSON matching this schema:
                 "people", "person", "swimmer", "tourist", "tourists", "diver", "man", "woman", "human",
                 "algae", "marsh", "swamp", "sludge", "scum", "murky", "muddy", "stagnant",
                 "raw", "log footage", "flat profile", "ungraded", "dull", "desaturated",
-                "washed out", "drab", "lifeless", "gloomy", "dark", "overcast", "grey", "gray",
-                "dreary", "depressing", "bleak", "foggy dark", "night", "shadowy", "storms",
+                "washed out", "drab", "lifeless", "gloomy", "overcast", "grey", "gray",
+                "dreary", "depressing", "bleak", "storms",
                 "timelapse", "text"
             ],
             generated_queries=all_queries,

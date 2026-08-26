@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Cloud,
+  Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Moon, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
   Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye
 } from 'lucide-react';
@@ -16,10 +16,16 @@ export interface IntentPreset {
 
 export const INTENT_PRESETS: IntentPreset[] = [
   {
+    id: 'deep_rest',
+    name: 'Deep Rest & Night Slumber',
+    tagline: 'Starry night skies, moonlit waters & twilight stillness',
+    themeIds: ['starry_night', 'moonlit_water', 'sunset_twilight', 'night_forest'],
+  },
+  {
     id: 'heart_opening',
     name: 'Heart Opening & Peace',
-    tagline: 'Gentle warmth, blooming petals & sunlit foliage',
-    themeIds: ['wildflower_meadow', 'cherry_blossoms', 'calm_ocean', 'sunlit_forest'],
+    tagline: 'Soft ocean waves, blooming lotus & cherry blossoms',
+    themeIds: ['calm_ocean', 'lotus_ponds', 'wildflower_meadow', 'cherry_blossoms'],
   },
   {
     id: 'deep_sleep',
@@ -28,15 +34,15 @@ export const INTENT_PRESETS: IntentPreset[] = [
     themeIds: ['calm_ocean', 'ethereal_clouds', 'sunset_twilight', 'mountain_lake'],
   },
   {
-    id: 'zen_mindfulness',
-    name: 'Zen Focus & Stillness',
-    tagline: 'Tranquil bamboo, lotus ponds & quiet stream stones',
-    themeIds: ['bamboo_groves', 'lotus_ponds', 'riverbed_pebbles', 'fern_canyon'],
+    id: 'mindful_presence',
+    name: 'Mindful Presence & Calm',
+    tagline: 'Bamboo groves, fern canyons & smooth pebble streams',
+    themeIds: ['bamboo_groves', 'fern_canyon', 'riverbed_pebbles', 'mountain_lake'],
   },
   {
     id: 'morning_vitality',
-    name: 'Morning Vitality & Light',
-    tagline: 'Golden morning light, cascades & sun-drenched hills',
+    name: 'Morning Awakening',
+    tagline: 'Golden sunrise, sunlit forests & cascading streams',
     themeIds: ['golden_sunrise', 'cascading_waterfalls', 'golden_grasslands', 'sunlit_forest'],
   },
   {
@@ -64,6 +70,9 @@ const renderNatureIcon = (category: string, id: string) => {
   const nameId = (id || '').toLowerCase();
   const iconClass = "w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0";
 
+  if (cat.includes('night') || nameId.includes('night') || nameId.includes('star') || nameId.includes('moon')) {
+    return <Moon className={iconClass} />;
+  }
   if (cat.includes('forest') || nameId.includes('woodland') || nameId.includes('tree') || nameId.includes('rainforest')) {
     return <Trees className={iconClass} />;
   }
