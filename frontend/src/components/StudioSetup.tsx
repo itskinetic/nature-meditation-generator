@@ -319,8 +319,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           </div>
         </div>
 
-        {/* Action button placed directly below the inputs */}
-        <div className="flex justify-end pt-0.5">
+        {/* Action button placed directly below the inputs (left-aligned) */}
+        <div className="flex justify-start pt-0.5">
           <button
             type="button"
             onClick={onAutoPlanAI}
