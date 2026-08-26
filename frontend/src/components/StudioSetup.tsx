@@ -392,15 +392,15 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             No themes active. Click <strong>"Analyze & Suggest Themes"</strong> above or pick themes from the manual list below.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             {selectedList.map((item) => (
               <div
                 key={item.id}
-                className="h-9 flex items-center justify-between px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors"
+                className="h-9 flex items-center justify-between gap-2.5 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors shrink-0"
               >
-                <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
                   {renderNatureIcon(item.category, item.id)}
-                  <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
+                  <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
                     {item.name}
                   </span>
                 </div>
@@ -411,17 +411,17 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                     <button
                       type="button"
                       onClick={() => updateClipCount(item.id, item.clipCount - 1)}
-                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5"
+                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
                     >
                       -
                     </button>
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3 text-center">
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
                       {item.clipCount}
                     </span>
                     <button
                       type="button"
                       onClick={() => updateClipCount(item.id, item.clipCount + 1)}
-                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5"
+                      className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
                     >
                       +
                     </button>
@@ -432,7 +432,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                     type="button"
                     onClick={() => removeNature(item.id)}
                     title="Remove theme from plan"
-                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                    className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
