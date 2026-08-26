@@ -664,7 +664,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           type="button"
           onClick={onSearchFootage}
           disabled={isSearching || selectedList.length === 0}
-          className="w-full sm:w-auto h-11 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer shrink-0"
+          className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0"
         >
           <Search className="w-3.5 h-3.5" />
           <span>{isSearching ? 'Searching & Evaluating Footage...' : `Fetch Footage for Plan (${totalAllocatedClips} clips)`}</span>

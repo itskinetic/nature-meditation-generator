@@ -465,7 +465,7 @@ export function App() {
                   <button
                     onClick={() => generateMutation.mutate()}
                     disabled={generateMutation.isPending || !title.trim()}
-                    className="w-full sm:w-auto h-11 px-6 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                    className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-stone-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     <Play className="w-3.5 h-3.5 fill-stone-950" />
                     <span>{generateMutation.isPending ? 'Queuing Video Job...' : 'Queue for Render'}</span>
