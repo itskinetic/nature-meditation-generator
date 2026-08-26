@@ -551,26 +551,26 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       </div>
 
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
         {/* Target Duration */}
-        <div className="space-y-1.5">
+        <div className="lg:col-span-2 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Target Duration
           </label>
-          <div className="flex h-9 w-36 max-w-[145px] rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 overflow-hidden focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
+          <div className="flex h-9 w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 overflow-hidden focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
             <input
               type="number"
               min={1}
               max={360}
               value={settings.target_duration}
               onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-16 h-full bg-transparent px-3 text-xs font-semibold text-stone-900 dark:text-white focus:outline-none"
+              className="w-1/2 h-full bg-transparent px-3 text-xs font-semibold text-stone-900 dark:text-white focus:outline-none"
             />
             <div className="w-[1px] h-4 my-auto bg-stone-300 dark:bg-stone-800" />
             <select
               value={settings.duration_unit}
               onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-              className="flex-1 h-full bg-transparent px-2 text-xs font-medium text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
+              className="w-1/2 h-full bg-transparent px-1.5 text-xs font-medium text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
             >
               <option value="minutes">Mins</option>
               <option value="hours">Hours</option>
@@ -579,11 +579,11 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Format & Quality */}
-        <div className="space-y-1.5">
+        <div className="lg:col-span-4 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Format & Quality
           </label>
-          <div className="flex h-9 gap-1.5">
+          <div className="flex h-9 gap-1.5 w-full">
             <div className="flex-1 p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex items-center gap-0.5">
               {(['16:9', '9:16', '1:1'] as const).map((ar) => (
                 <button
@@ -620,7 +620,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Shot Diversity Selector */}
-        <div className="space-y-1.5">
+        <div className="lg:col-span-3 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Cinematic Shot Cadence
           </label>
@@ -637,7 +637,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* History Control Toggle */}
-        <div className="space-y-1.5">
+        <div className="lg:col-span-3 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             History Filter
           </label>
