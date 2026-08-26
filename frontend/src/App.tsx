@@ -312,12 +312,18 @@ export function App() {
     },
   });
 
-  // Music Upload Mutation
+  // Music / Voiceover Audio Upload Mutation
   const musicUploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadMusic(file),
     onSuccess: (data) => {
-      setSettings((prev) => ({ ...prev, music_file: data.filename, audio_mode: 'upload' }));
-      setCustomMusicName(data.filename);
+      const durMins = data.duration_minutes || (data.duration_seconds > 0 ? Math.max(1, Math.round(data.duration_seconds / 60)) : settings.target_duration);
+      setSettings((prev) => ({
+        ...prev,
+        music_file: data.filename,
+        audio_mode: 'upload',
+        target_duration: durMins,
+      }));
+      setCustomMusicName(data.original_name || data.filename);
     },
   });
 

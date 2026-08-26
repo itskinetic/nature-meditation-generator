@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
+import shutil
 import uuid
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -1039,12 +1040,24 @@ async def webhook_generate(
 
 
 @router.post("/music/upload")
+@router.post("/upload/music")
 async def upload_music(file: UploadFile = File(...)):
     filename = f"{uuid.uuid4().hex[:8]}_{file.filename}"
     target_path = settings.MUSIC_DIR / filename
     with open(target_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
-    return {"filename": filename, "path": str(target_path)}
+
+    probe = await ffmpeg_service.probe_file(target_path)
+    dur_seconds = float(probe.get("duration", 0.0))
+    dur_minutes = max(1, round(dur_seconds / 60.0)) if dur_seconds > 60 else round(dur_seconds, 1)
+
+    return {
+        "filename": filename,
+        "original_name": file.filename,
+        "path": str(target_path),
+        "duration_seconds": dur_seconds,
+        "duration_minutes": dur_minutes
+    }
 
 
 @router.post("/cleanup")

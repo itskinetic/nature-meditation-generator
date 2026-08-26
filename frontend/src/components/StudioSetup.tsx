@@ -899,7 +899,12 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
 
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                    fileInputRef.current.click();
+                  }
+                }}
                 className={`h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
                   settings.audio_mode === 'upload'
                     ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs'
@@ -919,6 +924,45 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Uploaded Audio Confirmation Banner */}
+          {settings.audio_mode === 'upload' && customMusicName && (
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-amber-100/60 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800/60 text-xs animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <Music className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
+                <span className="font-semibold text-stone-900 dark:text-stone-100 truncate">{customMusicName}</span>
+                <span className="px-2 py-0.5 rounded-md bg-amber-200/70 dark:bg-amber-900/60 text-[10px] font-bold text-amber-950 dark:text-amber-200">
+                  Target synced to {settings.target_duration} mins
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  className="text-[11px] font-medium text-amber-800 dark:text-amber-300 hover:underline cursor-pointer"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateSetting('music_file', undefined);
+                    updateSetting('audio_mode', 'none');
+                  }}
+                  className="text-[11px] font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

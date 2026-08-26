@@ -156,10 +156,16 @@ export const api = {
     return res.json();
   },
 
-  async uploadMusic(file: File): Promise<{ filename: string; path: string }> {
+  async uploadMusic(file: File): Promise<{
+    filename: string;
+    original_name: string;
+    path: string;
+    duration_seconds: number;
+    duration_minutes: number;
+  }> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${API_BASE}/upload/music`, {
+    const res = await fetch(`${API_BASE}/music/upload`, {
       method: 'POST',
       body: formData,
     });
