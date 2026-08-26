@@ -556,20 +556,20 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Target Duration
           </label>
-          <div className="flex h-9 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 overflow-hidden focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
+          <div className="flex h-9 w-36 max-w-[145px] rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 overflow-hidden focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
             <input
               type="number"
               min={1}
               max={360}
               value={settings.target_duration}
               onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-1/2 h-full bg-transparent px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none"
+              className="w-16 h-full bg-transparent px-3 text-xs font-bold text-stone-900 dark:text-white focus:outline-none"
             />
             <div className="w-[1px] h-4 my-auto bg-stone-300 dark:bg-stone-800" />
             <select
               value={settings.duration_unit}
               onChange={(e) => updateSetting('duration_unit', e.target.value as any)}
-              className="w-1/2 h-full bg-transparent px-2 text-xs font-semibold text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
+              className="flex-1 h-full bg-transparent px-2 text-xs font-semibold text-stone-700 dark:text-stone-300 focus:outline-none cursor-pointer"
             >
               <option value="minutes">Mins</option>
               <option value="hours">Hours</option>
