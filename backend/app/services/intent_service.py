@@ -66,7 +66,7 @@ Return ONLY valid JSON matching this schema:
   "visual_style": "bright softly-sunlit natural landscape",
   "preferred_colors": ["warm gold", "fresh green", "turquoise blue", "soft white"],
   "visual_motifs": ["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle morning light"],
-  "avoid_visuals": ["gloomy", "dark", "overcast", "grey", "dreary", "depressing", "storms", "people", "buildings", "vehicles", "timelapse", "text"],
+  "avoid_visuals": ["raw footage", "log profile", "flat color", "ungraded", "grey", "gray", "dull", "washed out", "desaturated", "drab", "gloomy", "dark", "overcast", "dreary", "depressing", "storms", "people", "buildings", "vehicles", "timelapse", "text"],
   "generated_queries": ["sunlight through forest trees", "sunlit wildflower meadow", "crystal clear calm sea", "still alpine lake reflection"],
   "planned_environments": [
     {{
@@ -184,9 +184,10 @@ Return ONLY valid JSON matching this schema:
             preferred_colors=["warm gold", "fresh green", "turquoise blue", "soft white"],
             visual_motifs=["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle morning light"],
             avoid_visuals=[
-                "gloomy", "dark", "overcast", "grey", "dreary", "depressing", "bleak",
-                "foggy dark", "night", "shadowy", "storms", "people", "buildings",
-                "vehicles", "timelapse", "text"
+                "raw", "log footage", "flat profile", "ungraded", "dull", "desaturated",
+                "washed out", "drab", "lifeless", "gloomy", "dark", "overcast", "grey", "gray",
+                "dreary", "depressing", "bleak", "foggy dark", "night", "shadowy", "storms",
+                "people", "buildings", "vehicles", "timelapse", "text"
             ],
             generated_queries=all_queries,
             planned_environments=selected_envs

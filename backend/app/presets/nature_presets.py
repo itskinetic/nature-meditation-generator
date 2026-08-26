@@ -11,7 +11,9 @@ class EnvironmentTheme(BaseModel):
     queries: List[str]
     subthemes: List[str]
     negative_terms: List[str] = [
-        "gloomy", "dark", "overcast", "grey", "dreary", "depressing", "bleak",
+        "raw", "raw video", "log footage", "slog", "s-log", "flat profile", "ungraded", "uncolored", "flat color",
+        "grey", "gray", "dull", "desaturated", "washed out", "drab", "monochrome", "lifeless", "murky", "muddy", "faded",
+        "gloomy", "dark", "overcast", "dreary", "depressing", "bleak",
         "foggy dark", "night", "shadowy", "people", "person", "animal", "bird",
         "building", "house", "road", "car", "vehicle", "city", "crowd", "traffic",
         "storm", "lightning", "surfing", "timelapse", "hyperlapse", "fast movement",

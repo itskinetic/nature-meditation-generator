@@ -55,12 +55,17 @@ Preset Name: {preset.name if preset else 'General Nature'}
 Keep the video ONLY if:
 - it fits the emotional intent
 - it fits the visual theme
+- the colors are vibrant, natural, bright, and pleasing (NOT raw footage, NOT flat/LOG profile, NOT dull, NOT grey, NOT washed-out)
 - the atmosphere is peaceful and spacious
 - the movement is slow and subtle
 - the lighting is soft and natural
 - there are no people, animals, buildings, vehicles, crowds, text, or logos
 - there is no storm, dramatic action, fast camera movement, or timelapse
 - the scene is not visually harsh, chaotic, or distracting
+
+STRICT REJECTION CRITERIA:
+- Reject RAW camera footage, unedited LOG profiles, flat color profiles, or washed-out ungraded video.
+- Reject dull, muddy, grey, overcast-grey, or lifeless desaturated visuals.
 
 Return ONLY valid JSON matching this schema:
 {{
