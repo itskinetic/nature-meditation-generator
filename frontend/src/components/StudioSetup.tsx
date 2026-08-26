@@ -465,7 +465,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             <span>{isPlanningAI ? 'Analyzing Concept...' : (isDocMode ? 'AI Director: Plan Wildlife Scenes' : 'Analyze & Suggest Themes')}</span>
           </button>
 
-          {onBreakdownStoryboard && (
+          {isDocMode && onBreakdownStoryboard && (
             <button
               type="button"
               onClick={onBreakdownStoryboard}
@@ -479,8 +479,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
       </div>
 
-      {/* Visual Storyboard Beats Timeline (When script beats are extracted) */}
-      {storyboardBeats && storyboardBeats.length > 0 && (
+      {/* Visual Storyboard Beats Timeline (Strictly in Wildlife Documentary mode) */}
+      {isDocMode && storyboardBeats && storyboardBeats.length > 0 && (
         <StoryboardBeatTimeline
           beats={storyboardBeats}
           candidates={candidates}
