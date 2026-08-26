@@ -24,7 +24,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
   if (!isOpen) return null;
 
   const renderingJobs = activeJobs.filter((j) =>
-    ['rendering', 'stitching', 'downloading', 'analyzing', 'evaluating'].includes(j.status)
+    ['rendering', 'stitching', 'downloading', 'analyzing', 'evaluating', 'searching', 'scoring'].includes(j.status)
   );
   const queuedJobs = activeJobs.filter((j) =>
     ['pending', 'queued'].includes(j.status)
