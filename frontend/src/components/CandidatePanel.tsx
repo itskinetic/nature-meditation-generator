@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
   ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban,
-  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass
+  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon
 } from 'lucide-react';
 import { CandidateItem } from '../types';
 
@@ -302,12 +302,12 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   </span>
                   {c.media_type === 'image' ? (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/90 text-stone-950 shadow backdrop-blur-md flex items-center gap-1">
-                      <span>🖼️</span>
+                      <ImageIcon className="w-2.5 h-2.5 text-stone-950" />
                       <span>Photo • Ken Burns</span>
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-600/90 text-white shadow backdrop-blur-md flex items-center gap-1">
-                      <span>🎬</span>
+                      <Film className="w-2.5 h-2.5 text-white" />
                       <span>Video</span>
                     </span>
                   )}

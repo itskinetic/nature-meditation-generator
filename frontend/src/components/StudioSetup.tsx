@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import {
   Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Moon, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
-  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye
+  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye, Film, Image as ImageIcon, Layers
 } from 'lucide-react';
 import { GenerationRequest, Preset, IntentAnalysisResult } from '../types';
 import { SelectedNatureItem } from './NatureSelector';
@@ -110,37 +110,31 @@ const renderNatureIcon = (category: string, id: string) => {
   const iconClass = "w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0";
 
   if (cat.includes('savanna') || cat.includes('lion') || nameId.includes('savanna') || nameId.includes('lion') || nameId.includes('cat')) {
-    return <span className="text-xs">🦁</span>;
+    return <Compass className={iconClass} />;
   }
   if (cat.includes('polar') || cat.includes('arctic') || nameId.includes('polar') || nameId.includes('arctic') || nameId.includes('bear')) {
-    return <span className="text-xs">🐻‍❄️</span>;
+    return <Mountain className={iconClass} />;
   }
   if (cat.includes('bird') || nameId.includes('eagle') || nameId.includes('hawk') || nameId.includes('owl') || nameId.includes('raptor')) {
-    return <span className="text-xs">🦅</span>;
+    return <Sun className={iconClass} />;
   }
   if (cat.includes('jungle') || nameId.includes('jungle') || nameId.includes('jaguar') || nameId.includes('monkey')) {
-    return <span className="text-xs">🐆</span>;
+    return <Trees className={iconClass} />;
   }
-  if (nameId.includes('whale') || nameId.includes('turtle') || nameId.includes('orca') || nameId.includes('dolphin')) {
-    return <span className="text-xs">🐋</span>;
+  if (nameId.includes('whale') || nameId.includes('turtle') || nameId.includes('orca') || nameId.includes('dolphin') || cat.includes('water') || nameId.includes('ocean')) {
+    return <Waves className={iconClass} />;
   }
   if (cat.includes('macro') || nameId.includes('insect') || nameId.includes('butterfly')) {
-    return <span className="text-xs">🦋</span>;
+    return <Sparkles className={iconClass} />;
   }
-  if (cat.includes('wetland') || nameId.includes('wetland') || nameId.includes('flamingo') || nameId.includes('otter')) {
-    return <span className="text-xs">🦩</span>;
+  if (cat.includes('wetland') || nameId.includes('wetland') || nameId.includes('flamingo') || nameId.includes('otter') || nameId.includes('stream')) {
+    return <Droplets className={iconClass} />;
   }
   if (cat.includes('night') || nameId.includes('night') || nameId.includes('star') || nameId.includes('moon')) {
     return <Moon className={iconClass} />;
   }
   if (cat.includes('forest') || nameId.includes('woodland') || nameId.includes('tree') || nameId.includes('rainforest')) {
     return <Trees className={iconClass} />;
-  }
-  if (cat.includes('water') || nameId.includes('ocean') || nameId.includes('wave') || nameId.includes('sea') || nameId.includes('beach') || nameId.includes('lagoon')) {
-    return <Waves className={iconClass} />;
-  }
-  if (nameId.includes('waterfall') || nameId.includes('cascade') || nameId.includes('stream')) {
-    return <Droplets className={iconClass} />;
   }
   if (cat.includes('mountain') || nameId.includes('lake') || nameId.includes('valley') || nameId.includes('alpine')) {
     return <Mountain className={iconClass} />;
@@ -376,7 +370,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <span>🌿</span>
+              <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Nature Meditation</span>
             </button>
             <button
@@ -392,7 +386,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
               }`}
             >
-              <span>🐾</span>
+              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <span>Wildlife Documentary</span>
             </button>
           </div>
@@ -408,42 +402,45 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               <button
                 type="button"
                 onClick={() => updateSetting('media_type', 'video')}
-                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                   (settings.media_type || 'video') === 'video'
                     ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
                     : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
                 }`}
               >
-                🎬 Video Only
+                <Film className="w-3 h-3" />
+                <span>Video Only</span>
               </button>
               <button
                 type="button"
                 onClick={() => updateSetting('media_type', 'image')}
-                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                   settings.media_type === 'image'
                     ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
                     : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
                 }`}
               >
-                🖼️ Photos Only
+                <ImageIcon className="w-3 h-3" />
+                <span>Photos Only</span>
               </button>
               <button
                 type="button"
                 onClick={() => updateSetting('media_type', 'both')}
-                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
                   settings.media_type === 'both'
                     ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 font-semibold'
                     : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
                 }`}
               >
-                ✨ Both (Video & Photo)
+                <Layers className="w-3 h-3" />
+                <span>Both (Video & Photo)</span>
               </button>
             </div>
           </div>
 
           {(settings.media_type === 'image' || settings.media_type === 'both') && (
-            <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium bg-amber-100/60 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1">
-              <span>🔍</span>
+            <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium bg-amber-100/60 dark:bg-amber-950/60 px-2.5 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" />
               <span>Smooth Ken Burns slow zoom & pan active on photos</span>
             </span>
           )}
