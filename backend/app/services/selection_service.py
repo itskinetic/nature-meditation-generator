@@ -80,11 +80,28 @@ class SelectionService:
             total_play_time = target_duration_seconds + max(0, num_clips - 1) * transition_duration
             clip_dur = max(4.0, total_play_time / max(1, num_clips))
 
+            # Track offset per source video to chunk long videos across multiple occurrences
+            video_offsets: Dict[str, float] = {}
+
             full_clip_sequence = []
             accumulated_duration = 0.0
             for idx, cand in enumerate(unique_sequence):
                 is_first = (idx == 0)
                 eff_add = clip_dur if is_first else max(1.0, clip_dur - transition_duration)
+
+                # Calculate non-overlapping start offset for this chunk
+                cand_id = cand.source_video_id
+                current_offset = video_offsets.get(cand_id, 0.0)
+                
+                # If source video is long and has remaining headroom, use current offset then advance
+                if cand.duration and cand.duration > (current_offset + clip_dur + 2.0):
+                    next_offset = current_offset + clip_dur
+                else:
+                    current_offset = 0.0
+                    next_offset = clip_dur
+
+                video_offsets[cand_id] = next_offset
+
                 full_clip_sequence.append({
                     "sequence_index": idx,
                     "cycle": 0,
@@ -95,6 +112,7 @@ class SelectionService:
                     "source_url": cand.source_url,
                     "subtheme": cand.subtheme,
                     "duration": round(clip_dur, 2),
+                    "start_offset": round(current_offset, 2),
                     "effective_duration": round(eff_add, 2),
                     "preview_url": cand.preview_url,
                     "local_file_path": cand.local_file_path,
@@ -131,13 +149,14 @@ class SelectionService:
         full_clip_sequence: List[Dict[str, Any]] = []
         accumulated_duration = 0.0
         cycle_count = 0
+        video_offsets: Dict[str, float] = {}
 
         while accumulated_duration < target_duration_seconds:
             cycle_len = len(unique_sequence)
-            start_offset = (cycle_count * 3) % cycle_len
+            start_offset_idx = (cycle_count * 3) % cycle_len
 
             for step in range(cycle_len):
-                clip_idx = (start_offset + step) % cycle_len
+                clip_idx = (start_offset_idx + step) % cycle_len
                 cand = unique_sequence[clip_idx]
                 usable_dur = unique_durations[clip_idx]
 
@@ -158,6 +177,15 @@ class SelectionService:
                         clip_play_duration = remaining_needed + transition_duration
                         eff_add = remaining_needed
 
+                # Progressive offset chunking across loop cycles
+                cand_id = cand.source_video_id
+                curr_seek = video_offsets.get(cand_id, 0.0)
+                if cand.duration and cand.duration > (curr_seek + clip_play_duration + 2.0):
+                    video_offsets[cand_id] = curr_seek + clip_play_duration
+                else:
+                    curr_seek = 0.0
+                    video_offsets[cand_id] = clip_play_duration
+
                 full_clip_sequence.append({
                     "sequence_index": len(full_clip_sequence),
                     "cycle": cycle_count,
@@ -168,6 +196,7 @@ class SelectionService:
                     "source_url": cand.source_url,
                     "subtheme": cand.subtheme,
                     "duration": clip_play_duration,
+                    "start_offset": round(curr_seek, 2),
                     "effective_duration": eff_add,
                     "preview_url": cand.preview_url,
                     "local_file_path": cand.local_file_path,
@@ -207,7 +236,7 @@ class SelectionService:
     ) -> Dict[str, Any]:
         """
         Plans a chronological narrative clip sequence where each clip maps
-        directly to its corresponding Visual Beat in time order.
+        directly to its corresponding Visual Beat in time order, chunking long videos progressively.
         """
         if not storyboard_beats:
             raise ValueError("No storyboard beats provided.")
@@ -217,6 +246,7 @@ class SelectionService:
         accumulated_duration = 0.0
         unique_clips: List[CandidateItem] = []
         seen_ids = set()
+        video_offsets: Dict[str, float] = {}
 
         for idx, beat in enumerate(storyboard_beats):
             beat_dur = float(getattr(beat, "duration_seconds", 12.0) if hasattr(beat, "duration_seconds") else beat.get("duration_seconds", 12.0))
@@ -245,6 +275,16 @@ class SelectionService:
 
             eff_add = beat_dur if idx == 0 else max(1.0, beat_dur - transition_duration)
 
+            # Progressive offset calculation for long video chunks across beats
+            cand_id = candidate.source_video_id
+            current_offset = video_offsets.get(cand_id, 0.0)
+            if candidate.duration and candidate.duration > (current_offset + beat_dur + 2.0):
+                next_offset = current_offset + beat_dur
+            else:
+                current_offset = 0.0
+                next_offset = beat_dur
+            video_offsets[cand_id] = next_offset
+
             full_sequence.append({
                 "index": idx,
                 "sequence_index": idx,
@@ -257,6 +297,7 @@ class SelectionService:
                 "image_url": candidate.image_url,
                 "motion_style": candidate.motion_style,
                 "duration": beat_dur,
+                "start_offset": round(current_offset, 2),
                 "effective_duration": eff_add,
                 "preview_url": candidate.preview_url,
                 "local_file_path": candidate.local_file_path,

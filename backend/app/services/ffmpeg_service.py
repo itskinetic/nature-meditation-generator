@@ -249,9 +249,10 @@ class FFmpegService:
         duration: float,
         width: int = 1920,
         height: int = 1080,
-        motion_style: Optional[str] = None
+        motion_style: Optional[str] = None,
+        start_offset: float = 0.0
     ) -> Path:
-        """Normalizes video or converts photo to Ken Burns video clip."""
+        """Normalizes video or converts photo to Ken Burns video clip with start_offset support."""
         ext = input_file.suffix.lower()
         if ext in (".jpg", ".jpeg", ".png", ".webp"):
             return await self.apply_ken_burns_to_image(
@@ -271,8 +272,10 @@ class FFmpegService:
             f"fps=30,"
             f"format=yuv420p"
         )
-        cmd = [
-            "ffmpeg", "-y",
+        cmd = ["ffmpeg", "-y"]
+        if start_offset > 0.05:
+            cmd.extend(["-ss", f"{start_offset:.2f}"])
+        cmd.extend([
             "-i", str(input_file),
             "-t", str(duration),
             "-vf", filter_str,
@@ -282,7 +285,7 @@ class FFmpegService:
             "-crf", "18",
             "-pix_fmt", "yuv420p",
             str(output_file)
-        ]
+        ])
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -331,8 +334,9 @@ class FFmpegService:
             raw_clip = await self.download_candidate(clip_item, job_dir, idx)
             play_dur = clip_item.get("duration", 25.0)
             motion = clip_item.get("motion_style") or "zoom_in"
+            start_off = float(clip_item.get("start_offset", 0.0))
             norm_clip = job_dir / f"norm_clip_{idx:03d}.mp4"
-            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion)
+            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion, start_offset=start_off)
             normalized_clips.append(norm_clip)
 
             pct = 25 + int(30 * (idx + 1) / len(clips_info))
