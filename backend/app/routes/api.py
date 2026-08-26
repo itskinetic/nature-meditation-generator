@@ -379,16 +379,20 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
 
         update_job("analyzing", 5, "Analyzing emotional intent and mood")
 
+        active_mode = req.studio_mode or "meditation"
+        active_presets = get_presets_for_mode(active_mode)
+
         # 1. Intent Analysis
         analysis = await intent_service.analyze(
             title=req.title,
             script=req.script,
             manual_intent=req.manual_intent,
             manual_mood=req.manual_mood,
-            preset_name=req.preset
+            preset_name=req.preset,
+            studio_mode=active_mode
         )
 
-        preset = NATURE_PRESETS.get(req.preset) if req.preset else NATURE_PRESETS.get("Calm Misty Forest")
+        preset = active_presets.get(req.preset) or (WILDLIFE_ENVIRONMENTS.get("savanna_predators") if active_mode == "documentary" else NATURE_PRESETS.get("Calm Misty Forest"))
 
         update_job(
             "analyzing", 10, "Visual query generation complete",
@@ -401,8 +405,11 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             update_job("scoring", 30, "Using reviewed candidate pool")
             collected_candidates = req.candidate_pool
             if req.selected_candidate_ids:
-                sel_ids = set(req.selected_candidate_ids)
-                approved_pool = [c for c in collected_candidates if c.source_video_id in sel_ids]
+                sel_order = {cid: idx for idx, cid in enumerate(req.selected_candidate_ids)}
+                approved_pool = sorted(
+                    [c for c in collected_candidates if c.source_video_id in sel_order],
+                    key=lambda c: sel_order.get(c.source_video_id, 999)
+                )
             else:
                 approved_pool = [c for c in collected_candidates if c.is_approved]
             rejected_count = len(collected_candidates) - len(approved_pool)
@@ -422,16 +429,28 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
 
             # 3. Search online providers if more candidates are needed
             collected_candidates: List[CandidateItem] = list(reused_candidates)
-            queries = analysis.generated_queries or (preset.queries if preset else ["misty forest", "peaceful nature"])
+            
+            # Generate mode-specific queries from environments or analysis
+            if req.environments and len(req.environments) > 0:
+                queries = []
+                for env_name in req.environments:
+                    matched = next((e for e in active_presets.values() if e.name.lower() == env_name.lower() or env_name.lower() in e.name.lower()), None)
+                    if matched and matched.queries:
+                        queries.extend(matched.queries[:2])
+                    else:
+                        queries.append(f"{env_name} wildlife 4k" if active_mode == "documentary" else f"{env_name} nature 4k")
+            else:
+                queries = analysis.generated_queries or (preset.queries if preset else (["african wildlife 4k", "savanna lions 4k"] if active_mode == "documentary" else ["misty forest", "peaceful nature"]))
 
             if len(collected_candidates) < req.maximum_unique_videos:
-                update_job("searching", 20, "Searching Pexels and Pixabay for nature footage")
+                update_job("searching", 20, f"Searching footage for {active_mode} preset")
+                per_page_count = min(10, max(5, int(req.maximum_unique_videos / max(1, len(queries)))))
                 for q in queries[:4]:
                     if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=1, per_page=30, db=db)
+                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page_count, db=db)
                         collected_candidates.extend(px_items)
                     if req.enable_pixabay:
-                        pb_items = await pixabay_service.search(query=q, page=1, per_page=20, db=db)
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=per_page_count, db=db)
                         collected_candidates.extend(pb_items)
 
             # 4. Filter Candidate Pool
@@ -449,7 +468,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             )
 
             # 5. Score candidates
-            update_job("scoring", 30, "Visual scoring and calmness evaluation")
+            update_job("scoring", 30, "Visual scoring and evaluation")
             approved_pool = []
             rejected_count = 0
 
@@ -458,7 +477,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                     approved_pool.append(cand)
                     continue
 
-                score_res = await scoring_service.score_candidate(cand, analysis, preset)
+                score_res = await scoring_service.score_candidate(cand, analysis, preset, studio_mode=active_mode)
                 cand.intent_match = score_res.intent_match
                 cand.theme_match = score_res.theme_match
                 cand.calmness = score_res.calmness
@@ -483,7 +502,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                     source="procedural",
                     source_video_id=f"procedural_{idx}",
                     source_url="",
-                    creator_name="Nature Synthesizer",
+                    creator_name="Synthesizer",
                     search_query=q,
                     duration=30.0,
                     width=1920,
@@ -494,7 +513,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                     calmness=9.0,
                     motion_intensity=2.0,
                     visual_quality=9.0,
-                    subtheme=preset.subthemes[idx % len(preset.subthemes)] if preset and preset.subthemes else "misty forest",
+                    subtheme=preset.subthemes[idx % len(preset.subthemes)] if preset and preset.subthemes else "nature",
                     is_approved=True
                 ))
 
@@ -520,7 +539,9 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                 approved_candidates=approved_pool,
                 target_duration_seconds=target_dur_sec,
                 max_unique_videos=req.maximum_unique_videos,
-                transition_duration=req.transition_duration
+                transition_duration=req.transition_duration,
+                studio_mode=active_mode,
+                allow_looping=(req.allow_reuse if active_mode == "meditation" else False)
             )
 
         job_dir = settings.JOBS_DIR / job_id
