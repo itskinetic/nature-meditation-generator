@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm shrink-0"
           />
           <div className="min-w-0">
-            <h1 className="text-base sm:text-xl font-bold tracking-tight text-stone-900 dark:text-white font-logo">
+            <h1 className="text-base sm:text-lg font-normal tracking-wide text-stone-900 dark:text-white font-logo">
               ZenHub
             </h1>
           </div>
