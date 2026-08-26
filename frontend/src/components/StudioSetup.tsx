@@ -689,27 +689,48 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
         {/* Target Duration */}
-        <div className="lg:col-span-2 space-y-1.5">
+        <div className="lg:col-span-3 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Target Duration
           </label>
-          <div className="flex items-center h-9 w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 px-3.5 focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500">
+          <div className="flex items-center h-9 w-full rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70 px-2.5 focus-within:ring-2 focus-within:ring-amber-500/30 focus-within:border-amber-500 justify-between">
             <input
               type="number"
               min={1}
-              max={360}
+              max={settings.duration_unit === 'seconds' ? 3600 : 360}
               value={settings.target_duration}
-              onChange={(e) => updateSetting('target_duration', Number(e.target.value))}
-              className="w-10 bg-transparent text-xs font-semibold text-stone-900 dark:text-white focus:outline-none"
+              onChange={(e) => updateSetting('target_duration', Math.max(1, Number(e.target.value)))}
+              className="w-12 bg-transparent text-xs font-semibold text-stone-900 dark:text-white focus:outline-none"
             />
-            <span className="text-xs font-medium text-stone-500 dark:text-stone-400 select-none">
-              mins
-            </span>
+            <div className="flex items-center gap-0.5 bg-stone-200/70 dark:bg-stone-800/80 p-0.5 rounded-lg text-[10px] font-semibold">
+              <button
+                type="button"
+                onClick={() => updateSetting('duration_unit', 'minutes')}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  settings.duration_unit !== 'seconds' && settings.duration_unit !== 'hours'
+                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
+                }`}
+              >
+                mins
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSetting('duration_unit', 'seconds')}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  settings.duration_unit === 'seconds'
+                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs'
+                    : 'text-stone-500 hover:text-stone-800 dark:hover:text-stone-300'
+                }`}
+              >
+                secs
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Format & Quality */}
-        <div className="lg:col-span-4 space-y-1.5">
+        <div className="lg:col-span-3 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             Format & Quality
           </label>
@@ -730,7 +751,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 </button>
               ))}
             </div>
-            <div className="w-24 p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex items-center gap-0.5">
+            <div className="w-20 p-0.5 rounded-xl bg-stone-100 dark:bg-stone-950/80 border border-stone-200 dark:border-stone-800 flex items-center gap-0.5">
               {(['1080p', '4K'] as const).map((res) => (
                 <button
                   key={res}
@@ -750,14 +771,14 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Shot Diversity Selector */}
-        <div className="lg:col-span-3 space-y-1.5">
+        <div className="lg:col-span-2 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-            Cinematic Shot Cadence
+            Shot Cadence
           </label>
           <select
             value={settings.shot_preference || 'balanced'}
             onChange={(e) => updateSetting('shot_preference', e.target.value as any)}
-            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
+            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2.5 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
           >
             <option value="balanced">Balanced Variety</option>
             <option value="macro">Mindful Close-Ups</option>
@@ -767,10 +788,10 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         </div>
 
         {/* Auto-Subtitles / WhisperFlow */}
-        <div className="lg:col-span-3 space-y-1.5">
+        <div className="lg:col-span-2 space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-              Auto-Subtitles
+              Subtitles
             </label>
             {settings.subtitle_config?.enabled && (
               <label className="text-[10px] text-amber-800 dark:text-amber-300 flex items-center gap-1 cursor-pointer">
@@ -803,23 +824,23 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 });
               }
             }}
-            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
+            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2.5 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
           >
-            <option value="off">Off (No Subtitles)</option>
-            <option value="documentary_classic">Documentary Classic</option>
+            <option value="off">Off (None)</option>
+            <option value="documentary_classic">Doc Classic</option>
             <option value="dynamic_highlight">Dynamic Highlight</option>
-            <option value="minimal_clean">Minimal Lower-Third</option>
+            <option value="minimal_clean">Minimal Box</option>
           </select>
         </div>
 
         {/* History Control Toggle */}
-        <div className="lg:col-span-3 space-y-1.5">
+        <div className="lg:col-span-2 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
             History Filter
           </label>
-          <label className="h-9 flex items-center justify-between px-3.5 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-colors">
-            <span className="text-xs font-medium text-stone-700 dark:text-stone-300">
-              Exclude Past History
+          <label className="h-9 flex items-center justify-between px-3 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-colors">
+            <span className="text-xs font-medium text-stone-700 dark:text-stone-300 truncate">
+              Exclude
             </span>
             <input
               type="checkbox"
@@ -864,6 +885,29 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
+                  // Instant client-side metadata probe to update duration immediately
+                  try {
+                    const audio = new Audio();
+                    const objectUrl = URL.createObjectURL(file);
+                    audio.src = objectUrl;
+                    audio.onloadedmetadata = () => {
+                      const secs = audio.duration;
+                      if (!isNaN(secs) && secs > 0) {
+                        if (secs < 60) {
+                          updateSetting('target_duration', Math.max(1, Math.round(secs)));
+                          updateSetting('duration_unit', 'seconds');
+                        } else {
+                          const mins = Math.max(1, Math.round(secs / 60));
+                          updateSetting('target_duration', mins);
+                          updateSetting('duration_unit', 'minutes');
+                        }
+                      }
+                      URL.revokeObjectURL(objectUrl);
+                    };
+                  } catch (err) {
+                    console.warn('Instant audio duration probe skipped:', err);
+                  }
+
                   onUploadMusic(file);
                 }
               }}

@@ -147,6 +147,8 @@ export function App() {
   // Target duration in seconds
   const targetSeconds = settings.duration_unit === 'hours'
     ? settings.target_duration * 3600
+    : settings.duration_unit === 'seconds'
+    ? settings.target_duration
     : settings.target_duration * 60;
 
   // Search Mutation using selected nature specs
@@ -316,13 +318,32 @@ export function App() {
   const musicUploadMutation = useMutation({
     mutationFn: (file: File) => api.uploadMusic(file),
     onSuccess: (data) => {
-      const durMins = data.duration_minutes || (data.duration_seconds > 0 ? Math.max(1, Math.round(data.duration_seconds / 60)) : settings.target_duration);
-      setSettings((prev) => ({
-        ...prev,
-        music_file: data.filename,
-        audio_mode: 'upload',
-        target_duration: durMins,
-      }));
+      if (data.duration_seconds > 0) {
+        if (data.duration_seconds < 60) {
+          setSettings((prev) => ({
+            ...prev,
+            music_file: data.filename,
+            audio_mode: 'upload',
+            target_duration: Math.round(data.duration_seconds),
+            duration_unit: 'seconds',
+          }));
+        } else {
+          const mins = Math.max(1, Math.round(data.duration_seconds / 60));
+          setSettings((prev) => ({
+            ...prev,
+            music_file: data.filename,
+            audio_mode: 'upload',
+            target_duration: mins,
+            duration_unit: 'minutes',
+          }));
+        }
+      } else {
+        setSettings((prev) => ({
+          ...prev,
+          music_file: data.filename,
+          audio_mode: 'upload',
+        }));
+      }
       setCustomMusicName(data.original_name || data.filename);
     },
   });
