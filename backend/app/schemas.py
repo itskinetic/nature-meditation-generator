@@ -31,6 +31,8 @@ class IntentAnalysisRequest(BaseModel):
     manual_intent: Optional[str] = None
     manual_mood: Optional[List[str]] = None
     target_clips: Optional[int] = 16
+    studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
+    media_type: Optional[str] = "video"  # "video" | "image" | "both"
 
 
 class IntentAnalysisResult(BaseModel):
@@ -70,6 +72,11 @@ class CandidateItem(BaseModel):
     download_url: Optional[str] = None
     local_file_path: Optional[str] = None
 
+    # Media type & Ken Burns motion
+    media_type: str = "video"  # "video" | "image"
+    image_url: Optional[str] = None
+    motion_style: Optional[str] = None  # "zoom_in", "zoom_out", "pan_left", "pan_right", "tilt_up", "tilt_down"
+
     # Scores and status
     intent_match: float = 0.0
     theme_match: float = 0.0
@@ -106,6 +113,8 @@ class SearchRequest(BaseModel):
     resolution: str = "1080p"
     exclude_all_history: bool = False
     shot_preference: Optional[str] = "balanced"  # "balanced", "still", "macro", "wide"
+    studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
+    media_type: Optional[str] = "video"  # "video" | "image" | "both"
 
 
 class BanCandidateRequest(BaseModel):
@@ -141,6 +150,8 @@ class GenerationRequest(BaseModel):
     title: Optional[str] = "Softening the Heart"
     script: Optional[str] = ""
     preset: Optional[str] = "sunlit_forest"
+    studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
+    media_type: Optional[str] = "video"  # "video" | "image" | "both"
     environments: Optional[List[str]] = None
     environment_clip_targets: Optional[Dict[str, int]] = None
     manual_intent: Optional[str] = None

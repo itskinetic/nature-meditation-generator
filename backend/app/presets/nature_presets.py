@@ -408,9 +408,144 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
     ),
 }
 
+WILDLIFE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
+    "savanna_predators": EnvironmentTheme(
+        id="savanna_predators",
+        name="Savanna & Big Cats",
+        icon="🦁",
+        category="Savanna",
+        description="Majestic lions, cheetahs, leopards, elephant herds, and zebras across the golden African savanna",
+        queries=[
+            "lion pride african savanna wildlife 4k",
+            "cheetah hunting golden grassland wildlife",
+            "african elephant herd watering hole 4k",
+            "leopard tree resting savanna wildlife",
+            "zebras wildebeest great migration savanna"
+        ],
+        subthemes=["lion pride", "cheetah running", "elephant herd", "leopard in tree", "zebra migration"],
+        preferred_colors=["golden amber", "savanna ochre", "warm earth", "acacia green"]
+    ),
+    "marine_giants": EnvironmentTheme(
+        id="marine_giants",
+        name="Ocean & Marine Giants",
+        icon="🐋",
+        category="Ocean",
+        description="Majestic humpback whales, orcas, gentle sea turtles, dolphins, and vibrant coral reef life",
+        queries=[
+            "humpback whale swimming underwater 4k",
+            "sea turtle swimming coral reef clear water",
+            "orca pod swimming ocean wildlife",
+            "dolphins swimming clear ocean 4k",
+            "manta ray gliding underwater ocean"
+        ],
+        subthemes=["humpback whale", "sea turtle", "orca pod", "dolphin pod", "manta ray gliding"],
+        preferred_colors=["deep oceanic blue", "vibrant turquoise", "coral orange", "seafoam"]
+    ),
+    "jungle_rainforest": EnvironmentTheme(
+        id="jungle_rainforest",
+        name="Jungle & Rainforest Wildlife",
+        icon="🐆",
+        category="Jungle",
+        description="Stealthy jaguars, playful monkeys, colorful toucans, scarlet macaws, and exotic tree frogs",
+        queries=[
+            "jaguar wild rainforest amazon 4k",
+            "monkeys playing tropical rainforest trees",
+            "colorful toucan perched jungle branch",
+            "scarlet macaw flying rainforest canopy",
+            "tree frog tropical jungle leaves 4k"
+        ],
+        subthemes=["jaguar prowling", "rainforest primates", "tropical toucan", "macaws in flight", "tree frog macro"],
+        preferred_colors=["emerald jungle", "jaguar gold", "scarlet red", "vibrant yellow"]
+    ),
+    "arctic_wildlife": EnvironmentTheme(
+        id="arctic_wildlife",
+        name="Arctic & Polar Wildlife",
+        icon="🐻‍❄️",
+        category="Polar",
+        description="Mighty polar bears on sea ice, emperor penguin colonies, arctic foxes, and walruses",
+        queries=[
+            "polar bear walking arctic ice snow 4k",
+            "emperor penguins antarctica ice colony",
+            "arctic fox snow winter wildlife 4k",
+            "walrus herd arctic ice shore wildlife",
+            "seals resting arctic snow ice 4k"
+        ],
+        subthemes=["polar bear roaming", "emperor penguins", "arctic fox in snow", "walrus colony", "ice seals"],
+        preferred_colors=["pure white", "glacier ice blue", "polar grey", "slate navy"]
+    ),
+    "sky_predators": EnvironmentTheme(
+        id="sky_predators",
+        name="Birds of Prey & Sky",
+        icon="🦅",
+        category="Birds",
+        description="Majestic bald eagles soaring over mountains, golden hawks, snowy owls, and peregrine falcons",
+        queries=[
+            "bald eagle soaring mountain sky 4k",
+            "snowy owl perched winter branch looking",
+            "golden hawk flying wilderness 4k",
+            "peregrine falcon perched rock cliff wildlife",
+            "osprey fishing clear water lake 4k"
+        ],
+        subthemes=["bald eagle flight", "snowy owl gaze", "golden hawk", "peregrine falcon", "osprey hunting"],
+        preferred_colors=["sky azure", "feather amber", "mountain white", "cloud grey"]
+    ),
+    "mountain_predators": EnvironmentTheme(
+        id="mountain_predators",
+        name="Mountain & Woodland Predators",
+        icon="🐺",
+        category="Mountain",
+        description="Grizzly bears catching salmon, timber wolves prowling, elk herds, and bighorn sheep",
+        queries=[
+            "grizzly bear river fishing salmon 4k",
+            "wolf pack forest winter wildlife 4k",
+            "majestic bull elk mountain meadow forest",
+            "bighorn sheep rocky mountain ridge 4k",
+            "mountain cougar puma rocks wilderness"
+        ],
+        subthemes=["grizzly bear", "wolf pack", "bull elk antler", "bighorn sheep", "mountain cougar"],
+        preferred_colors=["timber brown", "pine forest green", "rock slate", "winter white"]
+    ),
+    "wetland_wildlife": EnvironmentTheme(
+        id="wetland_wildlife",
+        name="River & Wetland Wildlife",
+        icon="🦩",
+        category="Wetland",
+        description="Playful river otters, sunbathing crocodiles, majestic pink flamingos, and great blue herons",
+        queries=[
+            "river otters swimming playing clear river 4k",
+            "pink flamingos shallow water lagoon wildlife",
+            "crocodile sunbathing river bank wildlife",
+            "great blue heron standing shallow water 4k",
+            "kingfisher diving catching fish river"
+        ],
+        subthemes=["river otters", "flamingo flock", "crocodile basking", "heron wading", "kingfisher dive"],
+        preferred_colors=["flamingo pink", "water sapphire", "river reed green", "earth clay"]
+    ),
+    "macro_insects": EnvironmentTheme(
+        id="macro_insects",
+        name="Macro Wildlife & Insects",
+        icon="🦋",
+        category="Macro",
+        description="Vibrant monarch butterflies, praying mantis, color-shifting chameleons, and honeybees",
+        queries=[
+            "monarch butterfly flower close up macro 4k",
+            "chameleon moving branch eyes macro wildlife",
+            "praying mantis green leaf close up macro",
+            "honeybee collecting pollen blooming flower 4k",
+            "colorful caterpillar leaf macro wildlife"
+        ],
+        subthemes=["monarch butterfly", "chameleon on branch", "praying mantis", "honeybee pollination", "macro caterpillar"],
+        preferred_colors=["monarch orange", "leaf lime green", "flower petal pink", "pollen gold"]
+    ),
+}
+
 # Compatibility dictionary for preset lookups by id and legacy names
 NATURE_PRESETS: Dict[str, EnvironmentTheme] = {}
 for k, v in NATURE_ENVIRONMENTS.items():
+    NATURE_PRESETS[k] = v
+    NATURE_PRESETS[v.name] = v
+
+for k, v in WILDLIFE_ENVIRONMENTS.items():
     NATURE_PRESETS[k] = v
     NATURE_PRESETS[v.name] = v
 
@@ -421,4 +556,11 @@ if "calm_ocean" in NATURE_ENVIRONMENTS:
     NATURE_PRESETS["Calm Ocean"] = NATURE_ENVIRONMENTS["calm_ocean"]
 if "mountain_lake" in NATURE_ENVIRONMENTS:
     NATURE_PRESETS["Mountain Lake"] = NATURE_ENVIRONMENTS["mountain_lake"]
+
+
+def get_presets_for_mode(mode: str = "meditation") -> Dict[str, EnvironmentTheme]:
+    if mode == "documentary":
+        return WILDLIFE_ENVIRONMENTS
+    return NATURE_ENVIRONMENTS
+
 

@@ -295,11 +295,22 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   </button>
                 )}
 
-                {/* Source, Reused, and Shot Type Tags */}
+                {/* Source, Media Type, Reused, and Shot Type Tags */}
                 <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 pointer-events-none">
                   <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-black/70 backdrop-blur-md text-white border border-white/10">
                     {c.source}
                   </span>
+                  {c.media_type === 'image' ? (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/90 text-stone-950 shadow backdrop-blur-md flex items-center gap-1">
+                      <span>🖼️</span>
+                      <span>Photo • Ken Burns</span>
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-600/90 text-white shadow backdrop-blur-md flex items-center gap-1">
+                      <span>🎬</span>
+                      <span>Video</span>
+                    </span>
+                  )}
                   {renderShotTypeBadge(c.shot_type)}
                   {c.is_reused && (
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-500 text-stone-950 shadow">

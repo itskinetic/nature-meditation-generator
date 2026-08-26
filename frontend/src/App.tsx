@@ -90,8 +90,8 @@ export function App() {
 
   // Load Presets
   const { data: presets = {} } = useQuery({
-    queryKey: ['presets'],
-    queryFn: api.getPresets,
+    queryKey: ['presets', settings.studio_mode],
+    queryFn: () => api.getPresets(settings.studio_mode || 'meditation'),
   });
 
   // Load Library Items
@@ -167,6 +167,8 @@ export function App() {
         resolution: settings.resolution,
         exclude_all_history: excludeAllHistory,
         shot_preference: settings.shot_preference,
+        studio_mode: settings.studio_mode || 'meditation',
+        media_type: settings.media_type || 'video',
       });
     },
     onSuccess: (data) => {
@@ -188,7 +190,8 @@ export function App() {
         script,
         undefined,
         undefined,
-        settings.maximum_unique_videos
+        settings.maximum_unique_videos,
+        settings.studio_mode || 'meditation'
       ),
     onSuccess: (data) => {
       setAnalysis(data);

@@ -45,6 +45,9 @@ export interface CandidateItem {
   preview_url: string;
   download_url?: string;
   local_file_path?: string;
+  media_type?: 'video' | 'image';
+  image_url?: string;
+  motion_style?: 'zoom_in' | 'zoom_out' | 'pan_left' | 'pan_right' | 'tilt_up' | 'tilt_down';
   intent_match: number;
   theme_match: number;
   calmness: number;
@@ -77,6 +80,8 @@ export interface GenerationRequest {
   title: string;
   script?: string;
   preset?: string;
+  studio_mode?: 'meditation' | 'documentary';
+  media_type?: 'video' | 'image' | 'both';
   environments?: string[];
   environment_clip_targets?: Record<string, number>;
   manual_intent?: string;

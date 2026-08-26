@@ -19,8 +19,8 @@ export const api = {
     return res.json();
   },
 
-  async getPresets(): Promise<Record<string, Preset>> {
-    const res = await fetch(`${API_BASE}/presets`);
+  async getPresets(mode: string = 'meditation'): Promise<Record<string, Preset>> {
+    const res = await fetch(`${API_BASE}/presets?mode=${encodeURIComponent(mode)}`);
     if (!res.ok) throw new Error('Failed to load presets');
     return res.json();
   },
@@ -30,12 +30,13 @@ export const api = {
     script: string,
     manual_intent?: string,
     manual_mood?: string[],
-    target_clips?: number
+    target_clips?: number,
+    studio_mode?: string
   ): Promise<IntentAnalysisResult> {
     const res = await fetch(`${API_BASE}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, script, manual_intent, manual_mood, target_clips }),
+      body: JSON.stringify({ title, script, manual_intent, manual_mood, target_clips, studio_mode }),
     });
     if (!res.ok) throw new Error('Failed to analyze content');
     return res.json();
@@ -54,6 +55,8 @@ export const api = {
     resolution: string;
     exclude_all_history?: boolean;
     shot_preference?: string;
+    studio_mode?: string;
+    media_type?: string;
   }): Promise<SearchResponse> {
     const res = await fetch(`${API_BASE}/search`, {
       method: 'POST',

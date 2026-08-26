@@ -20,10 +20,11 @@ from backend.app.schemas import (
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest
 )
-from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS
+from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
 from backend.app.services.pexels_service import pexels_service
 from backend.app.services.pixabay_service import pixabay_service
+from backend.app.services.image_fetch_service import image_fetch_service
 from backend.app.services.candidate_service import candidate_service
 from backend.app.services.scoring_service import scoring_service
 from backend.app.services.library_service import library_service
@@ -52,8 +53,8 @@ def health_check():
 
 
 @router.get("/presets", response_model=Dict[str, PresetSchema])
-def get_presets():
-    return NATURE_ENVIRONMENTS
+def get_presets(mode: str = Query("meditation")):
+    return get_presets_for_mode(mode)
 
 
 @router.post("/analyze", response_model=IntentAnalysisResult)
@@ -63,7 +64,8 @@ async def analyze_content(req: IntentAnalysisRequest):
         script=req.script,
         manual_intent=req.manual_intent,
         manual_mood=req.manual_mood,
-        target_clips=req.target_clips or 16
+        target_clips=req.target_clips or 16,
+        studio_mode=req.studio_mode or "meditation"
     )
     return result
 
@@ -74,10 +76,12 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
     approved: List[CandidateItem] = []
     rejected: List[CandidateItem] = []
 
+    active_presets = get_presets_for_mode(req.studio_mode or "meditation")
+
     # If environment specs are provided, search per environment
     if req.environments_spec and len(req.environments_spec) > 0:
         for env_spec in req.environments_spec:
-            env_preset = NATURE_ENVIRONMENTS.get(env_spec.id)
+            env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
             env_raw: List[CandidateItem] = []
             
             # Query top queries for this environment + shot variations
@@ -93,24 +97,36 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 queries_to_run.append(f"{env_spec.name} close up detail")
 
             for q in queries_to_run:
-                if req.enable_pexels:
-                    px_items = await pexels_service.search(query=q, page=1, per_page=12, db=db)
-                    for item in px_items:
+                # 1. Fetch videos if media_type is "video" or "both"
+                if req.media_type in ("video", "both", None):
+                    if req.enable_pexels:
+                        px_items = await pexels_service.search(query=q, page=1, per_page=12, db=db)
+                        for item in px_items:
+                            item.environment_id = env_spec.id
+                            item.subtheme = env_spec.name
+                            item.media_type = "video"
+                        env_raw.extend(px_items)
+                    if req.enable_pixabay:
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=12, db=db)
+                        for item in pb_items:
+                            item.environment_id = env_spec.id
+                            item.subtheme = env_spec.name
+                            item.media_type = "video"
+                        env_raw.extend(pb_items)
+
+                # 2. Fetch photos if media_type is "image" or "both"
+                if req.media_type in ("image", "both"):
+                    img_items = await image_fetch_service.search(query=q, page=1, per_page=12, db=db)
+                    for item in img_items:
                         item.environment_id = env_spec.id
                         item.subtheme = env_spec.name
-                    env_raw.extend(px_items)
-                if req.enable_pixabay:
-                    pb_items = await pixabay_service.search(query=q, page=1, per_page=12, db=db)
-                    for item in pb_items:
-                        item.environment_id = env_spec.id
-                        item.subtheme = env_spec.name
-                    env_raw.extend(pb_items)
+                    env_raw.extend(img_items)
 
             # Filter for this environment
             env_filtered = candidate_service.filter_candidates(
                 candidates=env_raw,
                 preset=env_preset,
-                min_duration=req.min_duration,
+                min_duration=req.min_duration if req.media_type != "image" else 5.0,
                 max_duration=req.max_duration,
                 aspect_ratio=req.aspect_ratio,
                 resolution=req.resolution,
@@ -120,7 +136,11 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             all_raw.extend(env_raw)
 
             # Score candidates against this environment
-            env_dummy_analysis = await intent_service.analyze(title=env_spec.name, preset_name=env_spec.id)
+            env_dummy_analysis = await intent_service.analyze(
+                title=env_spec.name,
+                preset_name=env_spec.id,
+                studio_mode=req.studio_mode or "meditation"
+            )
             
             async def score_single(c: CandidateItem):
                 try:

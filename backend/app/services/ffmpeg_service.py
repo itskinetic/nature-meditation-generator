@@ -117,26 +117,36 @@ class FFmpegService:
         job_dir: Path,
         clip_index: int
     ) -> Path:
-        """Downloads or resolves a candidate video file."""
-        local_target = job_dir / f"clip_{clip_index:03d}_{candidate['candidate_id']}.mp4"
+        """Downloads or resolves a candidate video or photo file."""
+        media_type = candidate.get("media_type", "video")
+        is_image = media_type == "image" or "photo" in str(candidate.get("source", "")).lower() or "_img_" in str(candidate.get("candidate_id", ""))
+        ext = ".jpg" if is_image else ".mp4"
+
+        local_target = job_dir / f"clip_{clip_index:03d}_{candidate['candidate_id']}{ext}"
         needed_duration = float(candidate.get("duration", 30.0))
 
         # 1. If candidate already has an existing local file
         if candidate.get("local_file_path") and Path(candidate["local_file_path"]).exists():
+            if is_image:
+                shutil.copy2(candidate["local_file_path"], local_target)
+                return local_target
             probe = await self.probe_file(Path(candidate["local_file_path"]))
             if probe.get("duration", 0.0) >= needed_duration - 1.0:
                 shutil.copy2(candidate["local_file_path"], local_target)
                 return local_target
 
-        # 2. Check if already cached in data/library with sufficient duration
-        library_file = settings.LIBRARY_DIR / f"{candidate['candidate_id']}.mp4"
+        # 2. Check if already cached in data/library
+        library_file = settings.LIBRARY_DIR / f"{candidate['candidate_id']}{ext}"
         if library_file.exists():
+            if is_image:
+                shutil.copy2(library_file, local_target)
+                return local_target
             probe = await self.probe_file(library_file)
             if probe.get("duration", 0.0) >= needed_duration - 1.0:
                 shutil.copy2(library_file, local_target)
                 return local_target
 
-        download_url = candidate.get("download_url")
+        download_url = candidate.get("download_url") or candidate.get("image_url")
 
         # 3. If online URL is reachable
         if download_url and download_url.startswith("http") and not "sample-videos.com" in download_url:
@@ -155,13 +165,81 @@ class FFmpegService:
 
         # 4. Fallback: create high quality soothing procedural nature clip
         gen_duration = max(35.0, needed_duration + 5.0)
+        local_mp4 = job_dir / f"clip_{clip_index:03d}_{candidate['candidate_id']}.mp4"
         await self.generate_procedural_nature_clip(
-            output_path=local_target,
+            output_path=local_mp4,
             duration=gen_duration,
             subtheme=candidate.get("subtheme", "misty forest")
         )
-        shutil.copy2(local_target, library_file)
-        return local_target
+        shutil.copy2(local_mp4, settings.LIBRARY_DIR / f"{candidate['candidate_id']}.mp4")
+        return local_mp4
+
+    async def apply_ken_burns_to_image(
+        self,
+        image_file: Path,
+        output_file: Path,
+        duration: float,
+        width: int = 1920,
+        height: int = 1080,
+        motion_style: str = "zoom_in"
+    ) -> Path:
+        """
+        Converts a still high-res image into living documentary footage with slow Ken Burns motion.
+        """
+        total_frames = int(max(5.0, duration) * 30)
+        
+        # Build Ken Burns zoompan filter based on motion style
+        if motion_style == "zoom_out":
+            zp_filter = f"zoompan=z='if(lte(zoom,1.0),1.18,max(1.001,zoom-0.0012))':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps=30"
+        elif motion_style == "pan_left":
+            zp_filter = f"zoompan=z=1.12:d={total_frames}:x='if(lte(on,1),(iw-iw/zoom),max(0,x-0.7))':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps=30"
+        elif motion_style == "pan_right":
+            zp_filter = f"zoompan=z=1.12:d={total_frames}:x='min((iw-iw/zoom),x+0.7)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps=30"
+        elif motion_style == "tilt_up":
+            zp_filter = f"zoompan=z=1.12:d={total_frames}:x='iw/2-(iw/zoom/2)':y='if(lte(on,1),(ih-ih/zoom),max(0,y-0.5))':s={width}x{height}:fps=30"
+        elif motion_style == "tilt_down":
+            zp_filter = f"zoompan=z=1.12:d={total_frames}:x='iw/2-(iw/zoom/2)':y='min((ih-ih/zoom),y+0.5)':s={width}x{height}:fps=30"
+        else: # default zoom_in
+            zp_filter = f"zoompan=z='min(zoom+0.0012,1.18)':d={total_frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={width}x{height}:fps=30"
+
+        filter_chain = (
+            f"scale=-2:4320:force_original_aspect_ratio=increase,"
+            f"{zp_filter},"
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},"
+            f"setsar=1,"
+            f"format=yuv420p"
+        )
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-loop", "1",
+            "-framerate", "30",
+            "-i", str(image_file),
+            "-t", str(duration),
+            "-vf", filter_chain,
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-pix_fmt", "yuv420p",
+            str(output_file)
+        ]
+
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode != 0:
+            logger.error(f"Ken Burns image processing failed: {stderr.decode('utf-8', errors='ignore')}")
+            # Fallback simple scale
+            fallback_vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps=30,format=yuv420p"
+            fcmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(image_file), "-t", str(duration), "-vf", fallback_vf, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output_file)]
+            fproc = await asyncio.create_subprocess_exec(*fcmd)
+            await fproc.communicate()
+        return output_file
 
     async def normalize_clip(
         self,
@@ -169,9 +247,21 @@ class FFmpegService:
         output_file: Path,
         duration: float,
         width: int = 1920,
-        height: int = 1080
+        height: int = 1080,
+        motion_style: Optional[str] = None
     ) -> Path:
-        """Normalizes video: crops/scales to aspect ratio, sets 30fps, strips audio, trims duration."""
+        """Normalizes video or converts photo to Ken Burns video clip."""
+        ext = input_file.suffix.lower()
+        if ext in (".jpg", ".jpeg", ".png", ".webp"):
+            return await self.apply_ken_burns_to_image(
+                image_file=input_file,
+                output_file=output_file,
+                duration=duration,
+                width=width,
+                height=height,
+                motion_style=motion_style or "zoom_in"
+            )
+
         # Scale to cover then crop center
         filter_str = (
             f"scale={width}:{height}:force_original_aspect_ratio=increase,"
@@ -240,9 +330,9 @@ class FFmpegService:
         normalized_clips: List[Path] = []
         for idx, clip_item in enumerate(clips_info):
             raw_clip = await self.download_candidate(clip_item, job_dir, idx)
-            norm_clip = job_dir / f"norm_{idx:03d}.mp4"
             play_dur = clip_item.get("duration", 25.0)
-            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height)
+            motion = clip_item.get("motion_style") or "zoom_in"
+            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion)
             normalized_clips.append(norm_clip)
 
             pct = 30 + int(25 * (idx + 1) / len(clips_info))

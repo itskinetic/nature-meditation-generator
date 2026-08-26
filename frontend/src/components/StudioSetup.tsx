@@ -65,11 +65,71 @@ export const INTENT_PRESETS: IntentPreset[] = [
   },
 ];
 
+export const WILDLIFE_INTENT_PRESETS: IntentPreset[] = [
+  {
+    id: 'savanna_predators',
+    name: 'Savanna & Big Cats',
+    tagline: 'Lions, cheetahs, leopards, elephants & zebras',
+    themeIds: ['savanna_predators', 'sky_predators', 'wetland_wildlife'],
+  },
+  {
+    id: 'marine_giants',
+    name: 'Deep Ocean Giants',
+    tagline: 'Humpback whales, sea turtles, orcas & dolphins',
+    themeIds: ['marine_giants', 'wetland_wildlife', 'tropical_lagoons'],
+  },
+  {
+    id: 'jungle_wildlife',
+    name: 'Jungle & Rainforest',
+    tagline: 'Jaguars, primates, toucans & exotic tree frogs',
+    themeIds: ['jungle_rainforest', 'macro_insects', 'wetland_wildlife'],
+  },
+  {
+    id: 'arctic_polar',
+    name: 'Arctic & Polar Survivors',
+    tagline: 'Polar bears on sea ice, penguins & arctic foxes',
+    themeIds: ['arctic_wildlife', 'marine_giants', 'mountain_predators'],
+  },
+  {
+    id: 'sky_raptors',
+    name: 'Birds of Prey & Sky',
+    tagline: 'Bald eagles, golden hawks & snowy owls in flight',
+    themeIds: ['sky_predators', 'mountain_predators', 'savanna_predators'],
+  },
+  {
+    id: 'mountain_predators',
+    name: 'Mountain Predators',
+    tagline: 'Grizzly bears, timber wolves, elk & cougars',
+    themeIds: ['mountain_predators', 'sky_predators', 'savanna_predators'],
+  },
+];
+
 const renderNatureIcon = (category: string, id: string) => {
   const cat = (category || '').toLowerCase();
   const nameId = (id || '').toLowerCase();
   const iconClass = "w-3.5 h-3.5 text-stone-500 dark:text-stone-400 shrink-0";
 
+  if (cat.includes('savanna') || cat.includes('lion') || nameId.includes('savanna') || nameId.includes('lion') || nameId.includes('cat')) {
+    return <span className="text-xs">🦁</span>;
+  }
+  if (cat.includes('polar') || cat.includes('arctic') || nameId.includes('polar') || nameId.includes('arctic') || nameId.includes('bear')) {
+    return <span className="text-xs">🐻‍❄️</span>;
+  }
+  if (cat.includes('bird') || nameId.includes('eagle') || nameId.includes('hawk') || nameId.includes('owl') || nameId.includes('raptor')) {
+    return <span className="text-xs">🦅</span>;
+  }
+  if (cat.includes('jungle') || nameId.includes('jungle') || nameId.includes('jaguar') || nameId.includes('monkey')) {
+    return <span className="text-xs">🐆</span>;
+  }
+  if (nameId.includes('whale') || nameId.includes('turtle') || nameId.includes('orca') || nameId.includes('dolphin')) {
+    return <span className="text-xs">🐋</span>;
+  }
+  if (cat.includes('macro') || nameId.includes('insect') || nameId.includes('butterfly')) {
+    return <span className="text-xs">🦋</span>;
+  }
+  if (cat.includes('wetland') || nameId.includes('wetland') || nameId.includes('flamingo') || nameId.includes('otter')) {
+    return <span className="text-xs">🦩</span>;
+  }
   if (cat.includes('night') || nameId.includes('night') || nameId.includes('star') || nameId.includes('moon')) {
     return <Moon className={iconClass} />;
   }
@@ -148,11 +208,14 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [activeIntentPreset, setActiveIntentPreset] = useState<string | null>('heart_opening');
+  const [activeIntentPreset, setActiveIntentPreset] = useState<string | null>(null);
   const [showManualThemes, setShowManualThemes] = useState<boolean>(false);
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   const [customName, setCustomName] = useState<string>('');
   const [customQueries, setCustomQueries] = useState<string>('');
+
+  const isDocMode = settings.studio_mode === 'documentary';
+  const activeIntentPresets = isDocMode ? WILDLIFE_INTENT_PRESETS : INTENT_PRESETS;
 
   const updateSetting = <K extends keyof GenerationRequest>(key: K, value: GenerationRequest[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -226,12 +289,13 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
     });
   };
 
-  // Auto balance clips evenly across all currently selected themes
+  // Auto-balance clips evenly across all selected themes
   const autoBalanceClips = () => {
     const keys = Object.keys(selectedNatures);
     if (keys.length === 0) return;
-    const countPerTheme = Math.max(1, Math.floor(settings.maximum_unique_videos / keys.length));
-    const remainder = settings.maximum_unique_videos % keys.length;
+    const totalMax = settings.maximum_unique_videos || 16;
+    const countPerTheme = Math.max(1, Math.floor(totalMax / keys.length));
+    const remainder = totalMax % keys.length;
 
     setSelectedNatures((prev) => {
       const next = { ...prev };
@@ -282,29 +346,120 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   return (
     <div className="bg-white dark:bg-stone-900/80 border border-stone-200/90 dark:border-stone-800/80 rounded-3xl p-5 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-5 sm:space-y-6 transition-colors duration-200">
       
-      {/* 1. CONCEPT & AI SCRIPT DIRECTOR */}
+      {/* 1. STUDIO MODE & MEDIA TYPE TOGGLE */}
       <div className="space-y-3.5">
-        <div className="pb-3 border-b border-stone-200 dark:border-stone-800/80">
-          <h2 className="text-base font-semibold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>Meditation Concept & AI Script Director</span>
-          </h2>
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
-            Enter your meditation title or guidance script to automatically discover matching nature themes
-          </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800/80">
+          <div>
+            <h2 className="text-base font-semibold text-stone-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>{isDocMode ? 'Wildlife Documentary AI Studio' : 'Meditation Concept & AI Script Director'}</span>
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
+              {isDocMode
+                ? 'Generate cinematic 4K wildlife documentaries featuring authentic animals in natural habitats'
+                : 'Enter your meditation title or guidance script to automatically discover matching nature themes'}
+            </p>
+          </div>
+
+          {/* Mode Switcher Segmented Toggle */}
+          <div className="inline-flex p-1 bg-stone-100 dark:bg-stone-800/90 rounded-2xl border border-stone-200/80 dark:border-stone-700/80 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => {
+                updateSetting('studio_mode', 'meditation');
+                setSelectedNatures({});
+                setActiveIntentPreset(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                !isDocMode
+                  ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <span>🌿</span>
+              <span>Nature Meditation</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                updateSetting('studio_mode', 'documentary');
+                setSelectedNatures({});
+                setActiveIntentPreset(null);
+              }}
+              className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                isDocMode
+                  ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-700/80 shadow-xs font-semibold'
+                  : 'text-stone-500 hover:text-stone-900 dark:hover:text-stone-200'
+              }`}
+            >
+              <span>🐾</span>
+              <span>Wildlife Documentary</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Media Format Selector */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 py-1 px-3 bg-stone-50/70 dark:bg-stone-950/50 rounded-xl border border-stone-200/60 dark:border-stone-800/60">
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
+              Media Format:
+            </label>
+            <div className="inline-flex p-0.5 bg-stone-200/60 dark:bg-stone-800 rounded-lg text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => updateSetting('media_type', 'video')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  (settings.media_type || 'video') === 'video'
+                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                }`}
+              >
+                🎬 Video Only
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSetting('media_type', 'image')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  settings.media_type === 'image'
+                    ? 'bg-white dark:bg-stone-900 text-stone-950 dark:text-white shadow-xs font-semibold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                }`}
+              >
+                🖼️ Photos Only
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSetting('media_type', 'both')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  settings.media_type === 'both'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 font-semibold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-950'
+                }`}
+              >
+                ✨ Both (Video & Photo)
+              </button>
+            </div>
+          </div>
+
+          {(settings.media_type === 'image' || settings.media_type === 'both') && (
+            <span className="text-[11px] text-amber-800 dark:text-amber-300 font-medium bg-amber-100/60 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300/60 dark:border-amber-800/50 flex items-center gap-1">
+              <span>🔍</span>
+              <span>Smooth Ken Burns slow zoom & pan active on photos</span>
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
           {/* Title Input */}
           <div className="lg:col-span-5 space-y-1">
             <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-              Meditation Title
+              {isDocMode ? 'Documentary Title / Topic' : 'Meditation Title'}
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Softening the Heart, Morning Awakening, Deep Sleep..."
+              placeholder={isDocMode ? 'e.g. Predators of the Serengeti, Ocean Giants, Arctic Wolves...' : 'e.g. Softening the Heart, Morning Awakening, Guided Rest...'}
               className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
@@ -312,13 +467,13 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           {/* Guidance Script Input */}
           <div className="lg:col-span-7 space-y-1">
             <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-              Script or Spoken Guidance <span className="text-stone-400 font-normal lowercase">(optional)</span>
+              {isDocMode ? 'Documentary Voiceover / Narrative Script' : 'Script or Spoken Guidance'} <span className="text-stone-400 font-normal lowercase">(optional)</span>
             </label>
             <input
               type="text"
               value={script}
               onChange={(e) => setScript(e.target.value)}
-              placeholder="Paste guidance script to extract emotional intent, pace, and visual metaphors..."
+              placeholder={isDocMode ? 'Paste narration script or wildlife behaviors to spotlight...' : 'Paste guidance script to extract emotional intent, pace, and visual metaphors...'}
               className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3.5 text-xs text-stone-900 dark:text-white placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
@@ -333,7 +488,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 disabled:opacity-50 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
           >
             <Wand2 className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-            <span>{isPlanningAI ? 'Analyzing Script...' : 'Analyze & Suggest Themes'}</span>
+            <span>{isPlanningAI ? 'Analyzing Concept...' : (isDocMode ? 'AI Director: Plan Wildlife Scenes' : 'Analyze & Suggest Themes')}</span>
           </button>
         </div>
       </div>

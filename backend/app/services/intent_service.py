@@ -20,22 +20,22 @@ class IntentService:
         manual_intent: Optional[str] = None,
         manual_mood: Optional[List[str]] = None,
         preset_name: Optional[str] = None,
-        target_clips: int = 16
+        target_clips: int = 16,
+        studio_mode: str = "meditation"
     ) -> IntentAnalysisResult:
         """
-        AI Video Director: Analyzes meditation content and automatically plans
+        AI Video Director: Analyzes meditation or wildlife documentary concepts and automatically plans
         3 to 6 harmonious, diverse environment scenes with search keywords and clip allocations.
-        Strictly prioritizes bright, serene, daylight scenes and excludes gloomy footage.
         """
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
-                result = await self._analyze_with_gemini(title, script, manual_intent, manual_mood, target_clips)
+                result = await self._analyze_with_gemini(title, script, manual_intent, manual_mood, target_clips, studio_mode)
                 if result:
                     return result
             except Exception as e:
                 logger.warning(f"Gemini AI Director analysis failed, falling back to heuristic director: {e}")
 
-        return self._analyze_heuristic(title, script, manual_intent, manual_mood, target_clips)
+        return self._analyze_heuristic(title, script, manual_intent, manual_mood, target_clips, studio_mode)
 
     async def _analyze_with_gemini(
         self,
@@ -43,9 +43,55 @@ class IntentService:
         script: Optional[str],
         manual_intent: Optional[str],
         manual_mood: Optional[List[str]],
-        target_clips: int
+        target_clips: int,
+        studio_mode: str = "meditation"
     ) -> Optional[IntentAnalysisResult]:
-        prompt = f"""
+        if studio_mode == "documentary":
+            prompt = f"""
+You are an expert AI Wildlife Documentary Director (BBC Planet Earth / National Geographic style).
+Analyze the documentary title and storyline script, detect the wildlife species, habitats, and narrative arc, then intelligently plan 3 to 5 cinematic wildlife habitat segments.
+
+Title: {title or 'Wild Kingdom'}
+Script: {script or 'Wildlife roaming their natural habitats'}
+Target Total Clips Needed: {target_clips}
+
+DIRECTOR RULES FOR WILDLIFE DOCUMENTARY:
+- Focus on authentic wild animals in their natural habitats (Savanna, Deep Ocean, Arctic, Jungle, Mountain Ridges, Wetlands, Rainforest).
+- Prioritize high-action, foraging, swimming, hunting, migration, and close-up tracking shots.
+- STRICTLY EXCLUDE: zoos, cages, enclosures, domestic pets (dogs/cats), aquariums, human trainers, fences, vehicles, tourists, text overlays.
+
+Return ONLY valid JSON matching this schema:
+{{
+  "intent": "epic wildlife survival and predator dynamics in the wild",
+  "mood": ["majestic", "cinematic", "wild", "dramatic", "awe-inspiring"],
+  "energy_level": "medium",
+  "visual_style": "cinematic 4K wildlife footage with animal tracking shots and natural habitat vistas",
+  "preferred_colors": ["golden amber", "deep ocean blue", "savanna ochre", "jungle green"],
+  "visual_motifs": ["lion pride stalking grassland", "cheetah running sprint", "elephant herd at waterhole"],
+  "avoid_visuals": ["zoo", "cage", "enclosure", "aquarium", "pet", "dog", "cat", "human", "tourist", "fence", "car", "text", "timelapse"],
+  "generated_queries": ["lion pride savanna wildlife 4k", "cheetah hunting golden grassland", "african elephant herd watering hole"],
+  "planned_environments": [
+    {{
+      "id": "savanna_predators",
+      "name": "Savanna & Big Cats",
+      "icon": "🦁",
+      "keywords": ["lion pride savanna wildlife 4k", "cheetah hunting grassland", "african elephant herd 4k"],
+      "suggested_clips": 4,
+      "enabled": true
+    }},
+    {{
+      "id": "marine_giants",
+      "name": "Ocean & Marine Giants",
+      "icon": "🐋",
+      "keywords": ["humpback whale swimming underwater 4k", "sea turtle coral reef clear water", "orca pod ocean wildlife"],
+      "suggested_clips": 4,
+      "enabled": true
+    }}
+  ]
+}}
+"""
+        else:
+            prompt = f"""
 You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
 Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, and mood, then intelligently select 3 to 5 matching nature environment scenes.
 
@@ -132,11 +178,90 @@ Return ONLY valid JSON matching this schema:
         script: Optional[str],
         manual_intent: Optional[str],
         manual_mood: Optional[List[str]],
-        target_clips: int
+        target_clips: int,
+        studio_mode: str = "meditation"
     ) -> IntentAnalysisResult:
+        from backend.app.presets.nature_presets import WILDLIFE_ENVIRONMENTS
         combined = f"{title or ''} {script or ''}".lower()
 
-        # 1. Detect Intent, Mood & Thematic Category
+        # WILDLIFE DOCUMENTARY HEURISTIC
+        if studio_mode == "documentary":
+            if any(w in combined for w in ["savanna", "africa", "lion", "cheetah", "leopard", "elephant", "zebra", "safari"]):
+                intent = "epic African savanna wildlife survival and big cat predator dynamics"
+                mood = ["majestic", "wild", "cinematic", "dynamic"]
+                visual_style = "golden savanna plains with roaming big cats and elephant herds"
+                pref_colors = ["golden amber", "savanna ochre", "earth brown", "acacia green"]
+                motifs = ["lion pride in golden grass", "cheetah hunting sprint", "elephant herd at waterhole"]
+                keys = ["savanna_predators", "sky_predators", "wetland_wildlife"]
+            elif any(w in combined for w in ["ocean", "sea", "whale", "shark", "dolphin", "turtle", "marine", "underwater", "reef"]):
+                intent = "awe-inspiring marine life exploration and deep ocean giant behaviors"
+                mood = ["wondrous", "serene", "majestic", "fluid"]
+                visual_style = "crystal clear ocean depths with swimming whales and gliding sea turtles"
+                pref_colors = ["deep navy", "turquoise blue", "coral orange", "seafoam"]
+                motifs = ["humpback whale surfacing", "sea turtle gliding over reef", "dolphins in clear water"]
+                keys = ["marine_giants", "wetland_wildlife", "sky_predators"]
+            elif any(w in combined for w in ["jungle", "rainforest", "amazon", "jaguar", "monkey", "toucan", "macaw", "tropical"]):
+                intent = "rich rainforest biodiversity and exotic jungle wildlife behavior"
+                mood = ["vibrant", "stealthy", "cinematic", "lush"]
+                visual_style = "dense green rainforest canopies with prowling jaguars and colorful macaws"
+                pref_colors = ["emerald green", "jaguar gold", "scarlet red", "bright yellow"]
+                motifs = ["jaguar prowling through jungle", "monkeys swinging in trees", "toucan on mossy branch"]
+                keys = ["jungle_rainforest", "macro_insects", "wetland_wildlife"]
+            elif any(w in combined for w in ["arctic", "polar", "ice", "snow", "penguin", "fox", "seal", "walrus", "antarctica"]):
+                intent = "harsh polar wilderness and resilient arctic wildlife survival"
+                mood = ["epic", "stark", "majestic", "resilient"]
+                visual_style = "vast glaciers and sea ice with roaming polar bears and penguin colonies"
+                pref_colors = ["glacier white", "ice blue", "polar grey", "slate navy"]
+                motifs = ["polar bear on sea ice", "emperor penguin colony", "arctic fox hunting in snow"]
+                keys = ["arctic_wildlife", "marine_giants", "sky_predators"]
+            elif any(w in combined for w in ["bird", "eagle", "hawk", "owl", "flight", "raptor", "sky"]):
+                intent = "aerial mastery and keen hunting instincts of apex birds of prey"
+                mood = ["focused", "majestic", "soaring", "dramatic"]
+                visual_style = "mountain skies with soaring bald eagles and poised hunting raptors"
+                pref_colors = ["sky azure", "feather amber", "mountain white", "cloud grey"]
+                motifs = ["bald eagle soaring mountain vista", "snowy owl perched on branch", "hawk in flight"]
+                keys = ["sky_predators", "mountain_predators", "savanna_predators"]
+            else: # Default balanced wildlife documentary
+                intent = "captivating wildlife documentary journey across diverse natural animal habitats"
+                mood = ["majestic", "cinematic", "wild", "awe-inspiring"]
+                visual_style = "cinematic wildlife footage celebrating magnificent animals in the wild"
+                pref_colors = ["golden amber", "deep ocean blue", "emerald green", "earth ochre"]
+                motifs = ["big cats roaming savanna", "whales swimming in deep ocean", "eagles soaring over mountains"]
+                keys = ["savanna_predators", "marine_giants", "mountain_predators", "sky_predators"]
+
+            clips_per_env = max(2, target_clips // len(keys))
+            all_queries = []
+            selected_envs = []
+            for k in keys:
+                env_def = WILDLIFE_ENVIRONMENTS.get(k) or NATURE_ENVIRONMENTS.get(k)
+                if env_def:
+                    selected_envs.append(PlannedEnvironment(
+                        id=env_def.id,
+                        name=env_def.name,
+                        icon=env_def.icon,
+                        keywords=env_def.queries[:3],
+                        suggested_clips=clips_per_env,
+                        enabled=True
+                    ))
+                    all_queries.extend(env_def.queries[:2])
+
+            return IntentAnalysisResult(
+                intent=intent,
+                mood=manual_mood if (manual_mood and len(manual_mood) > 0) else mood,
+                energy_level="medium",
+                visual_style=visual_style,
+                preferred_colors=pref_colors,
+                visual_motifs=motifs,
+                avoid_visuals=[
+                    "zoo", "cage", "caged", "enclosure", "aquarium", "pet", "dog", "cat", "puppy", "kitten",
+                    "leash", "collar", "domestic", "human", "tourist", "trainer", "crowd",
+                    "fence", "bars", "car", "road", "city", "building", "text", "watermark", "timelapse"
+                ],
+                generated_queries=all_queries,
+                planned_environments=selected_envs
+            )
+
+        # 1. NATURE MEDITATION HEURISTIC
         if manual_intent and manual_intent.strip():
             intent = manual_intent.strip()
             mood = manual_mood or ["peaceful", "warm", "gentle", "soothing"]
