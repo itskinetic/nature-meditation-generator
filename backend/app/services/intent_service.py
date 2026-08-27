@@ -132,7 +132,7 @@ Return ONLY valid JSON matching this schema:
   "visual_style": "peaceful crystal-clear nature vistas with gentle subtle motion",
   "preferred_colors": ["emerald green", "soft gold", "turquoise blue", "misty lavender"],
   "visual_motifs": ["sunlight through trees", "gentle water ripples", "swaying wildflowers"],
-  "avoid_visuals": ["boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "avoid_visuals": ["flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
   "generated_queries": ["query 1", "query 2", "query 3"],
   "planned_environments": [
     {{

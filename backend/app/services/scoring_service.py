@@ -110,14 +110,16 @@ Keep the video ONLY if:
 - the atmosphere is peaceful, spacious, and meditative
 - the movement is slow and subtle
 
-Shot Type Classification (Classify into one of these 5 types):
-- "wide_vista": Grounded expansive wide-angle landscape, horizon, or panoramic natural vista.
-- "close_up": Macro or intimate close-up (dew drops, leaf texture, flower petal, water ripple).
-- "low_angle": Ground-level shot looking upward through trees, grass, or rocks toward the sky.
-- "still_ambient": Stationary locked-off tripod shot with subtle natural motion.
-- "slow_glide": Smooth, gentle floating tracking shot or ultra-slow drift.
+Shot Type Classification (Classify accurately based on the framing):
+- "wide_vista": Expansive wide-angle landscape, forest vista, mountain range, river, or ocean horizon. (MUST NOT be a single object, flower, or plant in the foreground).
+- "close_up": Intimate close-up or macro shot (e.g. leaf detail, water ripple, rock texture, single plant).
+- "low_angle": Ground-level shot looking upward through trees or tall grass toward the sky.
+- "still_ambient": Stationary locked-off tripod shot of a natural environment.
+- "slow_glide": Smooth, gentle gliding or floating camera movement through a landscape.
 
 STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT ANY flower close-ups, macro flowers, individual flower blossoms, petals, lotus flowers, or waterlilies.
+- REJECT ANY bees, wasps, bugs, insects, spiders, or crawling creatures on plants or flowers.
 - REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
 - REJECT ANY docks, piers, marinas, harbors, ports, jetties, or boat slips.
 - REJECT ANY high-altitude drone flyovers, high aerial survey shots, top-down satellite maps, or distant overhead drone vistas.
@@ -205,7 +207,7 @@ Return ONLY valid JSON matching this schema:
 
         # Classify Shot Type from corpus
         detected_shot_type = "wide_vista"
-        if any(w in corpus_words for w in ["macro", "close", "closeup", "detail", "portrait", "feather", "eye"]):
+        if any(w in corpus_words for w in ["macro", "close", "closeup", "detail", "portrait", "feather", "eye", "flower", "flowers", "petal", "blossom", "bee", "bug", "insect", "lotus"]):
             detected_shot_type = "close_up"
         elif any(w in corpus_words for w in ["ground", "roots", "floor", "pebbles", "prowl", "track"]):
             detected_shot_type = "low_angle"

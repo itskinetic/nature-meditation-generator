@@ -38,7 +38,16 @@ GLOBAL_PROHIBITED_TERMS = [
 
     # Captive Animals, Domestic pets & Enclosures
     "zoo", "cage", "caged", "enclosure", "aquarium", "pet", "pets", "dog", "dogs", "cat", "cats",
-    "puppy", "kitten", "domestic", "leash", "collar", "trainer", "circus"
+    "puppy", "kitten", "domestic", "leash", "collar", "trainer", "circus",
+
+    # Flower Macro, Flowers, Lotus & Garden Plants
+    "flower", "flowers", "blossom", "blossoms", "petal", "petals", "lotus", "waterlily", "water lily",
+    "dahlia", "rose", "roses", "tulip", "tulips", "orchid", "orchids", "sunflower", "sunflowers", "daisy", "daisies",
+    "bouquet", "pollen", "pollination", "macro flower", "flower close up",
+
+    # Insects, Bees, Bugs & Crawlers
+    "bee", "bees", "wasp", "wasps", "hornet", "bug", "bugs", "insect", "insects", "spider", "spiders",
+    "caterpillar", "worm", "fly", "flies", "mosquito", "beetle", "beetles"
 ]
 
 
