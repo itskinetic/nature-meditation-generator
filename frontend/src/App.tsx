@@ -151,17 +151,20 @@ export function App() {
     ? settings.target_duration
     : settings.target_duration * 60;
 
-  // Search Mutation using selected nature specs
+  // Search Mutation using selected nature specs or title/script auto-discovery
   const searchMutation = useMutation({
     mutationFn: (envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }>) => {
-      const specs = envSpecs || Object.values(selectedNatures).map((item) => ({
+      const selectedList = Object.values(selectedNatures);
+      const specs = envSpecs || (selectedList.length > 0 ? selectedList.map((item) => ({
         id: item.id,
         name: item.name,
         queries: item.queries,
         clip_count: item.clipCount,
-      }));
+      })) : undefined);
 
       return api.searchCandidates({
+        title: title.trim() || undefined,
+        script: script.trim() || undefined,
         environments_spec: specs,
         preset_name: settings.preset,
         enable_pexels: settings.enable_pexels,

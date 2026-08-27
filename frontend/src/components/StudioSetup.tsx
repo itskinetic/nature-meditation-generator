@@ -927,23 +927,23 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         <div className="text-xs text-stone-500 dark:text-stone-400 text-center sm:text-left">
           {selectedList.length > 0 ? (
             <>
-              Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} mins</strong> •{' '}
-              <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} nature {selectedList.length === 1 ? 'theme' : 'themes'}</strong> ({totalAllocatedClips} clips) •{' '}
+              Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit || 'mins'}</strong> •{' '}
+              <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} {selectedList.length === 1 ? 'scene' : 'scenes'}</strong> ({totalAllocatedClips} clips) •{' '}
               <span className="font-medium text-stone-700 dark:text-stone-300">{settings.aspect_ratio} {settings.resolution}</span>
             </>
           ) : (
-            <span>Enter your meditation concept and analyze to generate a custom nature plan.</span>
+            <span>Enter your narrative concept or script to discover and fetch matching 4K stock footage.</span>
           )}
         </div>
 
         <button
           type="button"
           onClick={onSearchFootage}
-          disabled={isSearching || selectedList.length === 0}
+          disabled={isSearching || (!title.trim() && !script.trim() && selectedList.length === 0)}
           className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 disabled:opacity-50 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
         >
           <Search className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-          <span>{isSearching ? 'Searching & Evaluating Footage...' : `Fetch Footage for Plan (${totalAllocatedClips} clips)`}</span>
+          <span>{isSearching ? 'Searching & Evaluating Footage...' : (selectedList.length > 0 ? `Fetch Footage for Plan (${totalAllocatedClips} clips)` : 'Fetch Footage for Plan')}</span>
         </button>
       </div>
     </div>

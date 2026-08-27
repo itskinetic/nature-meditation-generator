@@ -87,8 +87,9 @@ class CandidateService:
                     c.rejection_reason = "Already exists in Video Library"
                     continue
                 else:
-                    # Skip the online duplicate to avoid showing identical cards
-                    continue
+                    # Tag as reusable library asset
+                    c.source = "library"
+                    c.is_reused = True
 
             # 5. Check minimum & maximum duration
             if c.duration > 0 and c.duration < min_duration:

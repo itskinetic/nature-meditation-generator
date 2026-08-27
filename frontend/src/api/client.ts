@@ -76,6 +76,8 @@ export const api = {
   },
 
   async searchCandidates(params: {
+    title?: string;
+    script?: string;
     queries?: string[];
     preset_name?: string;
     environments?: string[];

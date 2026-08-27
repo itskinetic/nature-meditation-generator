@@ -148,6 +148,8 @@ class EnvironmentSearchSpec(BaseModel):
 
 
 class SearchRequest(BaseModel):
+    title: Optional[str] = None
+    script: Optional[str] = None
     queries: Optional[List[str]] = None
     preset_name: Optional[str] = None
     environments: Optional[List[str]] = None

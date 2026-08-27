@@ -16,7 +16,7 @@ from backend.app.database import get_db, SessionLocal
 from backend.app.models import GenerationJob, VideoLibraryItem
 from backend.app.schemas import (
     IntentAnalysisRequest, IntentAnalysisResult,
-    PresetSchema, SearchRequest, SearchResponse,
+    PresetSchema, SearchRequest, SearchResponse, EnvironmentSearchSpec,
     CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
@@ -109,62 +109,36 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
     active_presets = get_presets_for_mode(req.studio_mode or "meditation")
 
-    # If environment specs are provided, search per environment
-    if req.environments_spec and len(req.environments_spec) > 0:
-        for env_spec in req.environments_spec:
+    # Determine scene specs to search
+    specs_to_run = req.environments_spec
+    if not specs_to_run and ((req.title and req.title.strip()) or (req.script and req.script.strip())):
+        try:
+            auto_plan = await intent_service.analyze(
+                title=req.title,
+                script=req.script,
+                studio_mode=req.studio_mode or "meditation"
+            )
+            if auto_plan and auto_plan.planned_environments:
+                specs_to_run = [
+                    EnvironmentSearchSpec(
+                        id=pe.id,
+                        name=pe.name,
+                        queries=pe.keywords,
+                        clip_count=pe.suggested_clips
+                    ) for pe in auto_plan.planned_environments
+                ]
+        except Exception as plan_err:
+            logger.warning(f"Auto-plan in search_candidates failed: {plan_err}")
+
+    # If environment specs are provided or derived, search per environment
+    if specs_to_run and len(specs_to_run) > 0:
+        for env_spec in specs_to_run:
             env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
             target_clips = env_spec.clip_count or 4
 
-            # Step 1: Check Local Video Library first (unless user explicitly requested to exclude history)
-            library_found_count = 0
-            if not req.exclude_all_history:
-                try:
-                    lib_items = db.query(VideoLibraryItem).filter(
-                        VideoLibraryItem.is_approved == True,
-                        (VideoLibraryItem.subtheme.ilike(f"%{env_spec.name}%")) | 
-                        (VideoLibraryItem.intent_tags.ilike(f"%{env_spec.id}%")) |
-                        (VideoLibraryItem.mood_tags.ilike(f"%{env_spec.id}%"))
-                    ).limit(target_clips).all()
-
-                    for li in lib_items:
-                        approved.append(CandidateItem(
-                            source="library",
-                            source_video_id=li.source_video_id,
-                            source_url=li.source_url or "",
-                            creator_name=li.creator_name or "Your Library",
-                            creator_url=li.creator_url,
-                            search_query=env_spec.name,
-                            duration=li.duration,
-                            width=li.width,
-                            height=li.height,
-                            preview_url=li.preview_url,
-                            download_url=li.source_url,
-                            local_file_path=li.local_file_path,
-                            intent_match=li.intent_score or 9.5,
-                            theme_match=li.theme_score or 9.5,
-                            calmness=li.calmness_score or 9.5,
-                            motion_intensity=li.motion_score or 2.0,
-                            visual_quality=li.visual_quality_score or 9.5,
-                            shot_type=getattr(li, 'shot_type', None) or "wide_vista",
-                            subtheme=env_spec.name,
-                            environment_id=env_spec.id,
-                            is_approved=True,
-                            rejection_reason=None
-                        ))
-                    library_found_count = len(lib_items)
-                except Exception as lib_err:
-                    logger.warning(f"Local library query skipped: {lib_err}")
-
-            # Step 2: Calculate remaining needed clips from online API
-            needed_online = target_clips - library_found_count
-            if needed_online <= 0:
-                logger.info(f"Environment '{env_spec.name}' 100% fulfilled by local library ({library_found_count} clips). 0 online API calls made.")
-                continue
-
-            # Step 3: Fetch only the missing deficit from online providers
-            per_page = min(8, max(3, int(needed_online * 1.5)))
-            num_queries = 2 if needed_online >= 6 else 1
-            queries_to_run = list(env_spec.queries[:num_queries]) if env_spec.queries else [env_spec.name]
+            # Fetch candidates for this environment
+            per_page = min(15, max(6, int(target_clips * 2)))
+            queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
 
             env_raw: List[CandidateItem] = []
             for q in queries_to_run:
