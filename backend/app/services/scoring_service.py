@@ -18,24 +18,26 @@ class ScoringService:
         candidate: CandidateItem,
         analysis: IntentAnalysisResult,
         preset: Optional[PresetSchema] = None,
-        studio_mode: str = "meditation"
+        studio_mode: str = "meditation",
+        shot_preference: str = "balanced"
     ) -> ScoringResult:
         """
         Scores a candidate video using vision API or heuristic evaluation.
-        Enforces strict mode-aware scoring criteria (meditation vs wildlife documentary).
+        Enforces strict mode-aware scoring criteria (meditation vs wildlife documentary)
+        and rejects still shots unless 'still' shot preference is explicitly selected.
         """
         # If Gemini API Key is available and preview_url is reachable, call Gemini Vision
         if self.api_key and len(self.api_key.strip()) > 5 and candidate.preview_url:
             try:
                 result = await self._score_with_gemini(candidate, analysis, preset, studio_mode)
                 if result:
-                    return self._apply_scoring_thresholds(result, preset, studio_mode)
+                    return self._apply_scoring_thresholds(result, preset, studio_mode, shot_preference=shot_preference)
             except Exception as e:
                 logger.warning(f"Gemini vision scoring failed for {candidate.source_video_id}: {e}")
 
         # Fallback heuristic scoring
         result = self._score_heuristic(candidate, analysis, preset, studio_mode)
-        return self._apply_scoring_thresholds(result, preset, studio_mode)
+        return self._apply_scoring_thresholds(result, preset, studio_mode, shot_preference=shot_preference)
 
     async def _score_with_gemini(
         self,
@@ -315,9 +317,25 @@ Return ONLY valid JSON matching this schema:
         self,
         res: ScoringResult,
         preset: Optional[PresetSchema],
-        studio_mode: str = "meditation"
+        studio_mode: str = "meditation",
+        shot_preference: str = "balanced"
     ) -> ScoringResult:
         is_doc = (studio_mode == "documentary")
+        pref = (shot_preference or "balanced").lower()
+
+        # Reject static still shots unless user explicitly specified "still" shot preference
+        if not is_doc and pref != "still":
+            if res.shot_type == "still_ambient" or res.motion_intensity < 1.0:
+                res.keep = False
+                res.reason = f"Rejected: Static still shot with no camera/nature motion (shot preference is '{pref}', not 'still')"
+                return res
+
+        # In "wide" shot preference mode, reject close-ups
+        if not is_doc and pref == "wide" and res.shot_type in ("close_up", "macro"):
+            res.keep = False
+            res.reason = "Rejected: Close-up shot (shot preference is 'Expansive Vistas')"
+            return res
+
         min_intent = getattr(preset, 'minimum_intent_score', 8.0) if preset else 7.5
         min_theme = getattr(preset, 'minimum_theme_score', 8.0) if preset else 7.5
         min_calmness = getattr(preset, 'minimum_calmness_score', 8.0) if (preset and not is_doc) else (4.0 if is_doc else 8.0)

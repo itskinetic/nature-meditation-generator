@@ -205,12 +205,12 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             async def score_single(c: CandidateItem):
                 try:
                     score_res = await asyncio.wait_for(
-                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset, studio_mode=active_mode),
+                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "balanced"),
                         timeout=4.0
                     )
                 except Exception:
                     score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
-                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode)
+                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "balanced")
 
                 c.intent_match = score_res.intent_match
                 c.theme_match = score_res.theme_match
@@ -321,12 +321,12 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
         async def score_single_generic(c: CandidateItem):
             try:
                 score_res = await asyncio.wait_for(
-                    scoring_service.score_candidate(c, dummy_analysis, preset),
+                    scoring_service.score_candidate(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "balanced"),
                     timeout=4.0
                 )
             except Exception:
-                score_res = scoring_service._score_heuristic(c, dummy_analysis, preset)
-                score_res = scoring_service._apply_scoring_thresholds(score_res, preset)
+                score_res = scoring_service._score_heuristic(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation")
+                score_res = scoring_service._apply_scoring_thresholds(score_res, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "balanced")
 
             c.intent_match = score_res.intent_match
             c.theme_match = score_res.theme_match
