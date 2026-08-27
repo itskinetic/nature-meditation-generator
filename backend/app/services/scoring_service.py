@@ -141,11 +141,9 @@ Return ONLY valid JSON matching this schema:
   "reason": "Pure tranquil natural landscape with no boats, docks, drone survey, or man-made elements."
 }}
 """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
-
         # Fetch image bytes if preview_url is valid http
         image_part = None
-        if candidate.preview_url.startswith("http"):
+        if candidate.preview_url and candidate.preview_url.startswith("http"):
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     img_resp = await client.get(candidate.preview_url)
@@ -171,13 +169,21 @@ Return ONLY valid JSON matching this schema:
             "generationConfig": {"response_mime_type": "application/json"}
         }
 
+        candidate_models = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
         async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = json.loads(text)
-                return ScoringResult(**parsed)
+            for model_name in candidate_models:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        parsed = json.loads(text)
+                        return ScoringResult(**parsed)
+                    else:
+                        logger.warning(f"Gemini scoring model {model_name} returned status {resp.status_code}")
+                except Exception as ex:
+                    logger.warning(f"Gemini scoring request to {model_name} failed: {ex}")
 
         return None
 
@@ -313,8 +319,19 @@ Return ONLY valid JSON matching this schema:
         min_intent = getattr(preset, 'minimum_intent_score', 8.0) if preset else 7.5
         min_theme = getattr(preset, 'minimum_theme_score', 8.0) if preset else 7.5
         min_calmness = getattr(preset, 'minimum_calmness_score', 8.0) if (preset and not is_doc) else (4.0 if is_doc else 8.0)
-        max_motion = getattr(preset, 'maximum_motion_intensity', getattr(preset, 'maximum_motion_score', 4.0)) if (preset and not is_doc) else (8.5 if is_doc else 4.0)
+        max_motion = getattr(preset, 'maximum_motion_intensity', 3.5) if (preset and not is_doc) else (8.5 if is_doc else 3.5)
         min_quality = getattr(preset, 'minimum_visual_quality', 7.0) if preset else 7.0
+
+        if not is_doc and res.motion_intensity > max_motion:
+            res.keep = False
+            res.calmness = min(res.calmness, 4.0)
+            res.reason = f"Rejected: Motion intensity ({res.motion_intensity:.1f}/10) is too fast/turbulent for tranquil meditation (max {max_motion:.1f})"
+            return res
+
+        if not is_doc and res.calmness < min_calmness:
+            res.keep = False
+            res.reason = f"Rejected: Calmness score ({res.calmness:.1f}/10) is below minimum threshold ({min_calmness:.1f})"
+            return res
 
         passed = (
             res.intent_match >= min_intent
@@ -327,7 +344,7 @@ Return ONLY valid JSON matching this schema:
 
         res.keep = passed
         if not passed and not res.reason:
-            res.reason = "Candidate did not meet required threshold scores."
+            res.reason = "Did not meet visual standards or intent match threshold."
         return res
 
 
