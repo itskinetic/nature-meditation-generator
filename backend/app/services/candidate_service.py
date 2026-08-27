@@ -47,7 +47,10 @@ GLOBAL_PROHIBITED_TERMS = [
 
     # Insects, Bees, Bugs & Crawlers
     "bee", "bees", "wasp", "wasps", "hornet", "bug", "bugs", "insect", "insects", "spider", "spiders",
-    "caterpillar", "worm", "fly", "flies", "mosquito", "beetle", "beetles"
+    "caterpillar", "worm", "fly", "flies", "mosquito", "beetle", "beetles",
+
+    # Macro & Close-up shots (Pure wide vistas required)
+    "macro", "close up", "closeup", "extreme close up", "detail shot", "micro lens", "macro shot"
 ]
 
 

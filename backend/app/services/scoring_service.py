@@ -120,6 +120,7 @@ Shot Type Classification (Classify accurately based on the framing):
 - "slow_glide": Smooth, gentle gliding or floating camera movement through a landscape.
 
 STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT ANY close-up, macro, extreme close-up, or detail shots focusing on individual small objects (flowers, petals, leaves, tree bark, rocks, pebbles). ONLY wide expansive vistas allowed.
 - REJECT ANY flower close-ups, macro flowers, individual flower blossoms, petals, lotus flowers, or waterlilies.
 - REJECT ANY bees, wasps, bugs, insects, spiders, or crawling creatures on plants or flowers.
 - REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
@@ -330,10 +331,10 @@ Return ONLY valid JSON matching this schema:
                 res.reason = f"Rejected: Static still shot with no camera/nature motion (shot preference is '{pref}', not 'still')"
                 return res
 
-        # In "wide" shot preference mode, reject close-ups
-        if not is_doc and pref == "wide" and res.shot_type in ("close_up", "macro"):
+        # Reject close-up / macro shots unless user explicitly selected "macro" shot preference
+        if not is_doc and pref != "macro" and res.shot_type in ("close_up", "macro"):
             res.keep = False
-            res.reason = "Rejected: Close-up shot (shot preference is 'Expansive Vistas')"
+            res.reason = "Rejected: Close-up / Macro shot (only wide expansive vistas are allowed)"
             return res
 
         min_intent = getattr(preset, 'minimum_intent_score', 8.0) if preset else 7.5

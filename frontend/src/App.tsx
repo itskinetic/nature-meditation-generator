@@ -64,6 +64,7 @@ export function App() {
     maximum_clip_duration: undefined,
     aspect_ratio: '16:9',
     resolution: '1080p',
+    shot_preference: 'wide',
     transition_type: 'crossfade',
     transition_duration: 2.0,
     playback_speed: 0.5,
