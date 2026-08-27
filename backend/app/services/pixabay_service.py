@@ -43,6 +43,8 @@ class PixabayService:
             "key": self.api_key.strip(),
             "q": query,
             "video_type": "film",
+            "category": "nature",
+            "safesearch": "true",
             "per_page": min(per_page, 50),
             "page": page
         }
