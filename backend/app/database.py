@@ -23,6 +23,10 @@ def get_db():
 
 def init_db():
     """Initializes tables and automatically migrates any missing columns in SQLite."""
+    try:
+        import backend.app.models  # Ensure all model tables are registered with Base.metadata
+    except Exception:
+        pass
     Base.metadata.create_all(bind=engine)
 
     # Auto-migration for SQLite tables
