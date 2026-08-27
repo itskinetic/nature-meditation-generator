@@ -217,6 +217,8 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   const [customName, setCustomName] = useState<string>('');
   const [customQueries, setCustomQueries] = useState<string>('');
+  const [editingKeyword, setEditingKeyword] = useState<{ sceneId: string; index: number } | null>(null);
+  const [newKeywordInput, setNewKeywordInput] = useState<{ [sceneId: string]: string }>({});
 
   const isDocMode = settings.studio_mode === 'documentary';
 
@@ -231,6 +233,60 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       delete next[id];
       return next;
     });
+  };
+
+  // Keyword management handlers
+  const handleUpdateKeyword = (sceneId: string, index: number, value: string) => {
+    const val = value.trim();
+    setSelectedNatures((prev) => {
+      if (!prev[sceneId]) return prev;
+      const queries = [...(prev[sceneId].queries || [])];
+      if (val) {
+        queries[index] = val;
+      } else {
+        queries.splice(index, 1);
+      }
+      return {
+        ...prev,
+        [sceneId]: {
+          ...prev[sceneId],
+          queries,
+        },
+      };
+    });
+    setEditingKeyword(null);
+  };
+
+  const handleRemoveKeyword = (sceneId: string, index: number) => {
+    setSelectedNatures((prev) => {
+      if (!prev[sceneId]) return prev;
+      const queries = [...(prev[sceneId].queries || [])];
+      queries.splice(index, 1);
+      return {
+        ...prev,
+        [sceneId]: {
+          ...prev[sceneId],
+          queries,
+        },
+      };
+    });
+  };
+
+  const handleAddKeywordToScene = (sceneId: string) => {
+    const text = (newKeywordInput[sceneId] || '').trim();
+    if (!text) return;
+    setSelectedNatures((prev) => {
+      if (!prev[sceneId]) return prev;
+      const queries = [...(prev[sceneId].queries || []), text];
+      return {
+        ...prev,
+        [sceneId]: {
+          ...prev[sceneId],
+          queries,
+        },
+      };
+    });
+    setNewKeywordInput((prev) => ({ ...prev, [sceneId]: '' }));
   };
 
   // Update clip count for a selected scene
@@ -545,20 +601,82 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                     </div>
                   </div>
 
-                  {/* Keywords Pills */}
-                  {item.queries && item.queries.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-stone-100 dark:border-stone-800/60">
-                      {item.queries.map((q, qIdx) => (
-                        <span
-                          key={qIdx}
-                          className="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-[10px] font-medium text-stone-600 dark:text-stone-300 truncate max-w-[200px]"
-                          title={q}
-                        >
-                          {q}
-                        </span>
-                      ))}
+                  {/* Interactive Keywords Review & Edit Section */}
+                  <div className="pt-2 border-t border-stone-100 dark:border-stone-800/60 space-y-1.5">
+                    <div className="flex items-center justify-between text-[10px] text-stone-400">
+                      <span className="font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
+                        Search Keywords ({item.queries?.length || 0})
+                      </span>
+                      <span className="text-[9px] text-stone-400">Click keyword to edit</span>
                     </div>
-                  )}
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {item.queries?.map((q, qIdx) => {
+                        const isEditing = editingKeyword?.sceneId === item.id && editingKeyword?.index === qIdx;
+                        return isEditing ? (
+                          <input
+                            key={qIdx}
+                            type="text"
+                            defaultValue={q}
+                            autoFocus
+                            onBlur={(e) => handleUpdateKeyword(item.id, qIdx, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleUpdateKeyword(item.id, qIdx, (e.target as HTMLInputElement).value);
+                              if (e.key === 'Escape') setEditingKeyword(null);
+                            }}
+                            className="h-6 px-2 text-[11px] font-medium bg-amber-50 dark:bg-amber-950 border border-amber-400 rounded-md text-amber-950 dark:text-amber-100 outline-none shadow-xs"
+                          />
+                        ) : (
+                          <div
+                            key={qIdx}
+                            className="group/kw flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100/90 dark:bg-stone-800 hover:bg-amber-100/80 dark:hover:bg-amber-950/60 border border-stone-200/60 dark:border-stone-700/60 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-[11px] text-stone-700 dark:text-stone-300"
+                          >
+                            <span
+                              onClick={() => setEditingKeyword({ sceneId: item.id, index: qIdx })}
+                              className="cursor-pointer hover:underline truncate max-w-[180px]"
+                              title="Click to edit keyword"
+                            >
+                              {q}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveKeyword(item.id, qIdx)}
+                              title="Remove keyword"
+                              className="text-stone-400 hover:text-rose-600 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add Keyword Chip */}
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={newKeywordInput[item.id] || ''}
+                          onChange={(e) => setNewKeywordInput((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddKeywordToScene(item.id);
+                            }
+                          }}
+                          placeholder="+ Add keyword..."
+                          className="h-6 px-2 text-[10px] bg-transparent border border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-400 rounded-md text-stone-700 dark:text-stone-300 placeholder:text-stone-400 focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 w-28 transition-all"
+                        />
+                        {newKeywordInput[item.id] && (
+                          <button
+                            type="button"
+                            onClick={() => handleAddKeywordToScene(item.id)}
+                            className="h-6 px-1.5 rounded bg-amber-500 text-stone-950 text-[10px] font-bold cursor-pointer"
+                          >
+                            Add
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

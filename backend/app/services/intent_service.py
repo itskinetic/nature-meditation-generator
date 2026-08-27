@@ -134,19 +134,26 @@ Return ONLY valid JSON matching this schema:
   ]
 }}
 """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={self.api_key}"
+        candidate_models = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"response_mime_type": "application/json"}
         }
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = json.loads(text)
-                return IntentAnalysisResult(**parsed)
+        async with httpx.AsyncClient(timeout=25.0) as client:
+            for model_name in candidate_models:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        parsed = json.loads(text)
+                        return IntentAnalysisResult(**parsed)
+                    else:
+                        logger.warning(f"Gemini model {model_name} returned status {resp.status_code}: {resp.text[:100]}")
+                except Exception as ex:
+                    logger.warning(f"Gemini model {model_name} request failed: {ex}")
         return None
 
     def _analyze_heuristic(
