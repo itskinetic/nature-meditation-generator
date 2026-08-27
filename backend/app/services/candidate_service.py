@@ -31,9 +31,10 @@ class CandidateService:
         seen_urls: Set[str] = set()
         filtered: List[CandidateItem] = []
 
-        # Load rejected and existing library IDs from DB
+        # Load rejected and existing library IDs/URLs from DB
         rejected_ids: Set[str] = set()
         library_ids: Set[str] = set()
+        library_urls: Set[str] = set()
 
         if db:
             try:
@@ -43,10 +44,12 @@ class CandidateService:
                 ).all()
                 rejected_ids = {r[0] for r in rejected_items}
 
-                if exclude_all_history:
-                    # Exclude ANY video already in the library or previously generated
-                    all_library_items = db.query(VideoLibraryItem.source_video_id).all()
-                    library_ids = {r[0] for r in all_library_items}
+                all_library_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).all()
+                for row in all_library_items:
+                    if row[0]:
+                        library_ids.add(str(row[0]))
+                    if row[1]:
+                        library_urls.add(str(row[1]).strip().rstrip("/"))
             except Exception as db_err:
                 logger.warning(f"Error querying history in candidate filter: {db_err}")
 
@@ -76,11 +79,16 @@ class CandidateService:
                 c.rejection_reason = "Previously rejected/banned video"
                 continue
 
-            # 4. Check existing library and past history exclusion (if Exclude History enabled)
-            if exclude_all_history and c.source_video_id in library_ids:
-                c.is_approved = False
-                c.rejection_reason = "Already exists in Video Library"
-                continue
+            # 4. Check existing library: If candidate is from online API but already in library
+            is_in_library = (c.source_video_id in library_ids) or (clean_url and clean_url in library_urls)
+            if is_in_library and c.source in ("pexels", "pixabay"):
+                if exclude_all_history:
+                    c.is_approved = False
+                    c.rejection_reason = "Already exists in Video Library"
+                    continue
+                else:
+                    # Skip the online duplicate to avoid showing identical cards
+                    continue
 
             # 5. Check minimum & maximum duration
             if c.duration > 0 and c.duration < min_duration:

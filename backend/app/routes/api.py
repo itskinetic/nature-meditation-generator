@@ -353,8 +353,32 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             else:
                 rejected.append(c)
 
-    # Auto-save approved and high-scoring candidates into SQLite Video Library
+    # Strictly deduplicate approved and rejected lists by ID and URL
+    unique_approved: List[CandidateItem] = []
+    unique_rejected: List[CandidateItem] = []
+    seen_ids: Set[str] = set()
+    seen_urls: Set[str] = set()
+
     for c in approved:
+        cid = c.source_video_id
+        curl = (c.source_url or "").strip().rstrip("/")
+        if cid and cid not in seen_ids and (not curl or curl not in seen_urls):
+            seen_ids.add(cid)
+            if curl:
+                seen_urls.add(curl)
+            unique_approved.append(c)
+
+    for c in rejected:
+        cid = c.source_video_id
+        curl = (c.source_url or "").strip().rstrip("/")
+        if cid and cid not in seen_ids and (not curl or curl not in seen_urls):
+            seen_ids.add(cid)
+            if curl:
+                seen_urls.add(curl)
+            unique_rejected.append(c)
+
+    # Auto-save approved and high-scoring candidates into SQLite Video Library
+    for c in unique_approved:
         try:
             library_service.save_or_update_video(
                 db=db,
@@ -366,10 +390,10 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             logger.warning(f"Could not auto-save candidate {c.source_video_id} to library: {save_err}")
 
     return SearchResponse(
-        candidates=approved + rejected,
-        total_found=len(all_raw),
-        approved_count=len(approved),
-        rejected_count=len(rejected)
+        candidates=unique_approved + unique_rejected,
+        total_found=len(unique_approved) + len(unique_rejected),
+        approved_count=len(unique_approved),
+        rejected_count=len(unique_rejected)
     )
 
 
