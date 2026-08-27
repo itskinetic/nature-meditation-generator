@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Optional, List, Dict
 import httpx
+from sqlalchemy.orm import Session
 from backend.app.config import settings
 from backend.app.schemas import IntentAnalysisResult, PlannedEnvironment, VisualBeat, StoryboardBreakdownResult
 from backend.app.presets.nature_presets import NATURE_ENVIRONMENTS
