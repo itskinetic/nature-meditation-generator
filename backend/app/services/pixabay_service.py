@@ -135,6 +135,27 @@ class PixabayService:
 
         return candidates
 
+    async def get_video_play_url(self, vid_id: str) -> Optional[str]:
+        """Fetch fresh direct playable MP4 link for a specific Pixabay video ID."""
+        if not self.api_key or len(self.api_key.strip()) < 5:
+            return None
+        clean_id = vid_id.replace("pixabay_", "")
+        url = f"https://pixabay.com/api/videos/?key={self.api_key.strip()}&id={clean_id}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    hits = data.get("hits", [])
+                    if hits:
+                        videos = hits[0].get("videos", {})
+                        for q in ["large", "medium", "small", "tiny"]:
+                            if q in videos and videos[q].get("url"):
+                                return videos[q]["url"]
+        except Exception as e:
+            logger.warning(f"Error fetching Pixabay video details for {vid_id}: {e}")
+        return None
+
     def _get_fixture_candidates(self, query: str, page: int = 1) -> List[CandidateItem]:
         fixtures = [
             CandidateItem(

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
@@ -887,6 +887,8 @@ def get_library(
             source=item.source,
             source_video_id=item.source_video_id,
             source_url=item.source_url,
+            download_url=item.source_url,
+            stream_url=f"/api/library/stream/{item.id}",
             local_file_path=item.local_file_path,
             preview_url=item.preview_url,
             creator_name=item.creator_name,
@@ -911,6 +913,53 @@ def get_library(
     return result
 
 
+@router.get("/library/stream/{item_id}")
+async def stream_library_video(item_id: int, db: Session = Depends(get_db)):
+    """Stream a library video locally from disk or resolve direct high-resolution video stream."""
+    item = db.query(VideoLibraryItem).filter(VideoLibraryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Library video item not found")
+
+    # 1. If local downloaded video file exists on disk, stream it
+    if item.local_file_path:
+        lp = Path(item.local_file_path)
+        if lp.exists():
+            return FileResponse(str(lp), media_type="video/mp4")
+
+    # 2. If source_url is a direct video stream link, redirect directly
+    if item.source_url and item.source_url.startswith("http") and (".mp4" in item.source_url or "video" in item.source_url):
+        return RedirectResponse(url=item.source_url, status_code=307)
+
+    # 3. Dynamic resolution via API for Pexels or Pixabay
+    if item.source == "pexels":
+        try:
+            vid_url = await pexels_service.get_video_play_url(item.source_video_id)
+            if vid_url:
+                item.source_url = vid_url
+                db.commit()
+                return RedirectResponse(url=vid_url, status_code=307)
+        except Exception as pex_err:
+            logger.warning(f"Error fetching Pexels stream for {item.source_video_id}: {pex_err}")
+
+    if item.source == "pixabay":
+        try:
+            vid_url = await pixabay_service.get_video_play_url(item.source_video_id)
+            if vid_url:
+                item.source_url = vid_url
+                db.commit()
+                return RedirectResponse(url=vid_url, status_code=307)
+        except Exception as pix_err:
+            logger.warning(f"Error fetching Pixabay stream for {item.source_video_id}: {pix_err}")
+
+    # Fallback to source_url or preview_url
+    if item.source_url and item.source_url.startswith("http"):
+        return RedirectResponse(url=item.source_url, status_code=307)
+    if item.preview_url and item.preview_url.startswith("http"):
+        return RedirectResponse(url=item.preview_url, status_code=307)
+
+    raise HTTPException(status_code=404, detail="Video stream unavailable")
+
+
 @router.post("/library/save-candidate")
 def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(get_db)):
     """Save any discovered candidate clip with its theme and tags directly into SQLite Video Library."""
@@ -922,6 +971,10 @@ def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(ge
     if existing:
         existing.subtheme = candidate.subtheme or existing.subtheme
         existing.is_approved = True
+        if candidate.download_url:
+            existing.source_url = candidate.download_url
+        if candidate.local_file_path:
+            existing.local_file_path = candidate.local_file_path
         db.commit()
         return {"status": "already_saved", "id": existing.id, "message": "Video is already in library"}
 
@@ -929,8 +982,9 @@ def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(ge
     item = VideoLibraryItem(
         source=candidate.source,
         source_video_id=candidate.source_video_id,
-        source_url=candidate.source_url,
+        source_url=candidate.download_url or candidate.source_url,
         preview_url=candidate.preview_url,
+        local_file_path=candidate.local_file_path,
         creator_name=candidate.creator_name,
         creator_url=candidate.creator_url,
         duration=candidate.duration,

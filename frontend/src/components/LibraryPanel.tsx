@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Database, Search, Film, Trash2, AlertTriangle, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Database, Search, Film, Trash2, ExternalLink, Eye, Play, X } from 'lucide-react';
 import { LibraryItem } from '../types';
 
 interface LibraryPanelProps {
@@ -15,12 +16,24 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
   items,
   onDeleteItem,
   onClearLibrary,
-  isDeleting,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterApproved, setFilterApproved] = useState(true);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [activePreviewVideo, setActivePreviewVideo] = useState<LibraryItem | null>(null);
+
+  // Prevent background scrolling when preview modal is open
+  useEffect(() => {
+    if (activePreviewVideo) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [activePreviewVideo]);
 
   const filtered = items.filter((item) => {
     const term = searchTerm.toLowerCase();
@@ -128,16 +141,19 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
           {filtered.map((item) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg hover:border-amber-300 dark:hover:border-stone-700 transition-all flex flex-col justify-between"
+              className="bg-white dark:bg-stone-900/60 border border-stone-200/90 dark:border-stone-800/80 rounded-2xl overflow-hidden shadow-sm dark:shadow-lg hover:border-amber-300 dark:hover:border-stone-700 transition-all flex flex-col justify-between group"
             >
               {/* Thumbnail / Header */}
               <div>
-                <div className="relative aspect-video bg-stone-200 dark:bg-slate-950 overflow-hidden flex items-center justify-center">
+                <div
+                  onClick={() => setActivePreviewVideo(item)}
+                  className="relative aspect-video bg-stone-200 dark:bg-slate-950 overflow-hidden flex items-center justify-center cursor-pointer"
+                >
                   {item.preview_url ? (
                     <img
                       src={item.preview_url}
                       alt={item.subtheme || 'Asset'}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = 'none';
@@ -146,6 +162,13 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                   ) : (
                     <Film className="w-8 h-8 text-stone-400 dark:text-slate-700" />
                   )}
+
+                  {/* Hover Play Overlay */}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-xs">
+                    <div className="w-11 h-11 rounded-full bg-amber-500 text-stone-950 flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                      <Play className="w-5 h-5 fill-stone-950 ml-0.5" />
+                    </div>
+                  </div>
 
                   <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-black/70 backdrop-blur-md text-white border border-white/10">
                     {item.source}
@@ -157,7 +180,10 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
 
                   {/* Delete Button on Top Right */}
                   {onDeleteItem && (
-                    <div className="absolute top-2.5 right-2.5">
+                    <div
+                      className="absolute top-2.5 right-2.5 z-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {confirmDeleteId === item.id ? (
                         <div className="flex items-center gap-1 bg-black/80 backdrop-blur-md p-1 rounded-lg border border-white/20">
                           <button
@@ -166,14 +192,14 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                               onDeleteItem(item.id);
                               setConfirmDeleteId(null);
                             }}
-                            className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold"
+                            className="px-2 py-0.5 rounded bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
                           >
                             Delete
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirmDeleteId(null)}
-                            className="px-1.5 py-0.5 rounded text-stone-300 text-[10px]"
+                            className="px-1.5 py-0.5 rounded text-stone-300 text-[10px] cursor-pointer"
                           >
                             ✕
                           </button>
@@ -183,7 +209,7 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                           type="button"
                           onClick={() => setConfirmDeleteId(item.id)}
                           title="Delete video from library"
-                          className="p-1.5 rounded-lg bg-black/60 hover:bg-rose-600 text-white backdrop-blur-md transition-colors"
+                          className="p-1.5 rounded-lg bg-black/60 hover:bg-rose-600 text-white backdrop-blur-md transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -193,13 +219,25 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                 </div>
 
                 <div className="p-4.5 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-semibold text-stone-900 dark:text-white capitalize truncate">
-                      {item.subtheme || 'Nature Scene'}
-                    </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
-                      By {item.creator_name || 'Public Creator'}
-                    </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-stone-900 dark:text-white capitalize truncate">
+                        {item.subtheme || 'Nature Scene'}
+                      </h3>
+                      <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                        By {item.creator_name || 'Public Creator'}
+                      </p>
+                    </div>
+
+                    {/* Preview Button */}
+                    <button
+                      type="button"
+                      onClick={() => setActivePreviewVideo(item)}
+                      title="Watch full video preview"
+                      className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
                   </div>
 
                   {/* Score breakdown */}
@@ -240,6 +278,79 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Full Video Preview Modal */}
+      {activePreviewVideo && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+          onClick={() => setActivePreviewVideo(null)}
+        >
+          <div
+            className="bg-white dark:bg-stone-900 border border-stone-300 dark:border-stone-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-4 p-4 sm:p-6 my-auto animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200 dark:border-stone-800">
+              <div className="min-w-0 flex-1 mr-2">
+                <h3 className="text-base font-semibold text-stone-900 dark:text-white capitalize truncate">
+                  {activePreviewVideo.subtheme || 'Library Video Preview'}
+                </h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+                  Creator: {activePreviewVideo.creator_name || 'Public Creator'} • {activePreviewVideo.width}x{activePreviewVideo.height} • {activePreviewVideo.duration?.toFixed(0)}s
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePreviewVideo(null)}
+                className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-inner">
+              <video
+                src={activePreviewVideo.stream_url || activePreviewVideo.download_url || activePreviewVideo.source_url || activePreviewVideo.preview_url}
+                controls
+                autoPlay
+                playsInline
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div className="flex items-center gap-2 text-xs text-stone-500">
+                <span>Source: <strong className="uppercase">{activePreviewVideo.source}</strong></span>
+                {activePreviewVideo.shot_type && (
+                  <span className="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 text-[11px] font-mono capitalize">
+                    {activePreviewVideo.shot_type.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                {activePreviewVideo.creator_url && (
+                  <a
+                    href={activePreviewVideo.creator_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-700 dark:text-stone-300 flex items-center gap-1.5 transition-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Creator Profile</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActivePreviewVideo(null)}
+                  className="h-9 px-4 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-stone-950 transition-all cursor-pointer font-bold"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

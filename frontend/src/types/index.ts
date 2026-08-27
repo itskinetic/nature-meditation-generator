@@ -175,12 +175,17 @@ export interface LibraryItem {
   source: string;
   source_video_id: string;
   source_url?: string;
+  download_url?: string;
+  stream_url?: string;
+  local_file_path?: string;
   preview_url?: string;
   creator_name?: string;
+  creator_url?: string;
   duration: number;
   width: number;
   height: number;
   subtheme?: string;
+  shot_type?: string;
   intent_score: number;
   theme_score: number;
   calmness_score: number;

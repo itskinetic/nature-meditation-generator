@@ -133,6 +133,28 @@ class PexelsService:
 
         return candidates
 
+    async def get_video_play_url(self, vid_id: str) -> Optional[str]:
+        """Fetch fresh direct playable MP4 link for a specific Pexels video ID."""
+        if not self.api_key or len(self.api_key.strip()) < 5:
+            return None
+        clean_id = vid_id.replace("pexels_", "")
+        headers = {"Authorization": self.api_key.strip()}
+        url = f"https://api.pexels.com/videos/videos/{clean_id}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_files = data.get("video_files", [])
+                    for vf in raw_files:
+                        if (vf.get("quality") == "hd" or vf.get("width") == 1920) and vf.get("link"):
+                            return vf.get("link")
+                    if raw_files and raw_files[0].get("link"):
+                        return raw_files[0].get("link")
+        except Exception as e:
+            logger.warning(f"Error fetching Pexels video details for {vid_id}: {e}")
+        return None
+
     def _get_fixture_candidates(self, query: str, page: int = 1) -> List[CandidateItem]:
         """Provides simulated candidates when offline or running dry-run."""
         fixtures = [

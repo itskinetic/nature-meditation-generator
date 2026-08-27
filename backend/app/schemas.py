@@ -284,6 +284,8 @@ class LibraryItemSchema(BaseModel):
     source: str
     source_video_id: str
     source_url: Optional[str] = None
+    download_url: Optional[str] = None
+    stream_url: Optional[str] = None
     local_file_path: Optional[str] = None
     preview_url: Optional[str] = None
     creator_name: Optional[str] = None
