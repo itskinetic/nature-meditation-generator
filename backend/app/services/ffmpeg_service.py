@@ -589,31 +589,48 @@ class FFmpegService:
                 return False
             batch_outputs.append(batch_out)
 
-        # Fast concat all pre-rendered crossfaded batch blocks
-        concat_list = job_dir / "batch_concat_list.txt"
-        with open(concat_list, "w", encoding="utf-8") as f:
-            for b in batch_outputs:
-                f.write(f"file '{b.as_posix()}'\n")
+        # Crossfade all pre-rendered batch blocks together so that inter-batch boundaries also have 100% seamless transitions!
+        current_merged = batch_outputs[0]
+        xfade_name = "fade"
+        if transition_type in ["crossfade", "fade"]:
+            xfade_name = "fade"
+        elif transition_type in ["wipeleft", "wiperight", "slideup", "slidedown", "smoothleft", "circleopen"]:
+            xfade_name = transition_type
 
-        concat_cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", str(concat_list),
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "18",
-            "-pix_fmt", "yuv420p",
-            "-an",
-            str(output_path)
-        ]
+        for i in range(1, len(batch_outputs)):
+            next_seg = batch_outputs[i]
+            probe_cur = await self.probe_file(current_merged)
+            cur_dur = probe_cur.get("duration", 0.0)
+            offset = max(0.1, cur_dur - transition_duration)
 
-        proc = await asyncio.create_subprocess_exec(
-            *concat_cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        await proc.communicate()
+            next_merged = job_dir / f"merged_stage_{i:03d}.mp4" if i < len(batch_outputs) - 1 else output_path
+            merge_filter = f"[0:v][1:v]xfade=transition={xfade_name}:duration={transition_duration}:offset={offset:.3f}[outv]"
+
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", str(current_merged),
+                "-i", str(next_seg),
+                "-filter_complex", merge_filter,
+                "-map", "[outv]",
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                "-an",
+                str(next_merged)
+            ]
+
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0 or not next_merged.exists():
+                logger.error(f"Inter-batch xfade failed between batch {i-1} and {i}: {stderr.decode('utf-8', errors='ignore')}")
+                return False
+            current_merged = next_merged
+
         return output_path.exists()
 
     async def _render_concat_fallback(
