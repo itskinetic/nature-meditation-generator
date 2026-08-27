@@ -129,6 +129,8 @@ export interface GenerationRequest {
   resolution: '1080p' | '4K';
   transition_type: string;
   transition_duration: number;
+  playback_speed: number;  // 0.4, 0.5, 0.75, 1.0
+  prioritize_slow_motion: boolean;
   allow_reuse: boolean;
   avoid_recently_used: boolean;
   enable_pexels: boolean;

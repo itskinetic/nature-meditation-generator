@@ -66,6 +66,8 @@ export function App() {
     resolution: '1080p',
     transition_type: 'crossfade',
     transition_duration: 2.0,
+    playback_speed: 0.5,
+    prioritize_slow_motion: true,
     allow_reuse: true,
     avoid_recently_used: true,
     enable_pexels: true,
@@ -181,6 +183,8 @@ export function App() {
         studio_mode: settings.studio_mode || 'meditation',
         media_type: settings.media_type || 'video',
         page: pageToFetch,
+        playback_speed: settings.playback_speed,
+        prioritize_slow_motion: settings.prioritize_slow_motion,
       });
     },
     onSuccess: (data, variables) => {

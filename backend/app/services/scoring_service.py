@@ -247,18 +247,46 @@ Return ONLY valid JSON matching this schema:
                 reason=f"Rejected: Contains banned element '{unwanted[0]}'"
             )
 
-        # High-relevance nature terms
-        intent_match = 9.0
-        theme_match = 9.0
-        calmness = 9.0
-        motion_intensity = 2.0
-        visual_quality = 9.0
+        # Check fast-motion cues
+        fast_motion_words = {"fast", "rapid", "rushing", "speed", "storm", "torrent", "chase", "running", "gallop", "wild", "rush", "blizzard"}
+        slow_motion_words = {"slow", "slow-mo", "slowmo", "glide", "drift", "still", "ambient", "peaceful", "calm", "steady", "smooth", "tranquil", "relaxing"}
+
+        has_fast_motion = any(w in corpus_words for w in fast_motion_words)
+        has_slow_motion = any(w in corpus_words for w in slow_motion_words) or ("slow motion" in cleaned_corpus)
+
+        if has_fast_motion and not is_doc:
+            return ScoringResult(
+                intent_match=4.0,
+                theme_match=4.0,
+                calmness=3.0,
+                motion_intensity=8.5,
+                visual_quality=6.0,
+                shot_type=detected_shot_type,
+                unwanted_elements=["fast motion / high speed"],
+                subtheme=assigned_subtheme,
+                keep=False,
+                reason="Rejected: Footage is too fast or turbulent for calm meditation."
+            )
+
+        # Baseline scores for nature meditation
+        if has_slow_motion:
+            intent_match = 9.8
+            theme_match = 9.8
+            calmness = 9.8
+            motion_intensity = 1.2
+            visual_quality = 9.5
+        else:
+            intent_match = 9.0
+            theme_match = 9.0
+            calmness = 9.0
+            motion_intensity = 2.0
+            visual_quality = 9.0
 
         # Adjust for resolution
         if candidate.width >= 1920:
-            visual_quality = 9.5
+            visual_quality = max(visual_quality, 9.5)
         elif candidate.width >= 1280:
-            visual_quality = 8.0
+            visual_quality = min(visual_quality, 8.0)
         else:
             visual_quality = 6.5
 
@@ -272,7 +300,7 @@ Return ONLY valid JSON matching this schema:
             unwanted_elements=[],
             subtheme=assigned_subtheme,
             keep=True,
-            reason="Serene, slow-moving natural scene aligned with emotional intent."
+            reason="Pristine, slow-motion tranquil natural scene ideal for meditation." if has_slow_motion else "Serene, slow-moving natural scene aligned with emotional intent."
         )
 
     def _apply_scoring_thresholds(

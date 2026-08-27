@@ -250,9 +250,10 @@ class FFmpegService:
         width: int = 1920,
         height: int = 1080,
         motion_style: Optional[str] = None,
-        start_offset: float = 0.0
+        start_offset: float = 0.0,
+        playback_speed: float = 1.0
     ) -> Path:
-        """Normalizes video or converts photo to Ken Burns video clip with start_offset support."""
+        """Normalizes video or converts photo to Ken Burns video clip with start_offset and slow-motion playback_speed support."""
         ext = input_file.suffix.lower()
         if ext in (".jpg", ".jpeg", ".png", ".webp"):
             return await self.apply_ken_burns_to_image(
@@ -264,14 +265,23 @@ class FFmpegService:
                 motion_style=motion_style or "zoom_in"
             )
 
-        # Scale to cover then crop center
-        filter_str = (
-            f"scale={width}:{height}:force_original_aspect_ratio=increase,"
-            f"crop={width}:{height},"
-            f"setsar=1,"
-            f"fps=30,"
+        # Scale to cover then crop center, apply slow-motion setpts filter if speed != 1.0
+        safe_speed = max(0.2, min(2.0, playback_speed or 1.0))
+        pts_factor = 1.0 / safe_speed
+
+        filters = [
+            f"scale={width}:{height}:force_original_aspect_ratio=increase",
+            f"crop={width}:{height}",
+            f"setsar=1"
+        ]
+        if abs(safe_speed - 1.0) > 0.02:
+            filters.append(f"setpts={pts_factor:.4f}*PTS")
+        filters.extend([
+            f"fps=30",
             f"format=yuv420p"
-        )
+        ])
+        filter_str = ",".join(filters)
+
         cmd = ["ffmpeg", "-y"]
         if start_offset > 0.05:
             cmd.extend(["-ss", f"{start_offset:.2f}"])
@@ -305,6 +315,7 @@ class FFmpegService:
         resolution: str = "1080p",
         transition_type: str = "crossfade",
         transition_duration: float = 2.0,
+        playback_speed: float = 1.0,
         music_file: Optional[str] = None,
         voiceover_file: Optional[str] = None,
         subtitle_file: Optional[Path] = None,
@@ -336,7 +347,7 @@ class FFmpegService:
             motion = clip_item.get("motion_style") or "zoom_in"
             start_off = float(clip_item.get("start_offset", 0.0))
             norm_clip = job_dir / f"norm_clip_{idx:03d}.mp4"
-            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion, start_offset=start_off)
+            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion, start_offset=start_off, playback_speed=playback_speed)
             normalized_clips.append(norm_clip)
 
             pct = 25 + int(30 * (idx + 1) / len(clips_info))

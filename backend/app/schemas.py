@@ -166,6 +166,8 @@ class SearchRequest(BaseModel):
     studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
     page: int = 1
     media_type: Optional[str] = "video"  # "video" | "image" | "both"
+    playback_speed: float = 0.5  # 0.4, 0.5, 0.75, 1.0
+    prioritize_slow_motion: bool = True
 
 
 class BanCandidateRequest(BaseModel):
@@ -224,6 +226,8 @@ class GenerationRequest(BaseModel):
 
     transition_type: str = "crossfade"
     transition_duration: float = 2.0
+    playback_speed: float = 0.5  # 0.4 (Ultra-Slow), 0.5 (Half-Speed), 0.75 (Gentle), 1.0 (Normal)
+    prioritize_slow_motion: bool = True
 
     allow_reuse: bool = True
     avoid_recently_used: bool = True

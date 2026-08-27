@@ -139,6 +139,14 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             # Fetch candidates for this environment
             per_page = min(15, max(6, int(target_clips * 2)))
             queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+            if req.prioritize_slow_motion and req.studio_mode != "documentary":
+                enriched = []
+                for q in queries_to_run:
+                    if not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
+                        enriched.append(f"slow motion {q}")
+                    else:
+                        enriched.append(q)
+                queries_to_run = enriched
 
             env_raw: List[CandidateItem] = []
             for q in queries_to_run:
@@ -623,6 +631,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             resolution=req.resolution,
             transition_type=req.transition_type,
             transition_duration=req.transition_duration,
+            playback_speed=req.playback_speed or 0.5,
             music_file=req.music_file,
             voiceover_file=req.voiceover_file,
             subtitle_file=sub_file,
@@ -730,6 +739,7 @@ async def generate_video(
         resolution=req.resolution,
         transition_type=req.transition_type,
         transition_duration=req.transition_duration,
+        playback_speed=req.playback_speed or 0.5,
         music_file=req.music_file,
         status="queued",
         progress=0,

@@ -785,6 +785,23 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           </select>
         </div>
 
+        {/* Clip Pacing & Slow-Motion Playback Speed */}
+        <div className="lg:col-span-2 space-y-1.5">
+          <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider" title="Slow down clip playback for ultra-tranquil meditative pacing">
+            Clip Speed / Pacing
+          </label>
+          <select
+            value={settings.playback_speed ?? 0.5}
+            onChange={(e) => updateSetting('playback_speed', parseFloat(e.target.value))}
+            className="w-full h-9 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-2.5 text-xs font-medium text-stone-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer"
+          >
+            <option value="0.4">0.4x Ultra Slow-Mo</option>
+            <option value="0.5">0.5x Half-Speed (Calm)</option>
+            <option value="0.75">0.75x Gentle Drift</option>
+            <option value="1.0">1.0x Real-Time (Normal)</option>
+          </select>
+        </div>
+
         {/* History Control Toggle */}
         <div className="lg:col-span-1 space-y-1.5">
           <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">

@@ -65,6 +65,7 @@ class GenerationJob(Base):
     resolution = Column(String(20), default="1080p")
     transition_type = Column(String(50), default="crossfade")
     transition_duration = Column(Float, default=2.0)
+    playback_speed = Column(Float, default=0.5)
     music_file = Column(String(300), nullable=True)
 
     status = Column(String(50), default="pending")  # pending, analyzing, searching, scoring, downloading, rendering, completed, failed, cancelled

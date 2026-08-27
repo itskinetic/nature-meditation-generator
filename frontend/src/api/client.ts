@@ -94,6 +94,8 @@ export const api = {
     studio_mode?: string;
     media_type?: string;
     page?: number;
+    playback_speed?: number;
+    prioritize_slow_motion?: boolean;
   }): Promise<SearchResponse> {
     const res = await fetch(`${API_BASE}/search`, {
       method: 'POST',
