@@ -49,41 +49,41 @@ class IntentService:
         if studio_mode == "documentary":
             prompt = f"""
 You are an expert AI Wildlife Documentary Director (BBC Planet Earth / National Geographic style).
-Analyze the documentary title and storyline script, detect the wildlife species, habitats, and narrative arc, then intelligently plan 3 to 5 cinematic wildlife habitat segments.
+Analyze the title and narrative storyline script, detect the specific wildlife subjects, habitats, actions, and narrative arc, then plan 3 to 6 dynamic, highly specific visual scenes with rich search queries.
 
 Title: {title or 'Wild Kingdom'}
 Script: {script or 'Wildlife roaming their natural habitats'}
 Target Total Clips Needed: {target_clips}
 
-DIRECTOR RULES FOR WILDLIFE DOCUMENTARY:
-- Focus on authentic wild animals in their natural habitats (Savanna, Deep Ocean, Arctic, Jungle, Mountain Ridges, Wetlands, Rainforest).
-- Prioritize high-action, foraging, swimming, hunting, migration, and close-up tracking shots.
+DIRECTOR INSTRUCTIONS:
+- Extract dynamic, custom visual scenes directly from what is being narrated without being constrained to any fixed list.
+- Generate highly descriptive, specific 4K stock video search queries (e.g. "snow leopard stalking rocky mountain cliff 4k", "humpback whale breaching blue ocean sunset", "red eyed tree frog rainforest leaf close up", "lion pride savanna wildlife 4k").
 - STRICTLY EXCLUDE: zoos, cages, enclosures, domestic pets (dogs/cats), aquariums, human trainers, fences, vehicles, tourists, text overlays.
 
 Return ONLY valid JSON matching this schema:
 {{
-  "intent": "epic wildlife survival and predator dynamics in the wild",
+  "intent": "epic narrative arc and survival dynamics of the featured wildlife",
   "mood": ["majestic", "cinematic", "wild", "dramatic", "awe-inspiring"],
   "energy_level": "medium",
   "visual_style": "cinematic 4K wildlife footage with animal tracking shots and natural habitat vistas",
   "preferred_colors": ["golden amber", "deep ocean blue", "savanna ochre", "jungle green"],
   "visual_motifs": ["lion pride stalking grassland", "cheetah running sprint", "elephant herd at waterhole"],
   "avoid_visuals": ["zoo", "cage", "enclosure", "aquarium", "pet", "dog", "cat", "human", "tourist", "fence", "car", "text", "timelapse"],
-  "generated_queries": ["lion pride savanna wildlife 4k", "cheetah hunting golden grassland", "african elephant herd watering hole"],
+  "generated_queries": ["query 1", "query 2", "query 3"],
   "planned_environments": [
     {{
-      "id": "savanna_predators",
-      "name": "Savanna & Big Cats",
+      "id": "scene_1",
+      "name": "Savanna Predators & Big Cats",
       "icon": "🦁",
-      "keywords": ["lion pride savanna wildlife 4k", "cheetah hunting grassland", "african elephant herd 4k"],
+      "keywords": ["lion pride savanna wildlife 4k", "cheetah hunting grassland 4k"],
       "suggested_clips": 4,
       "enabled": true
     }},
     {{
-      "id": "marine_giants",
-      "name": "Ocean & Marine Giants",
+      "id": "scene_2",
+      "name": "Deep Ocean Giants",
       "icon": "🐋",
-      "keywords": ["humpback whale swimming underwater 4k", "sea turtle coral reef clear water", "orca pod ocean wildlife"],
+      "keywords": ["humpback whale swimming underwater 4k", "sea turtle coral reef clear water 4k"],
       "suggested_clips": 4,
       "enabled": true
     }}
@@ -93,64 +93,41 @@ Return ONLY valid JSON matching this schema:
         else:
             prompt = f"""
 You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
-Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, and mood, then intelligently select 3 to 5 matching nature environment scenes.
+Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract 3 to 6 matching visual nature scenes with tailored search keywords.
 
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
 Target Total Video Clips Needed: {target_clips}
 
-DIRECTOR RULES:
-- TIME & ATMOSPHERE MATCHING:
-  * If the meditation is for Sleep, Rest, Deep Relaxation, Night, Bedtime, Slumber, or Wind-down:
-    Prioritize peaceful night skies with stars, serene moonlit waters, sunset twilight horizons, and quiet night pine stillness.
-  * If the meditation is for Morning, Waking, Energy, Gratitude, or Daytime Focus:
-    Prioritize golden sunrise valleys, bright sunlit forest paths, wildflower meadows, and alpine mountain vistas.
-  * If the meditation is for Emotional Healing, Self-Love, Grief, or Calm:
-    Prioritize soothing turquoise ocean ripples, blooming lotus ponds, gentle pebble streams, and tranquil fern canyons.
-  * If the meditation is for Zen, Mindfulness, Breathwork, or Deep Grounding:
-    Prioritize green bamboo groves, still mirror mountain lakes, and gentle sand ripples.
-- Visual Quality: Always ensure footage is calm, crystal clear, aesthetically pleasing, and free of people, buildings, vehicles, boats, fast movement, and text.
+DIRECTOR INSTRUCTIONS:
+- Analyze the exact emotional arc, imagery, metaphors, and natural elements mentioned in the text.
+- Generate unconstrained, highly specific, cinematic nature stock video search queries (e.g. "golden morning sunlight misty redwood forest 4k", "clear turquoise ocean gentle ripples sunset", "peaceful starry night sky milky way reflection", "gentle crystal creek mossy boulders waterfall").
+- Ensure all footage is pristine, calm, aesthetically beautiful, and free of people, buildings, cars, boats, or chaotic motion.
 
 Return ONLY valid JSON matching this schema:
 {{
-  "intent": "gentle calming of the nervous system and deep restful sleep",
-  "mood": ["restful", "peaceful", "calm", "soothing", "serene"],
+  "intent": "gentle calming of the nervous system and deep presence",
+  "mood": ["peaceful", "calm", "serene", "soothing", "grounding"],
   "energy_level": "very low",
-  "visual_style": "peaceful starry night skies and calm moonlit waters",
-  "preferred_colors": ["midnight blue", "soft silver", "starlight gold", "deep navy"],
-  "visual_motifs": ["clear starry night sky", "gentle moonlight reflecting on lake", "silhouetted pine trees under stars"],
+  "visual_style": "peaceful crystal-clear nature vistas with gentle subtle motion",
+  "preferred_colors": ["emerald green", "soft gold", "turquoise blue", "misty lavender"],
+  "visual_motifs": ["sunlight through trees", "gentle water ripples", "swaying wildflowers"],
   "avoid_visuals": ["boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
-  "generated_queries": ["peaceful starry night sky stars", "calm water moonlight reflection", "still night lake water calm"],
+  "generated_queries": ["query 1", "query 2", "query 3"],
   "planned_environments": [
     {{
-      "id": "starry_night",
-      "name": "Starry Night Sky",
-      "icon": "✨",
-      "keywords": ["peaceful starry night sky stars", "calm clear starry night horizon", "gentle night sky stars nature"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "moonlit_water",
-      "name": "Moonlit Calm Waters",
-      "icon": "🌙",
-      "keywords": ["calm water moonlight reflection", "peaceful moonlit lake still water", "gentle moon reflection ocean calm"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "sunset_twilight",
-      "name": "Sunset Twilight",
-      "icon": "🌅",
-      "keywords": ["soft pastel sunset sky ocean", "gentle golden evening horizon calm", "calm sunset lake reflection soft glow"],
-      "suggested_clips": 4,
-      "enabled": true
-    }},
-    {{
-      "id": "night_forest",
-      "name": "Night Forest Stillness",
+      "id": "scene_1",
+      "name": "Sunlit Ancient Redwoods",
       "icon": "🌲",
-      "keywords": ["peaceful night forest trees stars", "calm pine trees night sky", "quiet night woods stars landscape"],
+      "keywords": ["golden morning sunlight misty redwood forest 4k", "sunbeams through tall pine trees green moss"],
+      "suggested_clips": 4,
+      "enabled": true
+    }},
+    {{
+      "id": "scene_2",
+      "name": "Tranquil Turquoise Cove",
+      "icon": "🌊",
+      "keywords": ["clear turquoise ocean gentle ripples sunset 4k", "crystal clear shallow sea water slow motion"],
       "suggested_clips": 4,
       "enabled": true
     }}

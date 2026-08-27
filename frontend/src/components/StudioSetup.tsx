@@ -214,44 +214,17 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   onPreviewCandidate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [activeIntentPreset, setActiveIntentPreset] = useState<string | null>(null);
-  const [showManualThemes, setShowManualThemes] = useState<boolean>(false);
   const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
   const [customName, setCustomName] = useState<string>('');
   const [customQueries, setCustomQueries] = useState<string>('');
 
   const isDocMode = settings.studio_mode === 'documentary';
-  const activeIntentPresets = isDocMode ? WILDLIFE_INTENT_PRESETS : INTENT_PRESETS;
 
   const updateSetting = <K extends keyof GenerationRequest>(key: K, value: GenerationRequest[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Apply an intent preset (automatically picks 4 fitting nature themes)
-  const applyIntentPreset = (intent: IntentPreset) => {
-    setActiveIntentPreset(intent.id);
-    const newSelected: Record<string, SelectedNatureItem> = {};
-    const countPer = Math.max(2, Math.floor(settings.maximum_unique_videos / intent.themeIds.length));
-
-    intent.themeIds.forEach((id) => {
-      const p = presets[id];
-      if (p) {
-        newSelected[p.id] = {
-          id: p.id,
-          name: p.name,
-          icon: p.icon || '🌲',
-          category: p.category || 'Nature',
-          clipCount: countPer,
-          queries: p.queries,
-        };
-      }
-    });
-
-    setSelectedNatures(newSelected);
-  };
-
-  // Remove a theme from active plan
+  // Remove a scene from active plan
   const removeNature = (id: string) => {
     setSelectedNatures((prev) => {
       const next = { ...prev };
@@ -260,29 +233,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
     });
   };
 
-  // Toggle selection of a preset nature theme manually
-  const toggleNature = (preset: Preset) => {
-    setActiveIntentPreset(null); // Clear active preset label when user customizes
-    setSelectedNatures((prev) => {
-      const next = { ...prev };
-      if (next[preset.id]) {
-        delete next[preset.id];
-      } else {
-        const count = Math.max(2, Math.round(settings.maximum_unique_videos / (Object.keys(next).length + 1)) || 4);
-        next[preset.id] = {
-          id: preset.id,
-          name: preset.name,
-          icon: preset.icon || '🌲',
-          category: preset.category || 'Nature',
-          clipCount: count,
-          queries: preset.queries,
-        };
-      }
-      return next;
-    });
-  };
-
-  // Update clip count for a selected theme
+  // Update clip count for a selected scene
   const updateClipCount = (id: string, count: number) => {
     setSelectedNatures((prev) => {
       if (!prev[id]) return prev;
@@ -489,17 +440,17 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         />
       )}
 
-      {/* 2. SUGGESTED VISUAL JOURNEY (Only appears when AI Analyzes or themes are selected) */}
+      {/* 2. DYNAMIC AI-EXTRACTED VISUAL SCENES & NARRATIVE CUES */}
       {(selectedList.length > 0 || !!analysis) && (
         <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
-                Suggested Visual Journey
+                Dynamic AI Visual Scenes & Keywords
               </h3>
               <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-                {selectedList.length} Themes • {totalAllocatedClips} Clips
+                {selectedList.length} Scenes • {totalAllocatedClips} Clips
               </span>
             </div>
 
@@ -508,7 +459,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 <button
                   type="button"
                   onClick={autoBalanceClips}
-                  className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors"
+                  className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
                   <span>Balance Clips</span>
@@ -517,10 +468,10 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               <button
                 type="button"
                 onClick={() => setShowCustomForm(!showCustomForm)}
-                className="h-9 px-3.5 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center gap-1 shadow-xs transition-colors"
+                className="h-9 px-3.5 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-                <span>Custom Theme</span>
+                <span>+ Custom Scene</span>
               </button>
             </div>
           </div>
@@ -529,7 +480,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           {analysis && (
             <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-white/90 dark:bg-stone-900/90 border border-amber-200/60 dark:border-amber-800/40 text-xs">
               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="font-semibold text-stone-500 dark:text-stone-400">Detected Intent:</span>
+                <span className="font-semibold text-stone-500 dark:text-stone-400">Narrative Intent:</span>
                 <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
               </div>
               {analysis.mood && analysis.mood.length > 0 && (
@@ -544,70 +495,87 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             </div>
           )}
 
-          {/* Active Themes Review List */}
+          {/* Dynamic AI Scenes Review Grid */}
           {selectedList.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {selectedList.map((item) => (
                 <div
                   key={item.id}
-                  className="h-9 flex items-center justify-between gap-2.5 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors shrink-0"
+                  className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors"
                 >
-                  <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    {renderNatureIcon(item.category, item.id)}
-                    <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                      {item.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {/* Clip Stepper */}
-                    <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
-                      <button
-                        type="button"
-                        onClick={() => updateClipCount(item.id, item.clipCount - 1)}
-                        className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
-                        {item.clipCount}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-base">{item.icon || '🌲'}</span>
+                      <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
+                        {item.name}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => updateClipCount(item.id, item.clipCount + 1)}
-                        className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                      >
-                        +
-                      </button>
                     </div>
 
-                    {/* Remove Theme Button */}
-                    <button
-                      type="button"
-                      onClick={() => removeNature(item.id)}
-                      title="Remove theme from plan"
-                      className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Clip Stepper */}
+                      <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
+                        <button
+                          type="button"
+                          onClick={() => updateClipCount(item.id, item.clipCount - 1)}
+                          className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
+                          {item.clipCount}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateClipCount(item.id, item.clipCount + 1)}
+                          className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Remove Scene Button */}
+                      <button
+                        type="button"
+                        onClick={() => removeNature(item.id)}
+                        title="Remove scene from plan"
+                        className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Keywords Pills */}
+                  {item.queries && item.queries.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 pt-1 border-t border-stone-100 dark:border-stone-800/60">
+                      {item.queries.map((q, qIdx) => (
+                        <span
+                          key={qIdx}
+                          className="px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-[10px] font-medium text-stone-600 dark:text-stone-300 truncate max-w-[200px]"
+                          title={q}
+                        >
+                          {q}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           )}
 
-          {/* Custom Nature Inline Form */}
+          {/* Custom Scene Inline Form */}
           {showCustomForm && (
             <form
               onSubmit={handleAddCustom}
               className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800/80 rounded-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150"
             >
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Theme name (e.g. Nordic Fjords)"
+                  placeholder="Scene name (e.g. Bioluminescent Deep Sea)"
                   className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
                   required
                 />
@@ -615,7 +583,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   type="text"
                   value={customQueries}
                   onChange={(e) => setCustomQueries(e.target.value)}
-                  placeholder="Search keywords (e.g. fjord calm water)"
+                  placeholder="Stock search keywords (e.g. bioluminescent jellyfish ocean 4k)"
                   className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
                 />
               </div>
@@ -623,7 +591,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowCustomForm(false)}
-                  className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900"
+                  className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -631,60 +599,13 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                   type="submit"
                   className="h-9 px-3.5 bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium rounded-xl text-xs transition-colors cursor-pointer"
                 >
-                  Add to Plan
+                  Add Scene
                 </button>
               </div>
             </form>
           )}
         </div>
       )}
-
-      {/* 3. COMPACT MANUAL THEME SELECTOR (Collapsible Accordion) */}
-      <div className="border border-stone-200/80 dark:border-stone-800/80 rounded-2xl overflow-hidden bg-stone-50/50 dark:bg-stone-950/30">
-        <button
-          type="button"
-          onClick={() => setShowManualThemes(!showManualThemes)}
-          className="w-full flex items-center justify-between p-3 px-4 text-xs font-semibold text-stone-600 dark:text-stone-300 hover:bg-stone-100/70 dark:hover:bg-stone-800/40 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Sliders className="w-3.5 h-3.5 text-stone-400" />
-            <span>Customize / Pick Themes Manually</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-stone-400">{showManualThemes ? 'Hide' : 'Show'}</span>
-            {showManualThemes ? <ChevronUp className="w-3.5 h-3.5 text-stone-400" /> : <ChevronDown className="w-3.5 h-3.5 text-stone-400" />}
-          </div>
-        </button>
-
-        {showManualThemes && (
-          <div className="p-4 border-t border-stone-200/80 dark:border-stone-800 animate-in fade-in duration-200">
-            {/* Compact Themes Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[260px] overflow-y-auto pr-1">
-              {filteredPresetList.map((preset) => {
-                const isSelected = !!selectedNatures[preset.id];
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => toggleNature(preset)}
-                    className={`h-9 flex items-center justify-between px-2.5 rounded-lg border text-left transition-all ${
-                      isSelected
-                        ? 'bg-amber-100/70 dark:bg-amber-950/60 border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 shadow-xs font-medium'
-                        : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:border-stone-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
-                      {renderNatureIcon(preset.category, preset.id)}
-                      <span className="text-xs font-medium truncate">{preset.name}</span>
-                    </div>
-                    {isSelected ? <Check className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" /> : <div className="w-3.5 h-3.5 rounded border border-stone-300 dark:border-stone-700 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
 
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
