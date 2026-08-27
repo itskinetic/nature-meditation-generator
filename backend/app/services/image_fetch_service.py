@@ -31,15 +31,7 @@ class ImageFetchService:
     ) -> List[CandidateItem]:
         candidates: List[CandidateItem] = []
 
-        # 1. Search Pexels Photos
-        if self.pexels_key and len(self.pexels_key.strip()) > 5:
-            try:
-                pexels_items = await self._search_pexels_photos(query, page, per_page, db)
-                candidates.extend(pexels_items)
-            except Exception as e:
-                logger.warning(f"Error fetching Pexels photos: {e}")
-
-        # 2. Search Pixabay Photos
+        # 1. Search Pixabay Photos FIRST (Prioritized)
         if self.pixabay_key and len(self.pixabay_key.strip()) > 5:
             try:
                 pixabay_items = await self._search_pixabay_photos(query, page, per_page, db)
@@ -47,8 +39,16 @@ class ImageFetchService:
             except Exception as e:
                 logger.warning(f"Error fetching Pixabay photos: {e}")
 
+        # 2. Search Pexels Photos only if Pixabay yielded insufficient results (< 2 items)
+        if len(candidates) < max(2, per_page // 2) and self.pexels_key and len(self.pexels_key.strip()) > 5:
+            try:
+                pexels_items = await self._search_pexels_photos(query, page, per_page, db)
+                candidates.extend(pexels_items)
+            except Exception as e:
+                logger.warning(f"Error fetching Pexels photos: {e}")
+
         # 3. Fallback fixture images if offline or no keys
-        if not candidates and (not self.pexels_key or len(self.pexels_key.strip()) < 5):
+        if not candidates and (not self.pexels_key or len(self.pexels_key.strip()) < 5) and (not self.pixabay_key or len(self.pixabay_key.strip()) < 5):
             candidates = self._get_fixture_images(query, page)
 
         return candidates

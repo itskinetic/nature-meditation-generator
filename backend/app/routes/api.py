@@ -150,16 +150,10 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
             env_raw: List[CandidateItem] = []
             for q in queries_to_run:
-                # 1. Fetch videos if media_type is "video" or "both"
                 search_page = max(1, req.page or 1)
+                # 1. Fetch videos: PRIORITIZE PIXABAY FIRST
                 if req.media_type in ("video", "both", None):
-                    if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=search_page, per_page=per_page, db=db)
-                        for item in px_items:
-                            item.environment_id = env_spec.id
-                            item.subtheme = env_spec.name
-                            item.media_type = "video"
-                        env_raw.extend(px_items)
+                    pb_items: List[CandidateItem] = []
                     if req.enable_pixabay:
                         pb_items = await pixabay_service.search(query=q, page=search_page, per_page=per_page, db=db)
                         for item in pb_items:
@@ -167,6 +161,15 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                             item.subtheme = env_spec.name
                             item.media_type = "video"
                         env_raw.extend(pb_items)
+
+                    # Only call Pexels if Pixabay is disabled, returned 0 results, or yielded insufficient clips
+                    if req.enable_pexels and len(pb_items) < max(2, per_page // 2):
+                        px_items = await pexels_service.search(query=q, page=search_page, per_page=per_page, db=db)
+                        for item in px_items:
+                            item.environment_id = env_spec.id
+                            item.subtheme = env_spec.name
+                            item.media_type = "video"
+                        env_raw.extend(px_items)
 
                 # 2. Fetch photos if media_type is "image" or "both"
                 if req.media_type in ("image", "both"):
@@ -469,14 +472,21 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
 
             if len(collected_candidates) < req.maximum_unique_videos:
                 update_job("searching", 20, f"Searching footage for {active_mode} preset")
-                per_page_count = min(10, max(5, int(req.maximum_unique_videos / max(1, len(queries)))))
+                per_page_count = min(15, max(6, int(req.maximum_unique_videos / max(1, len(queries)))))
                 for q in queries[:4]:
-                    if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page_count, db=db)
-                        collected_candidates.extend(px_items)
+                    if len(collected_candidates) >= req.maximum_unique_videos:
+                        break
+                    # 1. Query Pixabay first
+                    pb_count = 0
                     if req.enable_pixabay:
                         pb_items = await pixabay_service.search(query=q, page=1, per_page=per_page_count, db=db)
                         collected_candidates.extend(pb_items)
+                        pb_count = len(pb_items)
+
+                    # 2. Only query Pexels if Pixabay yielded insufficient clips or is disabled
+                    if req.enable_pexels and (pb_count < 2 or len(collected_candidates) < req.maximum_unique_videos):
+                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page_count, db=db)
+                        collected_candidates.extend(px_items)
 
             # 4. Filter Candidate Pool
             update_job("scoring", 25, "Filtering and deduplicating candidates")
