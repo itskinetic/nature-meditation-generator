@@ -143,16 +143,17 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             env_raw: List[CandidateItem] = []
             for q in queries_to_run:
                 # 1. Fetch videos if media_type is "video" or "both"
+                search_page = max(1, req.page or 1)
                 if req.media_type in ("video", "both", None):
                     if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page, db=db)
+                        px_items = await pexels_service.search(query=q, page=search_page, per_page=per_page, db=db)
                         for item in px_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
                             item.media_type = "video"
                         env_raw.extend(px_items)
                     if req.enable_pixabay:
-                        pb_items = await pixabay_service.search(query=q, page=1, per_page=per_page, db=db)
+                        pb_items = await pixabay_service.search(query=q, page=search_page, per_page=per_page, db=db)
                         for item in pb_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
@@ -161,7 +162,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
                 # 2. Fetch photos if media_type is "image" or "both"
                 if req.media_type in ("image", "both"):
-                    img_items = await image_fetch_service.search(query=q, page=1, per_page=per_page, db=db)
+                    img_items = await image_fetch_service.search(query=q, page=search_page, per_page=per_page, db=db)
                     for item in img_items:
                         item.environment_id = env_spec.id
                         item.subtheme = env_spec.name

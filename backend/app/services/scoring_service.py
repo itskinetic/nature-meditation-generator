@@ -217,9 +217,10 @@ Return ONLY valid JSON matching this schema:
                     assigned_subtheme = st
                     break
 
-        # Check negative triggers
+        # Check negative triggers (Enforces global prohibitions against people, boats, cars, buildings, timelapse)
+        from backend.app.services.candidate_service import GLOBAL_PROHIBITED_TERMS
         unwanted = []
-        avoid_list = (preset.negative_terms if preset else []) + (analysis.avoid_visuals if analysis else [])
+        avoid_list = list(GLOBAL_PROHIBITED_TERMS) + (preset.negative_terms if preset else []) + (analysis.avoid_visuals if analysis else [])
         for term in avoid_list:
             t = term.lower().strip()
             if not t:

@@ -164,6 +164,7 @@ class SearchRequest(BaseModel):
     exclude_all_history: bool = False
     shot_preference: Optional[str] = "balanced"  # "balanced", "still", "macro", "wide"
     studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
+    page: int = 1
     media_type: Optional[str] = "video"  # "video" | "image" | "both"
 
 

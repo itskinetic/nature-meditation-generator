@@ -9,6 +9,39 @@ from backend.app.schemas import CandidateItem, PresetSchema, IntentAnalysisResul
 logger = logging.getLogger(__name__)
 
 
+GLOBAL_PROHIBITED_TERMS = [
+    # People, Human presence, Lifestyle, Faces & Body Parts
+    "person", "people", "man", "woman", "girl", "boy", "kid", "child", "children", "baby",
+    "model", "crowd", "human", "humans", "face", "portrait", "selfie", "pedestrian", "pedestrians",
+    "tourist", "tourists", "hiker", "hikers", "swimmer", "swimmers", "runner", "runners", "couple",
+    "family", "hand", "hands", "foot", "feet", "leg", "legs", "body", "bikini", "yoga pose", "fitness",
+    "lifestyle", "workout", "posing", "bikini", "fashion",
+
+    # Boats, Ships & Watercraft
+    "boat", "boats", "ship", "ships", "yacht", "yachts", "kayak", "kayaks", "canoe", "canoes",
+    "vessel", "vessels", "ferry", "ferries", "sailboat", "sailboats", "motorboat", "speedboat",
+    "jet ski", "cruiser", "harbor", "marina", "dock", "pier", "jetty", "port", "barge",
+
+    # Vehicles, Roads & Traffic
+    "car", "cars", "vehicle", "vehicles", "automobile", "traffic", "road", "roads", "highway",
+    "highways", "street", "streets", "drive", "driving", "truck", "trucks", "bus", "train", "trains",
+    "railway", "railroad", "motorcycle", "bike", "bicycle", "parking", "asphalt",
+
+    # Buildings & Urban structures
+    "building", "buildings", "house", "houses", "architecture", "city", "cityscape", "skyline",
+    "urban", "skyscraper", "factory", "construction", "bridge", "fence", "fences", "wall", "room",
+    "interior", "hotel", "resort", "apartment", "cabin", "cottage", "barn",
+
+    # Timelapse, Hyperlapse & Fast Motion
+    "timelapse", "time lapse", "time-lapse", "hyperlapse", "hyper lapse", "hyper-lapse",
+    "fast motion", "accelerated", "speed up", "sped up", "fast clouds", "traffic lapse", "fast forward",
+
+    # Captive Animals, Domestic pets & Enclosures
+    "zoo", "cage", "caged", "enclosure", "aquarium", "pet", "pets", "dog", "dogs", "cat", "cats",
+    "puppy", "kitten", "domestic", "leash", "collar", "trainer", "circus"
+]
+
+
 class CandidateService:
     def filter_candidates(
         self,
@@ -24,8 +57,8 @@ class CandidateService:
         db: Optional[Session] = None
     ) -> List[CandidateItem]:
         """
-        Deduplicates and filters candidates based on duration (min & max), resolution,
-        aspect ratio, negative terms, rejected history, and cooldown.
+        Deduplicates and strictly filters candidates based on duration (min & max), resolution,
+        aspect ratio, strict negative terms (no people, boats, cars, timelapse), rejected history, and cooldown.
         """
         seen_ids: Set[str] = set()
         seen_urls: Set[str] = set()
@@ -53,8 +86,8 @@ class CandidateService:
             except Exception as db_err:
                 logger.warning(f"Error querying history in candidate filter: {db_err}")
 
-        # Build negative terms list
-        negative_terms = set()
+        # Build strict negative terms list (Always enforces global prohibitions)
+        negative_terms = set(GLOBAL_PROHIBITED_TERMS)
         if preset:
             negative_terms.update([term.lower() for term in preset.negative_terms])
         if analysis:

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
   ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban,
-  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon
+  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon, PlusCircle
 } from 'lucide-react';
 import { CandidateItem } from '../types';
 
@@ -15,6 +15,8 @@ interface CandidatePanelProps {
   onDeselectAll: () => void;
   onSaveCandidate?: (candidate: CandidateItem) => void;
   onBanCandidate?: (candidate: CandidateItem) => void;
+  onFetchMore?: () => void;
+  isFetchingMore?: boolean;
 }
 
 const renderShotTypeBadge = (shotType?: string) => {
@@ -67,6 +69,8 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   onDeselectAll,
   onSaveCandidate,
   onBanCandidate,
+  onFetchMore,
+  isFetchingMore,
 }) => {
   const [filter, setFilter] = useState<'all' | 'approved' | 'selected' | 'rejected'>('all');
   const [themeFilter, setThemeFilter] = useState<string>('all');
@@ -134,22 +138,35 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
 
         <div className="flex flex-wrap items-center gap-2">
           {/* Quick Select Actions */}
-          <div className="flex items-center gap-1.5 mr-2">
+          <div className="flex items-center gap-1.5 mr-1">
             <button
               type="button"
               onClick={onSelectAllApproved}
-              className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
+              className="h-9 px-3 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/60 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 border border-stone-200 dark:border-stone-700 transition-colors cursor-pointer"
             >
               Select All Approved
             </button>
             <button
               type="button"
               onClick={onDeselectAll}
-              className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-colors cursor-pointer"
+              className="h-9 px-3 rounded-xl text-xs font-semibold bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-400 transition-colors cursor-pointer"
             >
               Clear
             </button>
           </div>
+
+          {/* Fetch More Videos (Next Batch) */}
+          {onFetchMore && (
+            <button
+              type="button"
+              onClick={onFetchMore}
+              disabled={isFetchingMore}
+              className="h-9 px-3.5 rounded-xl text-xs font-bold bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <PlusCircle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" />
+              <span>{isFetchingMore ? 'Fetching Next Batch...' : 'Fetch More Videos'}</span>
+            </button>
+          )}
 
           {/* Filter tabs */}
           <div className="h-9 flex items-center gap-1 bg-stone-100 dark:bg-stone-950/80 p-1 rounded-xl border border-stone-200 dark:border-stone-800 text-xs">
@@ -448,6 +465,21 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
           );
         })}
       </div>
+
+      {/* Bottom Load More Videos Bar */}
+      {onFetchMore && (
+        <div className="pt-2 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={onFetchMore}
+            disabled={isFetchingMore}
+            className="h-10 px-6 rounded-xl text-xs font-bold bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <PlusCircle className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <span>{isFetchingMore ? 'Fetching Next Batch of Videos...' : 'Fetch More Videos (Load Next Batch)'}</span>
+          </button>
+        </div>
+      )}
 
       {/* Full Video Preview Modal (Rendered via React Portal at document.body for instant screen-center positioning) */}
       {activePreviewVideo && typeof document !== 'undefined' && createPortal(

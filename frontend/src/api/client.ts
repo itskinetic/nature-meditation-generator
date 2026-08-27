@@ -93,6 +93,7 @@ export const api = {
     shot_preference?: string;
     studio_mode?: string;
     media_type?: string;
+    page?: number;
   }): Promise<SearchResponse> {
     const res = await fetch(`${API_BASE}/search`, {
       method: 'POST',

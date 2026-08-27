@@ -151,11 +151,14 @@ export function App() {
     ? settings.target_duration
     : settings.target_duration * 60;
 
+  const [searchPage, setSearchPage] = useState<number>(1);
+
   // Search Mutation using selected nature specs or title/script auto-discovery
   const searchMutation = useMutation({
-    mutationFn: (envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }>) => {
+    mutationFn: (params?: { page?: number; envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }> }) => {
+      const pageToFetch = params?.page || 1;
       const selectedList = Object.values(selectedNatures);
-      const specs = envSpecs || (selectedList.length > 0 ? selectedList.map((item) => ({
+      const specs = params?.envSpecs || (selectedList.length > 0 ? selectedList.map((item) => ({
         id: item.id,
         name: item.name,
         queries: item.queries,
@@ -177,18 +180,35 @@ export function App() {
         shot_preference: settings.shot_preference,
         studio_mode: settings.studio_mode || 'meditation',
         media_type: settings.media_type || 'video',
+        page: pageToFetch,
       });
     },
-    onSuccess: (data) => {
-      setCandidates(data.candidates);
-      // Auto-select approved candidates up to maximum_unique_videos
-      const approvedIds = data.candidates
-        .filter((c: CandidateItem) => c.is_approved)
-        .slice(0, settings.maximum_unique_videos)
-        .map((c: CandidateItem) => c.source_video_id);
-      setSelectedCandidateIds(approvedIds);
+    onSuccess: (data, variables) => {
+      const isAppend = (variables?.page || 1) > 1;
+      if (isAppend) {
+        setCandidates((prev) => {
+          const existingIds = new Set(prev.map((c) => c.source_video_id));
+          const newUnique = data.candidates.filter((c) => !existingIds.has(c.source_video_id));
+          return [...prev, ...newUnique];
+        });
+      } else {
+        setCandidates(data.candidates);
+        setSearchPage(1);
+        // Auto-select approved candidates up to maximum_unique_videos
+        const approvedIds = data.candidates
+          .filter((c: CandidateItem) => c.is_approved)
+          .slice(0, settings.maximum_unique_videos)
+          .map((c: CandidateItem) => c.source_video_id);
+        setSelectedCandidateIds(approvedIds);
+      }
     },
   });
+
+  const handleFetchMore = () => {
+    const nextPage = searchPage + 1;
+    setSearchPage(nextPage);
+    searchMutation.mutate({ page: nextPage });
+  };
 
   // AI Auto-Plan Mutation (Populates themes and intent for interactive review)
   const autoPlanMutation = useMutation({
@@ -267,14 +287,14 @@ export function App() {
     onSuccess: (data) => {
       setStoryboardBeats(data.visual_beats);
       // Auto-search footage matching each beat
-      searchMutation.mutate(
-        Object.values(selectedNatures).map((item) => ({
+      searchMutation.mutate({
+        envSpecs: Object.values(selectedNatures).map((item) => ({
           id: item.id,
           name: item.name,
           queries: item.queries,
           clip_count: item.clipCount,
         }))
-      );
+      });
     },
   });
 
@@ -468,6 +488,8 @@ export function App() {
                   onDeselectAll={handleDeselectAll}
                   onSaveCandidate={(c) => saveCandidateMutation.mutate(c)}
                   onBanCandidate={handleBanCandidate}
+                  onFetchMore={handleFetchMore}
+                  isFetchingMore={searchMutation.isPending && searchPage > 1}
                 />
 
                 {selectedCandidatesList.length > 0 && (
