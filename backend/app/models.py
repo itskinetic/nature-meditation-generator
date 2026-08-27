@@ -94,3 +94,26 @@ class SearchCache(Base):
     query = Column(String(300), nullable=False)
     response_json = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class KeywordBankItem(Base):
+    __tablename__ = "keyword_bank"
+
+    id = Column(Integer, primary_key=True, index=True)
+    keyword = Column(String(300), unique=True, index=True, nullable=False)
+    category = Column(String(100), default="General")  # Forest, Water, Sky, Meadow, Mountain, Zen, Wildlife
+    is_favorite = Column(Boolean, default=False)
+    times_used = Column(Integer, default=1)
+    last_used_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class BannedCandidate(Base):
+    __tablename__ = "banned_candidates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_video_id = Column(String(100), unique=True, index=True, nullable=False)
+    source = Column(String(50), default="pexels")
+    source_url = Column(String(500), nullable=True)
+    reason = Column(String(500), default="Manually banned by user")
+    banned_at = Column(DateTime, default=datetime.datetime.utcnow)

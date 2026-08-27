@@ -225,4 +225,41 @@ export const api = {
     if (!res.ok) throw new Error('Failed to get active jobs');
     return res.json();
   },
+
+  async getKeywordBank(params?: { category?: string; favorites_only?: boolean }): Promise<import('../types').KeywordBankItem[]> {
+    const q = new URLSearchParams();
+    if (params?.category) q.append('category', params.category);
+    if (params?.favorites_only) q.append('favorites_only', 'true');
+    const res = await fetch(`${API_BASE}/keywords/bank?${q.toString()}`);
+    if (!res.ok) throw new Error('Failed to fetch keyword bank');
+    return res.json();
+  },
+
+  async addKeywordToBank(data: { keyword: string; category?: string; is_favorite?: boolean }): Promise<import('../types').KeywordBankItem> {
+    const res = await fetch(`${API_BASE}/keywords/bank`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to add keyword to bank');
+    return res.json();
+  },
+
+  async toggleKeywordFavorite(data: { keyword: string; is_favorite: boolean }): Promise<{ status: string; keyword: string; is_favorite: boolean }> {
+    const res = await fetch(`${API_BASE}/keywords/bank/toggle-favorite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to toggle keyword favorite');
+    return res.json();
+  },
+
+  async deleteKeywordFromBank(id: number): Promise<{ status: string; id: number }> {
+    const res = await fetch(`${API_BASE}/keywords/bank/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete keyword from bank');
+    return res.json();
+  },
 };

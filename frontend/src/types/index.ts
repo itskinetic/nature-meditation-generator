@@ -222,3 +222,13 @@ export interface ActiveJobItem {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface KeywordBankItem {
+  id: number;
+  keyword: string;
+  category: string;
+  is_favorite: boolean;
+  times_used: number;
+  last_used_at?: string;
+  created_at?: string;
+}

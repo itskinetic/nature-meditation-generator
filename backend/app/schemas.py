@@ -340,3 +340,24 @@ class WebhookGenerateRequest(BaseModel):
     allow_reuse: bool = True
     avoid_recently_used: bool = True
     audio_mode: str = "none"
+
+
+class KeywordBankItemSchema(BaseModel):
+    id: int
+    keyword: str
+    category: str = "General"
+    is_favorite: bool = False
+    times_used: int = 1
+    last_used_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class KeywordBankAddRequest(BaseModel):
+    keyword: str
+    category: Optional[str] = "General"
+    is_favorite: bool = False
+
+
+class KeywordBankToggleFavoriteRequest(BaseModel):
+    keyword: str
+    is_favorite: bool

@@ -13,14 +13,15 @@ from sqlalchemy.orm import Session
 
 from backend.app.config import settings
 from backend.app.database import get_db, SessionLocal
-from backend.app.models import GenerationJob, VideoLibraryItem
+from backend.app.models import GenerationJob, VideoLibraryItem, KeywordBankItem, BannedCandidate
 from backend.app.schemas import (
     IntentAnalysisRequest, IntentAnalysisResult,
     PresetSchema, SearchRequest, SearchResponse, EnvironmentSearchSpec,
     CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
-    StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat
+    StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
+    KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest
 )
 from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
@@ -62,14 +63,15 @@ def get_presets(mode: str = Query("meditation")):
 
 
 @router.post("/analyze", response_model=IntentAnalysisResult)
-async def analyze_content(req: IntentAnalysisRequest):
+async def analyze_content(req: IntentAnalysisRequest, db: Session = Depends(get_db)):
     result = await intent_service.analyze(
         title=req.title,
         script=req.script,
         manual_intent=req.manual_intent,
         manual_mood=req.manual_mood,
-        target_clips=req.target_clips or 16,
-        studio_mode=req.studio_mode or "meditation"
+        target_clips=req.target_clips or 10,
+        studio_mode=req.studio_mode or "meditation",
+        db=db
     )
     return result
 
@@ -380,6 +382,30 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             )
         except Exception as save_err:
             logger.warning(f"Could not auto-save candidate {c.source_video_id} to library: {save_err}")
+
+    # Record searched queries into KeywordBankItem for usage tracking & cooldown rotation
+    if req.environments_spec:
+        for spec in req.environments_spec:
+            for q in spec.queries or []:
+                clean_q = q.strip()
+                if clean_q:
+                    try:
+                        k_item = db.query(KeywordBankItem).filter(KeywordBankItem.keyword == clean_q).first()
+                        if k_item:
+                            k_item.times_used = (k_item.times_used or 0) + 1
+                            k_item.last_used_at = datetime.datetime.utcnow()
+                        else:
+                            k_item = KeywordBankItem(
+                                keyword=clean_q,
+                                category=spec.name or "General",
+                                is_favorite=False,
+                                times_used=1,
+                                last_used_at=datetime.datetime.utcnow()
+                            )
+                            db.add(k_item)
+                        db.commit()
+                    except Exception:
+                        db.rollback()
 
     return SearchResponse(
         candidates=unique_approved + unique_rejected,
@@ -1182,3 +1208,78 @@ def trigger_manual_cleanup(retention_days: int = 3):
     """Manually trigger retention cleanup of rendered videos & cache older than N days (default 3)."""
     from backend.app.services.cleanup_service import cleanup_old_renders
     return cleanup_old_renders(retention_seconds=retention_days * 24 * 3600)
+
+
+# --- KEYWORD BANK & ROTATION ENDPOINTS ---
+
+@router.get("/keywords/bank", response_model=List[KeywordBankItemSchema])
+def get_keyword_bank(
+    category: Optional[str] = None,
+    favorites_only: bool = False,
+    db: Session = Depends(get_db)
+):
+    query = db.query(KeywordBankItem)
+    if favorites_only:
+        query = query.filter(KeywordBankItem.is_favorite == True)
+    if category and category != "All":
+        query = query.filter(KeywordBankItem.category == category)
+    items = query.order_by(
+        KeywordBankItem.is_favorite.desc(),
+        KeywordBankItem.times_used.desc(),
+        KeywordBankItem.last_used_at.desc()
+    ).all()
+    return items
+
+
+@router.post("/keywords/bank", response_model=KeywordBankItemSchema)
+def add_keyword_to_bank(req: KeywordBankAddRequest, db: Session = Depends(get_db)):
+    clean_k = req.keyword.strip()
+    if not clean_k:
+        raise HTTPException(status_code=400, detail="Keyword cannot be empty")
+    item = db.query(KeywordBankItem).filter(KeywordBankItem.keyword == clean_k).first()
+    if not item:
+        item = KeywordBankItem(
+            keyword=clean_k,
+            category=req.category or "General",
+            is_favorite=req.is_favorite,
+            times_used=1,
+            last_used_at=datetime.datetime.utcnow()
+        )
+        db.add(item)
+    else:
+        if req.category:
+            item.category = req.category
+        item.is_favorite = req.is_favorite or item.is_favorite
+        item.last_used_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/keywords/bank/toggle-favorite")
+def toggle_keyword_favorite(req: KeywordBankToggleFavoriteRequest, db: Session = Depends(get_db)):
+    clean_k = req.keyword.strip()
+    item = db.query(KeywordBankItem).filter(KeywordBankItem.keyword == clean_k).first()
+    if not item:
+        item = KeywordBankItem(
+            keyword=clean_k,
+            category="General",
+            is_favorite=req.is_favorite,
+            times_used=1,
+            last_used_at=datetime.datetime.utcnow()
+        )
+        db.add(item)
+    else:
+        item.is_favorite = req.is_favorite
+    db.commit()
+    return {"status": "success", "keyword": clean_k, "is_favorite": req.is_favorite}
+
+
+@router.delete("/keywords/bank/{item_id}")
+def delete_keyword_from_bank(item_id: int, db: Session = Depends(get_db)):
+    item = db.query(KeywordBankItem).filter(KeywordBankItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Keyword not found in bank")
+    db.delete(item)
+    db.commit()
+    return {"status": "deleted", "id": item_id}

@@ -21,15 +21,28 @@ class IntentService:
         manual_mood: Optional[List[str]] = None,
         preset_name: Optional[str] = None,
         target_clips: int = 10,
-        studio_mode: str = "meditation"
+        studio_mode: str = "meditation",
+        db: Optional[Session] = None
     ) -> IntentAnalysisResult:
         """
         AI Video Director: Analyzes meditation or wildlife documentary concepts and automatically plans
-        exactly 5 harmonious, diverse environment scenes (2 clips each, 10 clips total) with search keywords.
+        exactly 5 harmonious, diverse environment scenes (2 clips each, 10 clips total) with search keywords,
+        rotating away from recently used keywords on cooldown.
         """
+        cooldown_keywords: List[str] = []
+        if db:
+            try:
+                from backend.app.models import KeywordBankItem
+                import datetime
+                cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=14)
+                recent = db.query(KeywordBankItem.keyword).filter(KeywordBankItem.last_used_at > cutoff).order_by(KeywordBankItem.last_used_at.desc()).limit(30).all()
+                cooldown_keywords = [r[0] for r in recent if r[0]]
+            except Exception as e:
+                logger.warning(f"Error querying keyword cooldown: {e}")
+
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
-                result = await self._analyze_with_gemini(title, script, manual_intent, manual_mood, target_clips, studio_mode)
+                result = await self._analyze_with_gemini(title, script, manual_intent, manual_mood, target_clips, studio_mode, cooldown_keywords=cooldown_keywords)
                 if result:
                     return result
             except Exception as e:
@@ -44,8 +57,13 @@ class IntentService:
         manual_intent: Optional[str],
         manual_mood: Optional[List[str]],
         target_clips: int,
-        studio_mode: str = "meditation"
+        studio_mode: str = "meditation",
+        cooldown_keywords: Optional[List[str]] = None
     ) -> Optional[IntentAnalysisResult]:
+        cooldown_str = ""
+        if cooldown_keywords:
+            cooldown_str = f"\nRECENTLY USED KEYWORDS ON COOLDOWN (Do NOT reuse these exact phrases; explore fresh terminology and diverse natural angles):\n{json.dumps(cooldown_keywords[:20])}\n"
+
         if studio_mode == "documentary":
             prompt = f"""
 You are an expert AI Wildlife Documentary Director (BBC Planet Earth / National Geographic style).
@@ -53,8 +71,8 @@ Analyze the title and narrative storyline script, detect the specific wildlife s
 
 Title: {title or 'Wild Kingdom'}
 Script: {script or 'Wildlife roaming their natural habitats'}
-Target Total Clips Needed: {target_clips}
-
+Target Total Clips Needed: {target_clips or 10}
+{cooldown_str}
 DIRECTOR INSTRUCTIONS:
 - Extract dynamic, custom visual scenes directly from what is being narrated without being constrained to any fixed list.
 - Generate highly descriptive, specific 4K stock video search queries (e.g. "snow leopard stalking rocky mountain cliff 4k", "humpback whale breaching blue ocean sunset", "red eyed tree frog rainforest leaf close up", "lion pride savanna wildlife 4k").
@@ -76,7 +94,7 @@ Return ONLY valid JSON matching this schema:
       "name": "Savanna Predators & Big Cats",
       "icon": "🦁",
       "keywords": ["lion pride savanna wildlife 4k", "cheetah hunting grassland 4k"],
-      "suggested_clips": 4,
+      "suggested_clips": 2,
       "enabled": true
     }},
     {{
@@ -84,7 +102,7 @@ Return ONLY valid JSON matching this schema:
       "name": "Deep Ocean Giants",
       "icon": "🐋",
       "keywords": ["humpback whale swimming underwater 4k", "sea turtle coral reef clear water 4k"],
-      "suggested_clips": 4,
+      "suggested_clips": 2,
       "enabled": true
     }}
   ]
@@ -98,7 +116,7 @@ Analyze the meditation title and guidance script, detect the true emotional inte
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
 Target Total Video Clips Needed: {target_clips or 10}
-
+{cooldown_str}
 DIRECTOR INSTRUCTIONS:
 - Analyze the exact emotional arc, imagery, metaphors, and natural elements mentioned in the text.
 - Plan exactly 5 distinct visual scenes (e.g. scene_1 to scene_5) with 2 clips each (10 clips total).

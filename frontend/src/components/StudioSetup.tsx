@@ -1,10 +1,12 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Sparkles, Music, VolumeX, Upload, Trees, Waves, Mountain, Sun, Moon, Cloud,
   Flower2, Leaf, Droplets, Compass, CheckCircle2, Circle, Plus, RefreshCw,
-  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye, Film, Image as ImageIcon, Layers, Mic, FileText
+  Search, Sliders, Wand2, ChevronDown, ChevronUp, X, Check, Eye, Film, Image as ImageIcon, Layers, Mic, FileText,
+  Bookmark, Star, BookMarked, Tag
 } from 'lucide-react';
-import { GenerationRequest, Preset, IntentAnalysisResult, VisualBeat, CandidateItem } from '../types';
+import { GenerationRequest, Preset, IntentAnalysisResult, VisualBeat, CandidateItem, KeywordBankItem } from '../types';
+import { api } from '../api/client';
 import { SelectedNatureItem } from './NatureSelector';
 import { StoryboardBeatTimeline } from './StoryboardBeatTimeline';
 
@@ -219,6 +221,99 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const [customQueries, setCustomQueries] = useState<string>('');
   const [editingKeyword, setEditingKeyword] = useState<{ sceneId: string; index: number } | null>(null);
   const [newKeywordInput, setNewKeywordInput] = useState<{ [sceneId: string]: string }>({});
+
+  // Keyword Bank & Favorites State
+  const [showKeywordBank, setShowKeywordBank] = useState<boolean>(false);
+  const [bankItems, setBankItems] = useState<KeywordBankItem[]>([]);
+  const [bankCategory, setBankCategory] = useState<string>('All');
+  const [bankSearch, setBankSearch] = useState<string>('');
+  const [newBankKeyword, setNewBankKeyword] = useState<string>('');
+  const [newBankCategory, setNewBankCategory] = useState<string>('General');
+  const [selectedTargetSceneId, setSelectedTargetSceneId] = useState<string>('');
+  const [favoriteKeywordSet, setFavoriteKeywordSet] = useState<Set<string>>(new Set());
+
+  const loadKeywordBank = async () => {
+    try {
+      const items = await api.getKeywordBank();
+      setBankItems(items);
+      const favs = new Set(items.filter((i) => i.is_favorite).map((i) => i.keyword.toLowerCase().trim()));
+      setFavoriteKeywordSet(favs);
+    } catch (e) {
+      console.warn('Could not load keyword bank:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadKeywordBank();
+  }, []);
+
+  const handleToggleFavorite = async (keyword: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const clean = keyword.trim();
+    if (!clean) return;
+    const isCurrentlyFav = favoriteKeywordSet.has(clean.toLowerCase());
+    const newStatus = !isCurrentlyFav;
+
+    // Optimistic UI update
+    setFavoriteKeywordSet((prev) => {
+      const next = new Set(prev);
+      if (newStatus) next.add(clean.toLowerCase());
+      else next.delete(clean.toLowerCase());
+      return next;
+    });
+
+    try {
+      await api.toggleKeywordFavorite({ keyword: clean, is_favorite: newStatus });
+      loadKeywordBank();
+    } catch (err) {
+      console.warn('Failed to toggle favorite:', err);
+    }
+  };
+
+  const handleSaveToBank = async (keyword: string, category: string = 'General') => {
+    const clean = keyword.trim();
+    if (!clean) return;
+    try {
+      await api.addKeywordToBank({ keyword: clean, category, is_favorite: true });
+      loadKeywordBank();
+      setNewBankKeyword('');
+    } catch (err) {
+      console.warn('Failed to add to bank:', err);
+    }
+  };
+
+  const handleDeleteFromBank = async (id: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      await api.deleteKeywordFromBank(id);
+      loadKeywordBank();
+    } catch (err) {
+      console.warn('Failed to delete from bank:', err);
+    }
+  };
+
+  const handleInsertFromBank = (keyword: string, targetSceneId?: string) => {
+    const clean = keyword.trim();
+    if (!clean) return;
+    const sceneKeys = Object.keys(selectedNatures);
+    const destId = targetSceneId || selectedTargetSceneId || sceneKeys[0];
+
+    if (destId && selectedNatures[destId]) {
+      setSelectedNatures((prev) => {
+        const queries = [...(prev[destId].queries || [])];
+        if (!queries.includes(clean)) {
+          queries.push(clean);
+        }
+        return {
+          ...prev,
+          [destId]: {
+            ...prev[destId],
+            queries,
+          },
+        };
+      });
+    }
+  };
 
   const isDocMode = settings.studio_mode === 'documentary';
 
@@ -511,6 +606,19 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  loadKeywordBank();
+                  setShowKeywordBank(true);
+                }}
+                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                title="Open Saved & Favorite Keyword Bank"
+              >
+                <BookMarked className="w-3.5 h-3.5 text-amber-500" />
+                <span>Keyword Bank ({bankItems.length})</span>
+              </button>
+
               {selectedList.length > 0 && (
                 <button
                   type="button"
@@ -631,6 +739,14 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                             key={qIdx}
                             className="group/kw flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100/90 dark:bg-stone-800 hover:bg-amber-100/80 dark:hover:bg-amber-950/60 border border-stone-200/60 dark:border-stone-700/60 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-[11px] text-stone-700 dark:text-stone-300"
                           >
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleFavorite(q, e)}
+                              title={favoriteKeywordSet.has(q.toLowerCase().trim()) ? "Saved Favorite (in Keyword Bank)" : "Save to Favorite Keyword Bank"}
+                              className="p-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              <Star className={`w-2.5 h-2.5 ${favoriteKeywordSet.has(q.toLowerCase().trim()) ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
+                            </button>
                             <span
                               onClick={() => setEditingKeyword({ sceneId: item.id, index: qIdx })}
                               className="cursor-pointer hover:underline truncate max-w-[180px]"
@@ -1081,6 +1197,163 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           <span>{isSearching ? 'Searching & Evaluating Footage...' : (selectedList.length > 0 ? `Fetch Footage for Plan (${totalAllocatedClips} clips)` : 'Fetch Footage for Plan')}</span>
         </button>
       </div>
+
+      {/* KEYWORD BANK MODAL / DRAWER */}
+      {showKeywordBank && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-stone-100 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/70">
+              <div className="flex items-center gap-2">
+                <BookMarked className="w-4 h-4 text-amber-500" />
+                <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                  Favorite & Saved Keyword Bank
+                </h3>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-medium">
+                  {bankItems.length} Keywords
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowKeywordBank(false)}
+                className="p-1.5 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Add Custom Keyword to Bank */}
+            <div className="p-3.5 border-b border-stone-100 dark:border-stone-800 bg-amber-50/30 dark:bg-amber-950/20 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={newBankKeyword}
+                onChange={(e) => setNewBankKeyword(e.target.value)}
+                placeholder="Add high-aesthetic search keyword (e.g. golden sunrise redwood misty 4k)..."
+                className="flex-1 min-w-[200px] h-8 px-3 text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg outline-none focus:ring-2 focus:ring-amber-500/30 text-stone-900 dark:text-white"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newBankKeyword.trim()) {
+                    handleSaveToBank(newBankKeyword, newBankCategory);
+                  }
+                }}
+              />
+              <select
+                value={newBankCategory}
+                onChange={(e) => setNewBankCategory(e.target.value)}
+                className="h-8 px-2 text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-700 dark:text-stone-300 cursor-pointer"
+              >
+                <option value="General">General</option>
+                <option value="Forest">Forest</option>
+                <option value="Water">Water</option>
+                <option value="Sky">Sky</option>
+                <option value="Meadow">Meadow</option>
+                <option value="Mountain">Mountain</option>
+                <option value="Wildlife">Wildlife</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => handleSaveToBank(newBankKeyword, newBankCategory)}
+                disabled={!newBankKeyword.trim()}
+                className="h-8 px-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg flex items-center gap-1 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Save to Bank</span>
+              </button>
+            </div>
+
+            {/* Target Scene Selector & Search */}
+            <div className="p-3 border-b border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2 bg-stone-50/30 dark:bg-stone-950/30">
+              <div className="flex items-center gap-2 min-w-[220px]">
+                <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">Insert into:</span>
+                <select
+                  value={selectedTargetSceneId || (selectedList[0]?.id || '')}
+                  onChange={(e) => setSelectedTargetSceneId(e.target.value)}
+                  className="h-8 px-2 text-xs bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-800 dark:text-stone-200 font-medium cursor-pointer"
+                >
+                  {selectedList.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.icon || '🌲'} {s.name}
+                    </option>
+                  ))}
+                  {selectedList.length === 0 && (
+                    <option value="">(No active scenes)</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-1 max-w-xs">
+                <Search className="w-3.5 h-3.5 text-stone-400" />
+                <input
+                  type="text"
+                  value={bankSearch}
+                  onChange={(e) => setBankSearch(e.target.value)}
+                  placeholder="Search bank keywords..."
+                  className="w-full h-8 px-2.5 text-xs bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-lg outline-none text-stone-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            {/* Keywords List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]">
+              {bankItems
+                .filter((i) => !bankSearch.trim() || i.keyword.toLowerCase().includes(bankSearch.toLowerCase().trim()))
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/60 border border-stone-100 dark:border-stone-700/60 hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFavorite(item.keyword, e)}
+                        title={item.is_favorite ? 'Favorited' : 'Add to Favorites'}
+                        className="p-1 rounded text-amber-500 cursor-pointer"
+                      >
+                        <Star className={`w-3.5 h-3.5 ${item.is_favorite ? 'fill-amber-500 text-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
+                      </button>
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
+                          {item.keyword}
+                        </div>
+                        <div className="text-[10px] text-stone-400 flex items-center gap-2">
+                          <span className="px-1.5 py-0.2 rounded bg-stone-200/60 dark:bg-stone-700/60 text-stone-600 dark:text-stone-300">{item.category}</span>
+                          <span>•</span>
+                          <span>Used {item.times_used}x</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {selectedList.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleInsertFromBank(item.keyword)}
+                          className="h-7 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Insert</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteFromBank(item.id, e)}
+                        title="Delete from bank"
+                        className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 opacity-50 group-hover:opacity-100 transition-all cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {bankItems.length === 0 && (
+                <div className="text-center py-8 text-stone-400 text-xs">
+                  No keywords saved yet. Star any keyword pill in your scenes or type one above to save it to your bank!
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
