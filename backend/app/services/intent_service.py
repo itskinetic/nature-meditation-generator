@@ -20,12 +20,12 @@ class IntentService:
         manual_intent: Optional[str] = None,
         manual_mood: Optional[List[str]] = None,
         preset_name: Optional[str] = None,
-        target_clips: int = 16,
+        target_clips: int = 10,
         studio_mode: str = "meditation"
     ) -> IntentAnalysisResult:
         """
         AI Video Director: Analyzes meditation or wildlife documentary concepts and automatically plans
-        3 to 6 harmonious, diverse environment scenes with search keywords and clip allocations.
+        exactly 5 harmonious, diverse environment scenes (2 clips each, 10 clips total) with search keywords.
         """
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
@@ -93,14 +93,15 @@ Return ONLY valid JSON matching this schema:
         else:
             prompt = f"""
 You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
-Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract 3 to 6 matching visual nature scenes with tailored search keywords.
+Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract exactly 5 matching visual nature scenes with tailored search keywords (2 clips per scene for 10 clips total).
 
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
-Target Total Video Clips Needed: {target_clips}
+Target Total Video Clips Needed: {target_clips or 10}
 
 DIRECTOR INSTRUCTIONS:
 - Analyze the exact emotional arc, imagery, metaphors, and natural elements mentioned in the text.
+- Plan exactly 5 distinct visual scenes (e.g. scene_1 to scene_5) with 2 clips each (10 clips total).
 - Generate unconstrained, highly specific, cinematic nature stock video search queries (e.g. "golden morning sunlight misty redwood forest 4k", "clear turquoise ocean gentle ripples sunset", "peaceful starry night sky milky way reflection", "gentle crystal creek mossy boulders waterfall").
 - Ensure all footage is pristine, calm, aesthetically beautiful, and free of people, buildings, cars, boats, or chaotic motion.
 

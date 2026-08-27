@@ -83,6 +83,12 @@ class CandidateService:
                         library_ids.add(str(row[0]))
                     if row[1]:
                         library_urls.add(str(row[1]).strip().rstrip("/"))
+
+                # Also include past video usage records
+                usage_items = db.query(VideoUsage.source_video_id).all()
+                for row in usage_items:
+                    if row[0]:
+                        library_ids.add(str(row[0]))
             except Exception as db_err:
                 logger.warning(f"Error querying history in candidate filter: {db_err}")
 
@@ -112,14 +118,14 @@ class CandidateService:
                 c.rejection_reason = "Previously rejected/banned video"
                 continue
 
-            # 4. Check existing library: If candidate is from online API but already in library
+            # 4. Check existing library & past history: If candidate already exists or was used
             is_in_library = (c.source_video_id in library_ids) or (clean_url and clean_url in library_urls)
-            if is_in_library and c.source in ("pexels", "pixabay"):
+            if is_in_library:
                 if exclude_all_history:
                     c.is_approved = False
-                    c.rejection_reason = "Already exists in Video Library"
+                    c.rejection_reason = "Already saved in Video Library or used in previous video"
                     continue
-                else:
+                elif c.source in ("pexels", "pixabay"):
                     # Tag as reusable library asset
                     c.source = "library"
                     c.is_reused = True

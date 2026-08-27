@@ -920,20 +920,20 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
           </select>
         </div>
 
-        {/* History Control Toggle */}
-        <div className="lg:col-span-1 space-y-1.5">
-          <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider">
-            History
+        {/* Fresh Only / Ignore Saved & Past History Toggle */}
+        <div className="lg:col-span-2 space-y-1.5">
+          <label className="block text-[11px] font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wider" title="Ignore all previously saved library clips and past video history to guarantee 100% fresh, original footage">
+            Footage Pool
           </label>
-          <label className="h-9 flex items-center justify-center px-2 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-stone-300 dark:hover:border-stone-700 transition-colors" title="Exclude past generated video history">
-            <span className="text-[11px] font-medium text-stone-700 dark:text-stone-300 mr-1.5">
-              Exclude
+          <label className="h-9 flex items-center justify-between px-2.5 bg-stone-50/70 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl cursor-pointer hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors" title="Check to ignore previously saved & past used footage">
+            <span className="text-xs font-medium text-stone-800 dark:text-stone-200">
+              Fresh Only
             </span>
             <input
               type="checkbox"
               checked={excludeAllHistory}
               onChange={(e) => setExcludeAllHistory && setExcludeAllHistory(e.target.checked)}
-              className="w-3.5 h-3.5 rounded text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
+              className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 accent-amber-500 cursor-pointer"
             />
           </label>
         </div>

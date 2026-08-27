@@ -217,7 +217,7 @@ class GenerationRequest(BaseModel):
     target_duration: float = 30.0  # value in unit
     duration_unit: str = "minutes"  # "minutes" or "hours" or "seconds" (for dry-run)
 
-    maximum_unique_videos: int = 20
+    maximum_unique_videos: int = 10
     minimum_clip_duration: float = 15.0
     maximum_clip_duration: Optional[float] = None
 

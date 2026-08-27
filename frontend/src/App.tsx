@@ -59,7 +59,7 @@ export function App() {
     preset: 'sunlit_forest',
     target_duration: 30,
     duration_unit: 'minutes',
-    maximum_unique_videos: 16,
+    maximum_unique_videos: 10,
     minimum_clip_duration: 15,
     maximum_clip_duration: undefined,
     aspect_ratio: '16:9',
@@ -68,7 +68,7 @@ export function App() {
     transition_duration: 2.0,
     playback_speed: 0.5,
     prioritize_slow_motion: true,
-    allow_reuse: true,
+    allow_reuse: false,
     avoid_recently_used: true,
     enable_pexels: true,
     enable_pixabay: true,
@@ -78,7 +78,7 @@ export function App() {
   // Active Job ID & Queue Drawer State
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [isQueueOpen, setIsQueueOpen] = useState<boolean>(false);
-  const [excludeAllHistory, setExcludeAllHistory] = useState<boolean>(false);
+  const [excludeAllHistory, setExcludeAllHistory] = useState<boolean>(true);
 
   // Sync title / script into settings
   useEffect(() => {
