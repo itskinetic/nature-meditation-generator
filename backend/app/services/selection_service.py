@@ -15,92 +15,46 @@ class SelectionService:
         transition_duration: float = 2.0,
         trimming: float = 0.5,
         studio_mode: str = "meditation",
-        allow_looping: bool = False
+        allow_looping: bool = True,
+        playback_speed: float = 0.5,
+        clip_duration_cap: float = 15.0
     ) -> Dict[str, Any]:
         """
-        Plans a varied, harmonic clip sequence to fulfill target duration.
-        In documentary mode or when looping is disabled, plays each unique clip
-        exactly once sequentially without repeating/cycling clips.
+        Plans a varied, rhythmic 15-second clip sequence to fulfill target duration.
+        - Every clip cut is trimmed to max 15s playback duration.
+        - Preserves user-curated clip order for the first cycle.
+        - Progressively chunks longer raw videos across subsequent loop cycles
+          (e.g. 0-15s in loop 1, 15-30s in loop 2, 30-45s in loop 3) before wrapping around.
         """
         if not approved_candidates:
             raise ValueError("No approved candidates available to build sequence.")
 
-        # 1. Sort & prioritize approved candidate pool with controlled randomness
-        def candidate_weight(c: CandidateItem) -> float:
-            base = (
-                c.intent_match * 0.35
-                + c.theme_match * 0.25
-                + c.calmness * 0.25
-                + c.visual_quality * 0.15
-                - min(c.times_used * 0.8, 3.0)
-            )
-            return max(0.1, base + random.uniform(-0.2, 0.2))
+        # 1. Use the full approved candidates list preserving user order
+        unique_sequence: List[CandidateItem] = list(approved_candidates[:max_unique_videos]) if max_unique_videos > 0 else list(approved_candidates)
 
-        sorted_pool = sorted(approved_candidates, key=candidate_weight, reverse=True)
-
-        # 2. Select up to max_unique_videos ensuring balanced environment variety and subtheme interleaving
-        unique_sequence: List[CandidateItem] = []
-        
-        # Group candidates by environment or subtheme
-        env_groups: Dict[str, List[CandidateItem]] = {}
-        for c in sorted_pool:
-            key = c.environment_id or c.subtheme or "theme"
-            if key not in env_groups:
-                env_groups[key] = []
-            env_groups[key].append(c)
-
-        env_keys = list(env_groups.keys())
-        env_idx = 0
-        last_creator = None
-
-        while len(unique_sequence) < max_unique_videos and any(len(g) > 0 for g in env_groups.values()):
-            curr_env = env_keys[env_idx % len(env_keys)]
-            group = env_groups[curr_env]
-
-            if group:
-                chosen_idx = 0
-                for idx, c in enumerate(group):
-                    if last_creator is None or c.creator_name != last_creator:
-                        chosen_idx = idx
-                        break
-                chosen = group.pop(chosen_idx)
-                unique_sequence.append(chosen)
-                last_creator = chosen.creator_name
-
-            env_idx += 1
-
-        # If user explicitly provided candidates up to max_unique_videos
-        if len(unique_sequence) == 0:
-            unique_sequence = approved_candidates[:max_unique_videos]
-
-        # 3. If in Documentary mode or looping is disabled: Exact 1-Pass Sequential Playback
         is_doc = (studio_mode == "documentary")
+        safe_speed = max(0.2, min(2.0, playback_speed or 0.5))
+        # Raw seconds needed from source file to produce 15s of slowed playback
+        raw_chunk_len = max(3.0, clip_duration_cap * safe_speed)
+
+        # 2. If in Documentary mode or looping is explicitly disabled: 1-Pass Sequential
         if not allow_looping or is_doc:
-            num_clips = len(unique_sequence)
-            total_play_time = target_duration_seconds + max(0, num_clips - 1) * transition_duration
-            clip_dur = max(4.0, total_play_time / max(1, num_clips))
-
-            # Track offset per source video to chunk long videos across multiple occurrences
-            video_offsets: Dict[str, float] = {}
-
             full_clip_sequence = []
             accumulated_duration = 0.0
+            video_offsets: Dict[str, float] = {}
+
             for idx, cand in enumerate(unique_sequence):
-                is_first = (idx == 0)
-                eff_add = clip_dur if is_first else max(1.0, clip_dur - transition_duration)
-
-                # Calculate non-overlapping start offset for this chunk
                 cand_id = cand.source_video_id
-                current_offset = video_offsets.get(cand_id, 0.0)
-                
-                # If source video is long and has remaining headroom, use current offset then advance
-                if cand.duration and cand.duration > (current_offset + clip_dur + 2.0):
-                    next_offset = current_offset + clip_dur
-                else:
-                    current_offset = 0.0
-                    next_offset = clip_dur
+                curr_seek = video_offsets.get(cand_id, 0.0)
 
-                video_offsets[cand_id] = next_offset
+                # Check duration headroom
+                avail_dur = float(cand.duration or 30.0)
+                if curr_seek + raw_chunk_len > avail_dur and curr_seek > 0.0:
+                    curr_seek = 0.0
+
+                video_offsets[cand_id] = curr_seek + raw_chunk_len
+                is_first = (idx == 0)
+                eff_add = clip_duration_cap if is_first else max(1.0, clip_duration_cap - transition_duration)
 
                 full_clip_sequence.append({
                     "sequence_index": idx,
@@ -111,8 +65,8 @@ class SelectionService:
                     "creator_url": cand.creator_url,
                     "source_url": cand.source_url,
                     "subtheme": cand.subtheme,
-                    "duration": round(clip_dur, 2),
-                    "start_offset": round(current_offset, 2),
+                    "duration": clip_duration_cap,
+                    "start_offset": round(curr_seek, 2),
                     "effective_duration": round(eff_add, 2),
                     "preview_url": cand.preview_url,
                     "local_file_path": cand.local_file_path,
@@ -133,19 +87,7 @@ class SelectionService:
                 "warning": None
             }
 
-        # 4. Standard Looping Mode (For Extended Ambient Meditation Channels)
-        unique_durations: List[float] = []
-        unique_effective_total = 0.0
-
-        for i, c in enumerate(unique_sequence):
-            dur = max(c.duration, 15.0)
-            usable = max(5.0, dur - trimming)
-            unique_durations.append(usable)
-            if i == 0:
-                unique_effective_total += usable
-            else:
-                unique_effective_total += max(1.0, usable - transition_duration)
-
+        # 3. Standard Looping Mode for Meditation: Progressive Offset Chunking Across Cycles
         full_clip_sequence: List[Dict[str, Any]] = []
         accumulated_duration = 0.0
         cycle_count = 0
@@ -153,38 +95,36 @@ class SelectionService:
 
         while accumulated_duration < target_duration_seconds:
             cycle_len = len(unique_sequence)
-            start_offset_idx = (cycle_count * 3) % cycle_len
 
             for step in range(cycle_len):
-                clip_idx = (start_offset_idx + step) % cycle_len
-                cand = unique_sequence[clip_idx]
-                usable_dur = unique_durations[clip_idx]
+                cand = unique_sequence[step]
+                cand_id = cand.source_video_id
+                avail_dur = float(cand.duration or 30.0)
+
+                # Progressive seek offset: advance through the video on each loop cycle
+                curr_seek = video_offsets.get(cand_id, 0.0)
+                if curr_seek + raw_chunk_len > avail_dur:
+                    # Wrapped around: start from beginning again
+                    curr_seek = 0.0
+
+                video_offsets[cand_id] = curr_seek + raw_chunk_len
 
                 is_first_clip = (len(full_clip_sequence) == 0)
-                eff_add = usable_dur if is_first_clip else (usable_dur - transition_duration)
+                eff_add = clip_duration_cap if is_first_clip else max(1.0, clip_duration_cap - transition_duration)
 
                 remaining_needed = target_duration_seconds - accumulated_duration
                 if remaining_needed <= 0:
                     break
 
-                clip_play_duration = usable_dur
+                clip_play_duration = clip_duration_cap
                 if is_first_clip:
-                    if usable_dur > target_duration_seconds:
+                    if clip_duration_cap > target_duration_seconds:
                         clip_play_duration = target_duration_seconds
                         eff_add = target_duration_seconds
                 else:
                     if eff_add > remaining_needed:
                         clip_play_duration = remaining_needed + transition_duration
                         eff_add = remaining_needed
-
-                # Progressive offset chunking across loop cycles
-                cand_id = cand.source_video_id
-                curr_seek = video_offsets.get(cand_id, 0.0)
-                if cand.duration and cand.duration > (curr_seek + clip_play_duration + 2.0):
-                    video_offsets[cand_id] = curr_seek + clip_play_duration
-                else:
-                    curr_seek = 0.0
-                    video_offsets[cand_id] = clip_play_duration
 
                 full_clip_sequence.append({
                     "sequence_index": len(full_clip_sequence),
@@ -195,9 +135,9 @@ class SelectionService:
                     "creator_url": cand.creator_url,
                     "source_url": cand.source_url,
                     "subtheme": cand.subtheme,
-                    "duration": clip_play_duration,
+                    "duration": round(clip_play_duration, 2),
                     "start_offset": round(curr_seek, 2),
-                    "effective_duration": eff_add,
+                    "effective_duration": round(eff_add, 2),
                     "preview_url": cand.preview_url,
                     "local_file_path": cand.local_file_path,
                     "download_url": cand.download_url
@@ -208,7 +148,7 @@ class SelectionService:
                     break
 
             cycle_count += 1
-            if cycle_count > 500:
+            if cycle_count > 1000:
                 break
 
         repeat_count = max(0, cycle_count - 1)
@@ -218,7 +158,7 @@ class SelectionService:
         return {
             "unique_clips": unique_sequence,
             "unique_clip_count": len(unique_sequence),
-            "unique_sequence_duration": round(unique_effective_total, 2),
+            "unique_sequence_duration": round(sum(s["effective_duration"] for s in full_clip_sequence[:len(unique_sequence)]), 2),
             "target_duration_seconds": round(target_duration_seconds, 2),
             "actual_duration_seconds": round(accumulated_duration, 2),
             "sequence": full_clip_sequence,

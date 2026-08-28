@@ -591,7 +591,9 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                 max_unique_videos=max(req.maximum_unique_videos, len(approved_pool)),
                 transition_duration=req.transition_duration,
                 studio_mode=active_mode,
-                allow_looping=(active_mode == "meditation")
+                allow_looping=(active_mode == "meditation"),
+                playback_speed=req.playback_speed or 0.5,
+                clip_duration_cap=min(15.0, req.minimum_clip_duration or 15.0)
             )
 
         job_dir = settings.JOBS_DIR / job_id
