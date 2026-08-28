@@ -83,24 +83,15 @@ class CandidateService:
 
         if db:
             try:
-                rejected_items = db.query(VideoLibraryItem.source_video_id).filter(
-                    VideoLibraryItem.is_approved == False,
-                    VideoLibraryItem.rejected_at.isnot(None)
+                # Only treat items as existing history if they have been used (times_used > 0) or downloaded to disk
+                used_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).filter(
+                    (VideoLibraryItem.times_used > 0) | (VideoLibraryItem.local_file_path.isnot(None))
                 ).all()
-                rejected_ids = {r[0] for r in rejected_items}
-
-                all_library_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).all()
-                for row in all_library_items:
+                for row in used_items:
                     if row[0]:
                         library_ids.add(str(row[0]))
                     if row[1]:
                         library_urls.add(str(row[1]).strip().rstrip("/"))
-
-                # Also include past video usage records
-                usage_items = db.query(VideoUsage.source_video_id).all()
-                for row in usage_items:
-                    if row[0]:
-                        library_ids.add(str(row[0]))
             except Exception as db_err:
                 logger.warning(f"Error querying history in candidate filter: {db_err}")
 

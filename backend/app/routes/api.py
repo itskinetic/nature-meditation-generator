@@ -139,12 +139,13 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             target_clips = env_spec.clip_count or 4
 
             # Fetch candidates for this environment
-            per_page = min(15, max(6, int(target_clips * 2)))
+            per_page = min(15, max(8, int(target_clips * 2)))
             queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
             if req.prioritize_slow_motion and req.studio_mode != "documentary":
                 enriched = []
                 for q in queries_to_run:
-                    if not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
+                    words = q.split()
+                    if len(words) <= 4 and not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
                         enriched.append(f"slow motion {q}")
                     else:
                         enriched.append(q)
@@ -181,11 +182,15 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                         item.subtheme = env_spec.name
                     env_raw.extend(img_items)
 
+            # Calculate effective minimum duration accounting for slow-motion playback speed
+            speed_mult = float(req.playback_speed or 0.5)
+            effective_min_dur = max(4.0, (req.min_duration or 15.0) * speed_mult) if req.media_type != "image" else 5.0
+
             # Filter for this environment
             env_filtered = candidate_service.filter_candidates(
                 candidates=env_raw,
                 preset=env_preset,
-                min_duration=req.min_duration if req.media_type != "image" else 5.0,
+                min_duration=effective_min_dur,
                 max_duration=req.max_duration,
                 aspect_ratio=req.aspect_ratio,
                 resolution=req.resolution,
@@ -194,23 +199,21 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             )
             all_raw.extend(env_raw)
 
-            # Score candidates against this environment
+            # Fast local intent descriptor for candidate scoring
             active_mode = req.studio_mode or "meditation"
-            env_dummy_analysis = await intent_service.analyze(
-                title=env_spec.name,
-                preset_name=env_spec.id,
-                studio_mode=active_mode
+            env_dummy_analysis = IntentAnalysisResult(
+                intent=env_spec.name,
+                mood=["peaceful", "calm", "serene"],
+                energy_level="low",
+                visual_style="pure expansive nature landscape",
+                preferred_colors=["green", "gold", "blue"],
+                visual_motifs=[env_spec.name],
+                avoid_visuals=["macro", "close up", "flower", "people", "boats", "buildings"]
             )
             
             async def score_single(c: CandidateItem):
-                try:
-                    score_res = await asyncio.wait_for(
-                        scoring_service.score_candidate(c, env_dummy_analysis, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "balanced"),
-                        timeout=4.0
-                    )
-                except Exception:
-                    score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
-                    score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "balanced")
+                score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
+                score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "wide")
 
                 c.intent_match = score_res.intent_match
                 c.theme_match = score_res.theme_match
@@ -316,17 +319,15 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             db=db
         )
 
-        dummy_analysis = await intent_service.analyze(title=" ".join(queries_to_run), preset_name=req.preset_name)
+        dummy_analysis = IntentAnalysisResult(
+            intent=" ".join(queries_to_run),
+            mood=["peaceful", "calm"],
+            visual_style="pure nature landscape"
+        )
 
         async def score_single_generic(c: CandidateItem):
-            try:
-                score_res = await asyncio.wait_for(
-                    scoring_service.score_candidate(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "balanced"),
-                    timeout=4.0
-                )
-            except Exception:
-                score_res = scoring_service._score_heuristic(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation")
-                score_res = scoring_service._apply_scoring_thresholds(score_res, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "balanced")
+            score_res = scoring_service._score_heuristic(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation")
+            score_res = scoring_service._apply_scoring_thresholds(score_res, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "wide")
 
             c.intent_match = score_res.intent_match
             c.theme_match = score_res.theme_match
@@ -370,18 +371,6 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             if curl:
                 seen_urls.add(curl)
             unique_rejected.append(c)
-
-    # Auto-save approved and high-scoring candidates into SQLite Video Library
-    for c in unique_approved:
-        try:
-            library_service.save_or_update_video(
-                db=db,
-                candidate=c,
-                local_path=c.local_file_path or "",
-                is_approved=True
-            )
-        except Exception as save_err:
-            logger.warning(f"Could not auto-save candidate {c.source_video_id} to library: {save_err}")
 
     # Record searched queries into KeywordBankItem for usage tracking & cooldown rotation
     if req.environments_spec:
