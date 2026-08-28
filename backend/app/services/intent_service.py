@@ -118,11 +118,27 @@ Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
 Target Total Video Clips Needed: {target_clips or 10}
 {cooldown_str}
+EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
+- Do NOT generate generic geographical stock filler that ignores the emotional core of the title/script.
+- DECODE the emotional feeling and metaphor into concrete lighting, temperature, and visual nature phenomena that stock video engines index:
+  * LOVE / HEART-OPENING / BEAMING / WARMTH / RECEIVING:
+    - Radiating crepuscular rays & God-rays bursting through clouds or treetop canopies (e.g. "radiant golden sunbeams breaking through clouds 4k", "sun rays beaming through mountain mist 4k").
+    - Landscapes bathed in warm golden morning light or glowing sunset illumination (e.g. "expansive valley bathed in warm golden sunrise light 4k", "golden hour light illuminating calm ocean horizon 4k").
+    - Luminous reflective waters glowing with golden sunlight.
+    - STRICTLY AVOID cold grey mist, dark moody mountains, or generic green foliage with no warm light.
+  * STILLNESS / DEEP PEACE / REST / GROUNDING:
+    - Mirror-like alpine lake reflections at twilight, ancient quiet redwoods with gentle filtered sunbeams, peaceful glowing dusk horizons.
+  * CLARITY / VITALITY / AWAKENING:
+    - Pristine crystal turquoise waters, crisp golden dawn mountain summits, luminous sparkling waters in morning sunlight.
+
 DIRECTOR INSTRUCTIONS:
-- Analyze the exact emotional arc, imagery, metaphors, and natural elements mentioned in the text.
 - Plan exactly 5 distinct visual scenes (e.g. scene_1 to scene_5) with 2 clips each (10 clips total).
-- Generate unconstrained, highly specific, cinematic nature stock video search queries (e.g. "golden morning sunlight misty redwood forest 4k", "clear turquoise ocean gentle ripples sunset", "peaceful starry night sky milky way reflection", "gentle crystal creek mossy boulders waterfall").
-- Ensure all footage is pristine, calm, aesthetically beautiful, and free of people, buildings, cars, boats, or chaotic motion.
+- ALL search queries MUST combine:
+  [Lighting/Atmospheric Metaphor] + [Expansive Wide-Angle Landscape] + [4k slow motion]
+  Example: "golden sunbeams radiating through clouds over ocean horizon 4k"
+  Example: "landscape bathed in warm golden sunrise morning light 4k"
+  Example: "brilliant sun rays beaming through misty valley 4k"
+- STRICTLY EXCLUDE: macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse, grey/gloomy/foggy dark weather.
 
 Return ONLY valid JSON matching this schema:
 {{
@@ -137,18 +153,18 @@ Return ONLY valid JSON matching this schema:
   "planned_environments": [
     {{
       "id": "scene_1",
-      "name": "Sunlit Ancient Redwoods",
-      "icon": "🌲",
-      "keywords": ["golden morning sunlight misty redwood forest 4k", "sunbeams through tall pine trees green moss"],
-      "suggested_clips": 4,
+      "name": "Radiant Golden Sunbeams",
+      "icon": "✨",
+      "keywords": ["golden sunbeams radiating through clouds sunrise 4k", "brilliant sun rays beaming through forest mist 4k"],
+      "suggested_clips": 2,
       "enabled": true
     }},
     {{
       "id": "scene_2",
-      "name": "Tranquil Turquoise Cove",
-      "icon": "🌊",
-      "keywords": ["clear turquoise ocean gentle ripples sunset 4k", "crystal clear shallow sea water slow motion"],
-      "suggested_clips": 4,
+      "name": "Bathed in Morning Warmth",
+      "icon": "🌅",
+      "keywords": ["expansive landscape bathed in warm golden sunrise light 4k", "gentle morning light illuminating calm lake 4k"],
+      "suggested_clips": 2,
       "enabled": true
     }}
   ]

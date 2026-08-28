@@ -737,19 +737,19 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                         ) : (
                           <div
                             key={qIdx}
-                            className="group/kw flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100/90 dark:bg-stone-800 hover:bg-amber-100/80 dark:hover:bg-amber-950/60 border border-stone-200/60 dark:border-stone-700/60 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-[11px] text-stone-700 dark:text-stone-300"
+                            className="group/kw flex items-start gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100/90 dark:bg-stone-800/90 hover:bg-amber-50/80 dark:hover:bg-amber-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-[11px] text-stone-800 dark:text-stone-200 w-full"
                           >
                             <button
                               type="button"
                               onClick={(e) => handleToggleFavorite(q, e)}
                               title={favoriteKeywordSet.has(q.toLowerCase().trim()) ? "Saved Favorite (in Keyword Bank)" : "Save to Favorite Keyword Bank"}
-                              className="p-0.5 rounded cursor-pointer transition-colors"
+                              className="p-0.5 rounded cursor-pointer transition-colors mt-0.5 shrink-0"
                             >
-                              <Star className={`w-2.5 h-2.5 ${favoriteKeywordSet.has(q.toLowerCase().trim()) ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
+                              <Star className={`w-3 h-3 ${favoriteKeywordSet.has(q.toLowerCase().trim()) ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
                             </button>
                             <span
                               onClick={() => setEditingKeyword({ sceneId: item.id, index: qIdx })}
-                              className="cursor-pointer hover:underline truncate max-w-[180px]"
+                              className="cursor-pointer hover:underline whitespace-normal break-words leading-tight flex-1 select-text"
                               title="Click to edit keyword"
                             >
                               {q}
@@ -758,9 +758,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                               type="button"
                               onClick={() => handleRemoveKeyword(item.id, qIdx)}
                               title="Remove keyword"
-                              className="text-stone-400 hover:text-rose-600 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100"
+                              className="text-stone-400 hover:text-rose-600 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100 shrink-0 mt-0.5"
                             >
-                              <X className="w-2.5 h-2.5" />
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         );
