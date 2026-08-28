@@ -253,7 +253,7 @@ class FFmpegService:
         start_offset: float = 0.0,
         playback_speed: float = 1.0
     ) -> Path:
-        """Normalizes video or converts photo to Ken Burns video clip with start_offset and slow-motion playback_speed support."""
+        """Normalizes video or converts photo to Ken Burns video clip with start_offset and slow-motion support."""
         ext = input_file.suffix.lower()
         if ext in (".jpg", ".jpeg", ".png", ".webp"):
             return await self.apply_ken_burns_to_image(
@@ -265,10 +265,8 @@ class FFmpegService:
                 motion_style=motion_style or "zoom_in"
             )
 
-        # Scale to cover then crop center, apply slow-motion setpts filter if speed != 1.0
         safe_speed = max(0.2, min(2.0, playback_speed or 1.0))
         pts_factor = 1.0 / safe_speed
-
         filters = [
             f"scale={width}:{height}:force_original_aspect_ratio=increase",
             f"crop={width}:{height}",
@@ -276,10 +274,7 @@ class FFmpegService:
         ]
         if abs(safe_speed - 1.0) > 0.02:
             filters.append(f"setpts={pts_factor:.4f}*PTS")
-        filters.extend([
-            f"fps=30",
-            f"format=yuv420p"
-        ])
+        filters.extend([f"fps=30", f"format=yuv420p"])
         filter_str = ",".join(filters)
 
         cmd = ["ffmpeg", "-y"]
@@ -296,6 +291,47 @@ class FFmpegService:
             "-pix_fmt", "yuv420p",
             str(output_file)
         ])
+        proc = await asyncio.create_subprocess_exec(*cmd)
+        await proc.communicate()
+        return output_file
+
+    async def normalize_master_video(
+        self,
+        input_file: Path,
+        output_file: Path,
+        width: int = 1920,
+        height: int = 1080,
+        playback_speed: float = 1.0
+    ) -> Path:
+        """Normalizes an entire source video once (scaling, cropping, slow-motion speed) into a master file."""
+        safe_speed = max(0.2, min(2.0, playback_speed or 1.0))
+        pts_factor = 1.0 / safe_speed
+
+        filters = [
+            f"scale={width}:{height}:force_original_aspect_ratio=increase",
+            f"crop={width}:{height}",
+            f"setsar=1"
+        ]
+        if abs(safe_speed - 1.0) > 0.02:
+            filters.append(f"setpts={pts_factor:.4f}*PTS")
+        filters.extend([
+            f"fps=30",
+            f"format=yuv420p"
+        ])
+        filter_str = ",".join(filters)
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(input_file),
+            "-vf", filter_str,
+            "-an",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-g", "30",
+            "-pix_fmt", "yuv420p",
+            str(output_file)
+        ]
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
@@ -303,8 +339,36 @@ class FFmpegService:
         )
         stdout, stderr = await proc.communicate()
         if proc.returncode != 0:
-            logger.error(f"Clip normalization failed: {stderr.decode('utf-8', errors='ignore')}")
-            raise RuntimeError(f"FFmpeg failed to normalize clip: {input_file.name}")
+            logger.error(f"Master video normalization failed: {stderr.decode('utf-8', errors='ignore')}")
+            raise RuntimeError(f"FFmpeg failed to normalize master video: {input_file.name}")
+        return output_file
+
+    async def slice_clip_from_master(
+        self,
+        master_file: Path,
+        output_file: Path,
+        start_offset: float,
+        duration: float
+    ) -> Path:
+        """Instantly slices a 15-second cut from an already normalized master video file."""
+        cmd = [
+            "ffmpeg", "-y",
+            "-ss", f"{max(0.0, start_offset):.2f}",
+            "-i", str(master_file),
+            "-t", f"{duration:.2f}",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-crf", "18",
+            "-pix_fmt", "yuv420p",
+            "-an",
+            str(output_file)
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await proc.communicate()
         return output_file
 
     async def render_video(
@@ -324,7 +388,7 @@ class FFmpegService:
         progress_callback: Optional[Callable[[int, str], None]] = None
     ) -> Path:
         """
-        Main video rendering pipeline with xfade transitions, audio soundscape, subtitle burn-in, and duration verification.
+        Main video rendering pipeline with Master-Track optimization, xfade transitions, audio soundscape, and duration verification.
         """
         job_dir = settings.JOBS_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -336,25 +400,64 @@ class FFmpegService:
 
         if not clips_info:
             raise ValueError("Empty clip sequence provided.")
-        if progress_callback:
-            progress_callback(25, "Preparing and normalizing video clips")
 
-        # Step 1: Normalize all clips
+        # Step 1: Prepare Master Tracks for Unique Selected Videos (Done ONCE per unique video)
+        unique_cand_map: Dict[str, Dict[str, Any]] = {}
+        for c in clips_info:
+            cid = c.get("candidate_id") or c.get("source_video_id")
+            if cid and cid not in unique_cand_map:
+                unique_cand_map[cid] = c
+
+        total_unique = len(unique_cand_map)
+        if progress_callback:
+            progress_callback(20, f"Normalizing {total_unique} unique video master tracks")
+
+        master_map: Dict[str, Path] = {}
+        unique_items = list(unique_cand_map.items())
+
+        for u_idx, (cid, cand_item) in enumerate(unique_items):
+            raw_clip = await self.download_candidate(cand_item, job_dir, u_idx)
+            is_image = raw_clip.suffix.lower() in (".jpg", ".jpeg", ".png", ".webp")
+
+            master_path = job_dir / f"master_{cid}.mp4"
+            if is_image:
+                motion = cand_item.get("motion_style") or "zoom_in"
+                await self.apply_ken_burns_to_image(raw_clip, master_path, duration=30.0, width=width, height=height, motion_style=motion)
+            else:
+                await self.normalize_master_video(raw_clip, master_path, width=width, height=height, playback_speed=playback_speed)
+
+            master_map[cid] = master_path
+            pct = 20 + int(30 * (u_idx + 1) / max(1, total_unique))
+            if progress_callback:
+                progress_callback(pct, f"Prepared master video {u_idx + 1}/{total_unique}")
+
+        # Step 2: Instant 15s Chunk Extraction from Master Tracks
+        if progress_callback:
+            progress_callback(52, f"Assembling {len(clips_info)} progressive sequence cuts")
+
         normalized_clips: List[Path] = []
         for idx, clip_item in enumerate(clips_info):
-            raw_clip = await self.download_candidate(clip_item, job_dir, idx)
-            play_dur = clip_item.get("duration", 25.0)
-            motion = clip_item.get("motion_style") or "zoom_in"
+            cid = clip_item.get("candidate_id") or clip_item.get("source_video_id")
+            master_file = master_map.get(cid)
+
+            play_dur = float(clip_item.get("duration", 15.0))
             start_off = float(clip_item.get("start_offset", 0.0))
             norm_clip = job_dir / f"norm_clip_{idx:03d}.mp4"
-            await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, motion_style=motion, start_offset=start_off, playback_speed=playback_speed)
+
+            if master_file and master_file.exists():
+                await self.slice_clip_from_master(master_file, norm_clip, start_offset=start_off, duration=play_dur)
+            else:
+                # Fallback if master file is missing
+                raw_clip = await self.download_candidate(clip_item, job_dir, idx)
+                await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, start_offset=start_off, playback_speed=playback_speed)
+
             normalized_clips.append(norm_clip)
 
-            pct = 25 + int(30 * (idx + 1) / len(clips_info))
-            if progress_callback:
-                progress_callback(pct, f"Prepared clip {idx + 1}/{len(clips_info)}")
+            if idx % 10 == 0 and progress_callback:
+                pct = 52 + int(8 * (idx + 1) / max(1, len(clips_info)))
+                progress_callback(pct, f"Assembled cut {idx + 1}/{len(clips_info)}")
 
-        # Step 2: Prepare audio tracks (Music + Voiceover)
+        # Step 3: Prepare audio tracks (Music + Voiceover)
         if progress_callback:
             progress_callback(60, "Preparing voiceover and soundtrack audio")
 
