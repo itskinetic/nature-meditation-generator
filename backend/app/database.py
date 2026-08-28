@@ -44,6 +44,34 @@ def init_db():
                 conn.execute(text("ALTER TABLE video_library ADD COLUMN rejected_at DATETIME"))
             if "rejection_reason" not in existing_cols:
                 conn.execute(text("ALTER TABLE video_library ADD COLUMN rejection_reason VARCHAR(500)"))
+
+            # generation_jobs table columns
+            res_jobs = conn.execute(text("PRAGMA table_info(generation_jobs)")).fetchall()
+            job_cols = {row[1] for row in res_jobs}
+
+            if "playback_speed" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN playback_speed FLOAT DEFAULT 0.5"))
+            if "music_file" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN music_file VARCHAR(300)"))
+            if "aspect_ratio" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN aspect_ratio VARCHAR(20) DEFAULT '16:9'"))
+            if "resolution" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN resolution VARCHAR(20) DEFAULT '1080p'"))
+            if "transition_type" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN transition_type VARCHAR(50) DEFAULT 'crossfade'"))
+            if "transition_duration" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN transition_duration FLOAT DEFAULT 2.0"))
+            if "candidate_count" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN candidate_count INTEGER DEFAULT 0"))
+            if "approved_video_count" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN approved_video_count INTEGER DEFAULT 0"))
+            if "rejected_video_count" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN rejected_video_count INTEGER DEFAULT 0"))
+            if "unique_sequence_duration" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN unique_sequence_duration FLOAT DEFAULT 0.0"))
+            if "metadata_json" not in job_cols:
+                conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN metadata_json TEXT"))
+
             conn.commit()
         except Exception:
             pass

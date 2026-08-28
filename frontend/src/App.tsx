@@ -330,6 +330,10 @@ export function App() {
       queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
     },
+    onError: (err: any) => {
+      console.error('Render trigger failed:', err);
+      alert('Failed to start render: ' + (err.message || 'Unknown error'));
+    },
   });
 
   // Cancel Mutation (Cancels active or queued job)
