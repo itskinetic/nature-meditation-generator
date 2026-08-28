@@ -252,6 +252,17 @@ export function App() {
     );
   };
 
+  const handleMoveCandidate = (fromIndex: number, toIndex: number) => {
+    setSelectedCandidateIds((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length) return prev;
+      if (toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [movedItem] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, movedItem);
+      return next;
+    });
+  };
+
   const handleSelectAllApproved = () => {
     const approvedIds = candidates.filter((c: CandidateItem) => c.is_approved).map((c: CandidateItem) => c.source_video_id);
     setSelectedCandidateIds(approvedIds);
@@ -402,10 +413,10 @@ export function App() {
     },
   });
 
-  // Get selected candidate objects
-  const selectedCandidatesList = candidates.filter((c) =>
-    selectedCandidateIds.includes(c.source_video_id)
-  );
+  // Get selected candidate objects in exact user sequence order
+  const selectedCandidatesList = selectedCandidateIds
+    .map((id) => candidates.find((c) => c.source_video_id === id))
+    .filter((c): c is CandidateItem => c !== undefined);
 
   const numClipsUsed = selectedCandidatesList.length > 0 ? selectedCandidatesList.length : settings.maximum_unique_videos;
   const estimatedSequenceClipsNeeded = Math.ceil(targetSeconds / (settings.minimum_clip_duration - settings.transition_duration));
@@ -505,6 +516,7 @@ export function App() {
                   <SelectedSequenceTray
                     selectedCandidates={selectedCandidatesList}
                     onRemove={handleToggleSelect}
+                    onMove={handleMoveCandidate}
                     transitionDuration={settings.transition_duration}
                   />
                 )}
