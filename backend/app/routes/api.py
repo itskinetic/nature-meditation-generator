@@ -588,10 +588,10 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             sequence_data = selection_service.plan_sequence(
                 approved_candidates=approved_pool,
                 target_duration_seconds=target_dur_sec,
-                max_unique_videos=req.maximum_unique_videos,
+                max_unique_videos=max(req.maximum_unique_videos, len(approved_pool)),
                 transition_duration=req.transition_duration,
                 studio_mode=active_mode,
-                allow_looping=(req.allow_reuse if active_mode == "meditation" else False)
+                allow_looping=(active_mode == "meditation")
             )
 
         job_dir = settings.JOBS_DIR / job_id
