@@ -113,24 +113,24 @@ Keep the video ONLY if:
 - the movement is slow and subtle
 
 Shot Type Classification (Classify accurately based on the framing):
-- "wide_vista": Expansive wide-angle landscape, forest vista, mountain range, river, or ocean horizon. (MUST NOT be a single object, flower, or plant in the foreground).
-- "close_up": Intimate close-up or macro shot (e.g. leaf detail, water ripple, rock texture, single plant).
+- "slow_glide": Smooth, cinematic gliding camera drift, forward push-in drone shot, tracking aerial through trees/water/valleys. (HIGHLY PREFERRED).
+- "wide_vista": Expansive wide-angle landscape, horizon, mountain range, river, or ocean horizon.
 - "low_angle": Ground-level shot looking upward through trees or tall grass toward the sky.
 - "still_ambient": Stationary locked-off tripod shot of a natural environment.
-- "slow_glide": Smooth, gentle gliding or floating camera movement through a landscape.
+- "close_up": Intimate close-up or macro shot (e.g. leaf detail, water ripple, rock texture, single plant).
 
 STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT dark, underexposed, gloomy, overcast-grey, muddy, foggy dark, or lifeless desaturated visuals. ONLY bright, vivid, sun-drenched, luminous landscapes allowed.
 - REJECT ANY close-up, macro, extreme close-up, or detail shots focusing on individual small objects (flowers, petals, leaves, tree bark, rocks, pebbles). ONLY wide expansive vistas allowed.
 - REJECT ANY flower close-ups, macro flowers, individual flower blossoms, petals, lotus flowers, or waterlilies.
 - REJECT ANY bees, wasps, bugs, insects, spiders, or crawling creatures on plants or flowers.
 - REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
 - REJECT ANY docks, piers, marinas, harbors, ports, jetties, or boat slips.
-- REJECT ANY high-altitude drone flyovers, high aerial survey shots, top-down satellite maps, or distant overhead drone vistas.
+- REJECT ANY top-down satellite maps or high survey maps. (Cinematic push-in and gliding drone vistas ARE encouraged).
 - REJECT ANY buildings, houses, resorts, hotels, pools, cabins, roads, cars, vehicles, bridges, fences, or man-made structures.
 - REJECT ANY people, tourists, swimmers, divers, crowds, or visible human activity.
 - REJECT ANY murky, muddy, stagnant water, algae scum, sludge, or brownish swamp water.
 - REJECT RAW camera footage, unedited LOG profiles, flat color profiles, or washed-out ungraded video.
-- REJECT dull, muddy, grey, overcast-grey, dark, or lifeless desaturated visuals.
 
 Return ONLY valid JSON matching this schema:
 {{
@@ -214,9 +214,7 @@ Return ONLY valid JSON matching this schema:
             detected_shot_type = "close_up"
         elif any(w in corpus_words for w in ["ground", "roots", "floor", "pebbles", "prowl", "track"]):
             detected_shot_type = "low_angle"
-        elif any(w in corpus_words for w in ["still", "static", "tripod", "lock", "rest", "perch"]):
-            detected_shot_type = "still_ambient"
-        elif any(w in corpus_words for w in ["glide", "drift", "pan", "tracking", "flight", "soar", "swim"]):
+        elif any(w in corpus_words for w in ["drone", "aerial", "glide", "drift", "pan", "tracking", "flight", "soar", "swim", "flyover", "forward", "push"]):
             detected_shot_type = "slow_glide"
 
         # Check subtheme

@@ -133,37 +133,40 @@ EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
 
 DIRECTOR INSTRUCTIONS:
 - Plan exactly 5 distinct visual scenes (e.g. scene_1 to scene_5) with 2 clips each (10 clips total).
+- CAMERA MOTION & LIGHTING REQUIREMENT:
+  * Prioritize smooth, cinematic forward push-in drone shots, slow-gliding aerials, and gentle tracking vistas through sunlit nature.
+  * Ensure lighting is VIVID, bright, golden, sun-drenched, and crystal-clear (e.g. golden hour sunrise, warm sunbeams, luminous turquoise waters).
 - ALL search queries MUST combine:
-  [Lighting/Atmospheric Metaphor] + [Expansive Wide-Angle Landscape] + [4k slow motion]
-  Example: "golden sunbeams radiating through clouds over ocean horizon 4k"
-  Example: "landscape bathed in warm golden sunrise morning light 4k"
-  Example: "brilliant sun rays beaming through misty valley 4k"
-- STRICTLY EXCLUDE: macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse, grey/gloomy/foggy dark weather.
+  [Lighting/Metaphor] + [Forward Glide/Drone/Tracking Motion] + [Vivid Landscape] + [4k]
+  Example: "vivid golden sunbeams push in drone shot misty forest 4k"
+  Example: "cinematic sunrise drone glide over calm ocean horizon 4k"
+  Example: "bright sunlit mountain valley forward aerial tracking 4k"
+- STRICTLY EXCLUDE: dark/gloomy/foggy grey weather, macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse.
 
 Return ONLY valid JSON matching this schema:
 {{
   "intent": "gentle calming of the nervous system and deep presence",
   "mood": ["peaceful", "calm", "serene", "soothing", "grounding"],
   "energy_level": "very low",
-  "visual_style": "peaceful crystal-clear nature vistas with gentle subtle motion",
-  "preferred_colors": ["emerald green", "soft gold", "turquoise blue", "misty lavender"],
-  "visual_motifs": ["sunlight through trees", "gentle water ripples", "swaying wildflowers"],
-  "avoid_visuals": ["macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "visual_style": "vivid bright sunlit nature vistas with smooth cinematic forward drone glides",
+  "preferred_colors": ["emerald green", "warm gold", "turquoise blue", "radiant amber"],
+  "visual_motifs": ["sunbeams through trees", "gentle water ripples", "golden sunrise horizons"],
+  "avoid_visuals": ["dark", "gloomy", "grey overcast", "murky", "underexposed", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
   "generated_queries": ["query 1", "query 2", "query 3"],
   "planned_environments": [
     {{
       "id": "scene_1",
-      "name": "Radiant Golden Sunbeams",
+      "name": "Radiant Golden Drone Glide",
       "icon": "✨",
-      "keywords": ["golden sunbeams radiating through clouds sunrise 4k", "brilliant sun rays beaming through forest mist 4k"],
+      "keywords": ["vivid golden sunbeams push in drone shot misty forest 4k", "cinematic sunrise aerial glide over calm ocean 4k"],
       "suggested_clips": 2,
       "enabled": true
     }},
     {{
       "id": "scene_2",
-      "name": "Bathed in Morning Warmth",
+      "name": "Sunlit Valley Push-In",
       "icon": "🌅",
-      "keywords": ["expansive landscape bathed in warm golden sunrise light 4k", "gentle morning light illuminating calm lake 4k"],
+      "keywords": ["bright sunlit mountain valley forward aerial tracking 4k", "golden hour drone glide calm lake reflection 4k"],
       "suggested_clips": 2,
       "enabled": true
     }}
