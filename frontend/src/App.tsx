@@ -10,6 +10,7 @@ import { GenerationPanel } from './components/GenerationPanel';
 import { LibraryPanel } from './components/LibraryPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import { QueueDrawer } from './components/QueueDrawer';
+import { AudioSpacerPanel } from './components/AudioSpacerPanel';
 import { api } from './api/client';
 import {
   GenerationRequest,
@@ -21,7 +22,7 @@ import {
 
 export function App() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history'>('generator');
+  const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history' | 'audio'>('generator');
   const [previewCandidate, setPreviewCandidate] = useState<CandidateItem | null>(null);
 
   // Theme state (default light theme, saved to localStorage)
@@ -424,6 +425,28 @@ export function App() {
     ? Math.ceil(estimatedSequenceClipsNeeded / numClipsUsed) - 1
     : 0;
 
+  // Audio Lab integration handler
+  const handleUseAudioInStudio = (audioFilename: string, durationSeconds: number, scriptText?: string) => {
+    setCustomMusicName(audioFilename);
+    setSettings((prev) => {
+      const isMinutes = durationSeconds >= 60;
+      const targetDur = isMinutes ? Math.max(1, Math.round(durationSeconds / 60)) : Math.round(durationSeconds);
+      const unit = isMinutes ? 'minutes' : 'seconds';
+      return {
+        ...prev,
+        audio_mode: 'upload',
+        music_file: audioFilename,
+        target_duration: targetDur,
+        duration_unit: unit,
+        script: scriptText || prev.script,
+      };
+    });
+    if (scriptText) {
+      setScript(scriptText);
+    }
+    setActiveTab('generator');
+  };
+
   return (
     <div className="min-h-screen bg-[#fbfaf7] dark:bg-[#0c0e12] text-stone-800 dark:text-stone-100 flex flex-col transition-colors duration-200">
       <Header
@@ -579,6 +602,13 @@ export function App() {
               )}
             </div>
           )}
+
+        {activeTab === 'audio' && (
+          <AudioSpacerPanel
+            onUseInStudio={handleUseAudioInStudio}
+            isDark={isDark}
+          />
+        )}
 
         {activeTab === 'library' && (
           <LibraryPanel

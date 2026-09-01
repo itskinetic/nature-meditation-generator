@@ -8,7 +8,10 @@ import {
   JobProgress,
   LibraryItem,
   HistoryItem,
-  ActiveJobItem
+  ActiveJobItem,
+  AudioSegment,
+  AudioAnalysisResult,
+  AudioProcessResult
 } from '../types';
 
 const API_BASE = '/api';
@@ -260,6 +263,71 @@ export const api = {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to delete keyword from bank');
+    return res.json();
+  },
+
+  // --- AUDIO LAB / SPACER API ---
+
+  async uploadAndAnalyzeAudio(file: File, scriptText?: string): Promise<AudioAnalysisResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (scriptText) {
+      formData.append('script_text', scriptText);
+    }
+    const res = await fetch(`${API_BASE}/audio/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to upload audio' }));
+      throw new Error(err.detail || 'Failed to upload and analyze audio');
+    }
+    return res.json();
+  },
+
+  async reanalyzeAudio(fileId: string, scriptText?: string): Promise<AudioAnalysisResult> {
+    const res = await fetch(`${API_BASE}/audio/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fileId, script_text: scriptText }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to re-analyze audio' }));
+      throw new Error(err.detail || 'Failed to re-analyze audio');
+    }
+    return res.json();
+  },
+
+  async processAudioSpacing(fileId: string, segments: AudioSegment[], fadeDuration: number = 0.05): Promise<AudioProcessResult> {
+    const res = await fetch(`${API_BASE}/audio/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fileId, segments, fade_duration: fadeDuration }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to process audio' }));
+      throw new Error(err.detail || 'Failed to process audio spacing');
+    }
+    return res.json();
+  },
+
+  async sendAudioToStudio(filename: string): Promise<{
+    filename: string;
+    original_name: string;
+    path: string;
+    duration_seconds: number;
+    duration_minutes: number;
+    audio_url: string;
+  }> {
+    const res = await fetch(`${API_BASE}/audio/send-to-studio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to send audio to studio' }));
+      throw new Error(err.detail || 'Failed to send audio to studio');
+    }
     return res.json();
   },
 };

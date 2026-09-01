@@ -315,7 +315,7 @@ def test_candidate_ban_and_unban_pipeline(db_session):
     ban_cand = CandidateItem(
         source="pexels",
         source_video_id="ban_test_999",
-        source_url="https://pexels.com/video/drone-boats-in-lagoon-999",
+        source_url="https://pexels.com/video/calm-serene-forest-999",
         creator_name="Test Creator",
         duration=20.0,
         width=1920,

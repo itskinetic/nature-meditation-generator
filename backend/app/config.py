@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     MUSIC_DIR: Path = DATA_DIR / "music"
     RENDERS_DIR: Path = DATA_DIR / "renders"
     CREDITS_DIR: Path = DATA_DIR / "credits"
+    AUDIO_DIR: Path = DATA_DIR / "audio"
     DB_PATH: Path = DATA_DIR / "database.sqlite3"
 
 
@@ -48,5 +49,6 @@ for directory in [
     settings.MUSIC_DIR,
     settings.RENDERS_DIR,
     settings.CREDITS_DIR,
+    settings.AUDIO_DIR,
 ]:
     directory.mkdir(parents=True, exist_ok=True)

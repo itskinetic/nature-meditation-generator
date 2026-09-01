@@ -361,3 +361,58 @@ class KeywordBankAddRequest(BaseModel):
 class KeywordBankToggleFavoriteRequest(BaseModel):
     keyword: str
     is_favorite: bool
+
+
+# --- AUDIO LAB / AUDIO SPACER SCHEMAS ---
+
+class AudioSegmentSchema(BaseModel):
+    id: str
+    index: int
+    text: str
+    start_time: float
+    end_time: float
+    split_time: float
+    natural_silence_dur: float = 0.5
+    pause_tag: str = "pause"
+    pause_duration: float = 6.0
+
+
+class AudioSilenceIntervalSchema(BaseModel):
+    start: float
+    end: float
+    mid: float
+    duration: float
+
+
+class AudioAnalysisRequest(BaseModel):
+    file_id: Optional[str] = None
+    script_text: Optional[str] = None
+
+
+class AudioAnalysisResponse(BaseModel):
+    file_id: str
+    original_name: str
+    duration: float
+    waveform_peaks: List[float]
+    silence_intervals: List[AudioSilenceIntervalSchema]
+    segments: List[AudioSegmentSchema]
+    audio_url: str
+
+
+class AudioProcessRequest(BaseModel):
+    file_id: str
+    segments: List[AudioSegmentSchema]
+    fade_duration: Optional[float] = 0.05
+
+
+class AudioProcessResponse(BaseModel):
+    file_id: str
+    original_duration: float
+    spaced_duration: float
+    total_pauses_count: int
+    total_silence_added: float
+    waveform_peaks: List[float]
+    spaced_filename: str
+    audio_url: str
+    download_url: str
+

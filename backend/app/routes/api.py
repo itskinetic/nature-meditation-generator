@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,9 @@ from backend.app.schemas import (
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
     StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
-    KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest
+    KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest,
+    AudioSegmentSchema, AudioSilenceIntervalSchema, AudioAnalysisRequest, AudioAnalysisResponse,
+    AudioProcessRequest, AudioProcessResponse
 )
 from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
@@ -35,6 +37,7 @@ from backend.app.services.selection_service import selection_service
 from backend.app.services.ffmpeg_service import ffmpeg_service
 from backend.app.services.queue_service import queue_service
 from backend.app.services.subtitle_service import subtitle_service
+from backend.app.services.audio_spacer_service import audio_spacer_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1274,3 +1277,187 @@ def delete_keyword_from_bank(item_id: int, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     return {"status": "deleted", "id": item_id}
+
+
+# --- AUDIO LAB / AUDIO SPACER DASHBOARD ENDPOINTS ---
+
+@router.post("/audio/upload", response_model=AudioAnalysisResponse)
+async def upload_and_analyze_audio(
+    file: UploadFile = File(...),
+    script_text: Optional[str] = Form(None)
+):
+    """
+    Upload voiceover audio file, normalize to PCM WAV, generate waveform peaks,
+    detect natural silences, and parse script tags.
+    """
+    file_uuid = uuid.uuid4().hex[:8]
+    clean_filename = f"{file_uuid}_{file.filename}"
+    target_path = settings.AUDIO_DIR / clean_filename
+
+    with open(target_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    try:
+        analysis = await audio_spacer_service.analyze_audio_file(
+            input_file_path=target_path,
+            script_text=script_text
+        )
+        wav_name = Path(analysis["normalized_wav_path"]).name
+        return AudioAnalysisResponse(
+            file_id=analysis["file_id"],
+            original_name=file.filename or clean_filename,
+            duration=analysis["duration"],
+            waveform_peaks=analysis["waveform_peaks"],
+            silence_intervals=[AudioSilenceIntervalSchema(**s) for s in analysis["silence_intervals"]],
+            segments=[AudioSegmentSchema(**seg) for seg in analysis["segments"]],
+            audio_url=f"/api/audio/stream/{wav_name}"
+        )
+    except Exception as e:
+        logger.exception(f"Audio analysis failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Audio analysis failed: {str(e)}")
+
+
+@router.post("/audio/analyze", response_model=AudioAnalysisResponse)
+async def reanalyze_audio(req: AudioAnalysisRequest):
+    """
+    Re-analyzes an existing uploaded audio file with updated script text.
+    """
+    if not req.file_id:
+        raise HTTPException(status_code=400, detail="file_id is required")
+
+    wav_path = settings.AUDIO_DIR / f"{req.file_id}_norm.wav"
+    if not wav_path.exists():
+        raise HTTPException(status_code=404, detail=f"Audio file {req.file_id} not found on server")
+
+    try:
+        analysis = await audio_spacer_service.analyze_audio_file(
+            input_file_path=wav_path,
+            script_text=req.script_text
+        )
+        wav_name = wav_path.name
+        return AudioAnalysisResponse(
+            file_id=req.file_id,
+            original_name=f"{req.file_id}.wav",
+            duration=analysis["duration"],
+            waveform_peaks=analysis["waveform_peaks"],
+            silence_intervals=[AudioSilenceIntervalSchema(**s) for s in analysis["silence_intervals"]],
+            segments=[AudioSegmentSchema(**seg) for seg in analysis["segments"]],
+            audio_url=f"/api/audio/stream/{wav_name}"
+        )
+    except Exception as e:
+        logger.exception(f"Re-analysis error: {e}")
+        raise HTTPException(status_code=500, detail=f"Re-analysis failed: {str(e)}")
+
+
+@router.post("/audio/process", response_model=AudioProcessResponse)
+async def process_spaced_audio(req: AudioProcessRequest):
+    """
+    Slices raw PCM audio at exact silence midpoints, injects silence buffers,
+    applies smooth S-curve fades, and masters the final spaced MP3.
+    """
+    wav_path = settings.AUDIO_DIR / f"{req.file_id}_norm.wav"
+    if not wav_path.exists():
+        raise HTTPException(status_code=404, detail=f"Audio file {req.file_id} not found")
+
+    output_mp3_name = f"{req.file_id}_spaced.mp3"
+    output_mp3_path = settings.AUDIO_DIR / output_mp3_name
+
+    try:
+        result = await audio_spacer_service.splice_and_render_spaced_audio(
+            input_wav=wav_path,
+            segments=[s.model_dump() for s in req.segments],
+            output_mp3=output_mp3_path,
+            fade_duration=req.fade_duration or 0.05
+        )
+
+        return AudioProcessResponse(
+            file_id=req.file_id,
+            original_duration=result["original_duration"],
+            spaced_duration=result["spaced_duration"],
+            total_pauses_count=result["total_pauses_count"],
+            total_silence_added=result["total_silence_added"],
+            waveform_peaks=result["waveform_peaks"],
+            spaced_filename=output_mp3_name,
+            audio_url=f"/api/audio/stream/{output_mp3_name}",
+            download_url=f"/api/audio/download/{output_mp3_name}"
+        )
+    except Exception as e:
+        logger.exception(f"Spacing process error: {e}")
+        raise HTTPException(status_code=500, detail=f"Audio spacing failed: {str(e)}")
+
+
+@router.get("/audio/stream/{filename}")
+async def stream_audio_file(filename: str):
+    """
+    Streams audio file (WAV / MP3) from the audio storage directory.
+    """
+    # Sanitize filename
+    clean_name = os.path.basename(filename)
+    file_path = settings.AUDIO_DIR / clean_name
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    media_type = "audio/mpeg" if clean_name.lower().endswith(".mp3") else "audio/wav"
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        headers={"Accept-Ranges": "bytes"}
+    )
+
+
+@router.get("/audio/download/{filename}")
+async def download_audio_file(filename: str):
+    """
+    Direct file download endpoint for processed MP3 audio.
+    """
+    clean_name = os.path.basename(filename)
+    file_path = settings.AUDIO_DIR / clean_name
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    media_type = "audio/mpeg" if clean_name.lower().endswith(".mp3") else "audio/wav"
+    download_filename = f"zenhub_spaced_{clean_name}"
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=download_filename,
+        headers={"Content-Disposition": f'attachment; filename="{download_filename}"'}
+    )
+
+
+@router.post("/audio/send-to-studio")
+async def send_audio_to_studio(
+    payload: Dict[str, Any] = Body(...)
+):
+    """
+    Transfers processed audio file to music directory and returns studio metadata.
+    """
+    filename = payload.get("filename")
+    if not filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    clean_name = os.path.basename(filename)
+    source_path = settings.AUDIO_DIR / clean_name
+
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail=f"Source audio {clean_name} not found")
+
+    studio_filename = f"paced_{uuid.uuid4().hex[:6]}_{clean_name}"
+    target_path = settings.MUSIC_DIR / studio_filename
+    shutil.copy2(source_path, target_path)
+
+    probe = await ffmpeg_service.probe_file(target_path)
+    dur_seconds = float(probe.get("duration", 0.0))
+    dur_minutes = max(1, round(dur_seconds / 60.0)) if dur_seconds > 60 else round(dur_seconds, 1)
+
+    return {
+        "filename": studio_filename,
+        "original_name": clean_name,
+        "path": str(target_path),
+        "duration_seconds": dur_seconds,
+        "duration_minutes": dur_minutes,
+        "audio_url": f"/api/audio/stream/{clean_name}"
+    }
+

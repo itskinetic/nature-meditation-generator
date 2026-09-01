@@ -83,6 +83,14 @@ class CandidateService:
 
         if db:
             try:
+                # Query previously rejected / banned items
+                rejected_rows = db.query(VideoLibraryItem.source_video_id).filter(
+                    VideoLibraryItem.is_approved == False
+                ).all()
+                for row in rejected_rows:
+                    if row[0]:
+                        rejected_ids.add(str(row[0]))
+
                 # Only treat items as existing history if they have been used (times_used > 0) or downloaded to disk
                 used_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).filter(
                     (VideoLibraryItem.times_used > 0) | (VideoLibraryItem.local_file_path.isnot(None))

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Sparkles, Film, Database, History, Sun, Moon, Zap, Trees, Compass } from 'lucide-react';
+import { Sparkles, Film, Database, History, Sun, Moon, Zap, Trees, Compass, Sliders, Headphones } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'generator' | 'library' | 'history';
-  setActiveTab: (tab: 'generator' | 'library' | 'history') => void;
+  activeTab: 'generator' | 'library' | 'history' | 'audio';
+  setActiveTab: (tab: 'generator' | 'library' | 'history' | 'audio') => void;
   isDark: boolean;
   setIsDark: (dark: boolean) => void;
   activeJobsCount?: number;
@@ -86,6 +86,19 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Film className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
                 <span>Studio</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('audio')}
+                className={`h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  activeTab === 'audio'
+                    ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs font-semibold'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
+                <span>Audio Lab</span>
               </button>
 
               <button
@@ -177,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('generator')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl text-[11px] font-medium transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
             activeTab === 'generator'
               ? 'text-amber-900 dark:text-amber-200 font-semibold bg-amber-100/70 dark:bg-amber-950/70'
               : 'text-stone-500 dark:text-stone-400'
@@ -189,8 +202,21 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           type="button"
+          onClick={() => setActiveTab('audio')}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
+            activeTab === 'audio'
+              ? 'text-amber-900 dark:text-amber-200 font-semibold bg-amber-100/70 dark:bg-amber-950/70'
+              : 'text-stone-500 dark:text-stone-400'
+          }`}
+        >
+          <Sliders className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+          <span>Audio Lab</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveTab('library')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl text-[11px] font-medium transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
             activeTab === 'library'
               ? 'text-amber-900 dark:text-amber-200 font-semibold bg-amber-100/70 dark:bg-amber-950/70'
               : 'text-stone-500 dark:text-stone-400'
@@ -203,7 +229,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl text-[11px] font-medium transition-all ${
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
             activeTab === 'history'
               ? 'text-amber-900 dark:text-amber-200 font-semibold bg-amber-100/70 dark:bg-amber-950/70'
               : 'text-stone-500 dark:text-stone-400'

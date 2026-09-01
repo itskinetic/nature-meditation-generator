@@ -232,3 +232,45 @@ export interface KeywordBankItem {
   last_used_at?: string;
   created_at?: string;
 }
+
+export interface AudioSegment {
+  id: string;
+  index: number;
+  text: string;
+  start_time: number;
+  end_time: number;
+  split_time: number;
+  natural_silence_dur: number;
+  pause_tag: string;
+  pause_duration: number;
+}
+
+export interface AudioSilenceInterval {
+  start: number;
+  end: number;
+  mid: number;
+  duration: number;
+}
+
+export interface AudioAnalysisResult {
+  file_id: string;
+  original_name: string;
+  duration: number;
+  waveform_peaks: number[];
+  silence_intervals: AudioSilenceInterval[];
+  segments: AudioSegment[];
+  audio_url: string;
+}
+
+export interface AudioProcessResult {
+  file_id: string;
+  original_duration: number;
+  spaced_duration: number;
+  total_pauses_count: number;
+  total_silence_added: number;
+  waveform_peaks: number[];
+  spaced_filename: string;
+  audio_url: string;
+  download_url: string;
+}
+
