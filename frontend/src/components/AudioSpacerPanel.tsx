@@ -26,7 +26,9 @@ import {
   Trash2,
   FolderOpen,
   ArrowLeft,
-  ListFilter
+  Columns,
+  List,
+  Edit3
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
@@ -101,8 +103,12 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [scriptText, setScriptText] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isAligningScript, setIsAligningScript] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Right column View Mode: 'split' | 'spoken' | 'script'
+  const [rightViewMode, setRightViewMode] = useState<'split' | 'spoken' | 'script'>('split');
 
   // Analysis & Segments State
   const [analysisData, setAnalysisData] = useState<AudioAnalysisResult | null>(null);
@@ -274,6 +280,34 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   };
 
+  // Align Pasted Reference Script with Audio Timestamps & Pauses
+  const handleAlignScript = async () => {
+    const fileId = analysisData?.file_id || activeProject?.file_id;
+    if (!fileId) {
+      setErrorMessage('Please load an audio file first.');
+      return;
+    }
+    if (!scriptText.trim()) {
+      setErrorMessage('Please paste your reference script before aligning.');
+      return;
+    }
+
+    setIsAligningScript(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await api.alignReferenceScript(fileId, scriptText);
+      setAnalysisData(res);
+      setSegments(res.segments);
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+    } catch (err: any) {
+      console.error('Script alignment error:', err);
+      setErrorMessage(err.message || 'Failed to align reference script.');
+    } finally {
+      setIsAligningScript(false);
+    }
+  };
+
   // Trigger Spaced Audio Processing
   const handleProcessSpacing = async () => {
     const fileId = analysisData?.file_id || activeProject?.file_id;
@@ -369,6 +403,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     );
   };
 
+  // Update a single segment's text
+  const updateSegmentText = (id: string, newText: string) => {
+    setSegments((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, text: newText } : s))
+    );
+  };
+
   // Bulk pause adjustments
   const applyPresetToAll = (duration: number) => {
     setSegments((prev) => prev.map((s) => ({ ...s, pause_duration: duration })));
@@ -423,7 +464,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 Audio Lab & Meditation Pacing Studio
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400">
-                Upload multiple raw voiceovers into your inbox, auto-space pauses to match meditation scripts, and verify words.
+                Upload voiceovers to your inbox, view word-for-word transcriptions & reference scripts, and master pauses.
               </p>
             </div>
           </div>
@@ -490,7 +531,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         </div>
       )}
 
-      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY (Shown at top or when no file active) */}
+      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY */}
       <div className="flex flex-col gap-4 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs transition-colors">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2.5">
@@ -757,10 +798,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
             </div>
           </div>
 
-          {/* SIDE-BY-SIDE MAIN VIEW */}
+          {/* MAIN VIEW */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* LEFT COLUMN: Waveform & Master Actions (7 cols) */}
-            <div className="lg:col-span-7 flex flex-col gap-5">
+            {/* LEFT COLUMN: Waveform & Master Actions (6 cols) */}
+            <div className="lg:col-span-6 flex flex-col gap-5">
               {/* Waveform Visualizer */}
               <AudioWaveform
                 peaks={currentPeaks}
@@ -873,116 +914,221 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               </div>
             </div>
 
-            {/* RIGHT COLUMN: SYNCHRONIZED SCRIPT READER & TELEPROMPTER (5 cols) */}
-            <div className="lg:col-span-5 flex flex-col gap-3">
-              <div className="flex items-center justify-between px-1">
+            {/* RIGHT COLUMN: DUAL SCRIPT REFERENCE & SPOKEN TELEPROMPTER (6 cols) */}
+            <div className="lg:col-span-6 flex flex-col gap-3">
+              {/* Header & View Mode Switcher */}
+              <div className="flex items-center justify-between px-1 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Eye className="w-4 h-4 text-amber-500" />
                   <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
-                    Synchronized Script Reader
+                    Script Reference & Teleprompter
                   </span>
                 </div>
-                <span className="text-[11px] text-stone-400">Click phrase to jump & verify words</span>
+
+                {/* View Mode Toggle Pills */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRightViewMode('split')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                      rightViewMode === 'split'
+                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <Columns className="w-3 h-3" />
+                    <span>Split View</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightViewMode('spoken')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                      rightViewMode === 'spoken'
+                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <List className="w-3 h-3" />
+                    <span>Spoken Words</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRightViewMode('script')}
+                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
+                      rightViewMode === 'script'
+                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                    }`}
+                  >
+                    <Edit3 className="w-3 h-3" />
+                    <span>Reference Script</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Teleprompter Scrollable Container */}
-              <div
-                ref={teleprompterRef}
-                className="flex flex-col gap-2.5 max-h-[620px] overflow-y-auto p-3 rounded-2xl bg-stone-50 dark:bg-[#0d1017] border border-stone-200 dark:border-stone-800/80 shadow-inner"
-              >
-                {filteredSegments.map((seg) => {
-                  const isActive = seg.id === activeSegmentId;
-                  return (
-                    <div
-                      key={seg.id}
-                      ref={isActive ? activeCardRef : null}
-                      className={`flex flex-col gap-2 p-3 rounded-xl border transition-all ${
-                        isActive
-                          ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-500/30'
-                          : 'bg-white dark:bg-[#141822] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-800'
-                      }`}
-                    >
-                      {/* Phrase Header: Timecode & Jump Play */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleJumpToSegment(seg)}
-                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                              isActive && isPlaying
-                                ? 'bg-amber-500 text-stone-950 animate-pulse'
-                                : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-amber-200'
-                            }`}
-                            title="Play this spoken phrase"
-                          >
-                            <Play className="w-3 h-3 fill-current ml-0.5" />
-                          </button>
-                          <span className="font-mono text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-                            {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
-                          </span>
-                        </div>
-
-                        <span className="text-[10px] font-mono text-stone-400">
-                          Phrase #{seg.index + 1}
+              {/* DUAL WORKSPACE LAYOUT */}
+              <div className={`grid gap-3 items-start ${rightViewMode === 'split' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
+                {/* 1. REFERENCE SCRIPT PANEL (Shown in 'split' or 'script' mode) */}
+                {(rightViewMode === 'split' || rightViewMode === 'script') && (
+                  <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-stone-50 dark:bg-[#0d1017] border border-stone-200 dark:border-stone-800/80 shadow-inner">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                          Written Reference Script
                         </span>
                       </div>
-
-                      {/* Phrase Text (Glows when active so user can read along!) */}
-                      <p
-                        onClick={() => handleJumpToSegment(seg)}
-                        className={`text-xs leading-relaxed font-medium cursor-pointer transition-colors ${
-                          isActive
-                            ? 'text-amber-950 dark:text-amber-100 font-bold'
-                            : 'text-stone-800 dark:text-stone-200 hover:text-amber-600'
-                        }`}
+                      <button
+                        type="button"
+                        onClick={() => setScriptText(SAMPLE_SCRIPT_WITH_TAGS)}
+                        className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
                       >
-                        {seg.text}
-                      </p>
-
-                      {/* Pause Duration Controls */}
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-100 dark:border-stone-800/60">
-                        <span className="text-[11px] text-stone-500 dark:text-stone-400">Trailing Pause:</span>
-
-                        {/* Quick Pause Preset Selector */}
-                        <div className="flex items-center gap-1">
-                          {[
-                            { label: '0s', val: 0.0 },
-                            { label: '4s', val: 4.0 },
-                            { label: '6s', val: 6.0 },
-                            { label: '10s', val: 10.0 },
-                            { label: '15s', val: 15.0 },
-                          ].map((p) => (
-                            <button
-                              key={p.label}
-                              type="button"
-                              onClick={() => updateSegmentPause(seg.id, p.val)}
-                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-all cursor-pointer ${
-                                Math.abs(seg.pause_duration - p.val) < 0.1
-                                  ? 'bg-amber-500 text-stone-950 font-bold'
-                                  : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
-                              }`}
-                            >
-                              {p.label}
-                            </button>
-                          ))}
-
-                          {/* Custom Input */}
-                          <input
-                            type="number"
-                            step="0.5"
-                            min="0"
-                            max="60"
-                            value={seg.pause_duration}
-                            onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
-                            className="w-12 px-1.5 py-0.5 text-[10px] font-mono font-bold text-center rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 focus:outline-none"
-                            title="Custom pause in seconds"
-                          />
-                          <span className="text-[10px] text-stone-400">s</span>
-                        </div>
-                      </div>
+                        Insert Sample
+                      </button>
                     </div>
-                  );
-                })}
+
+                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                      Paste your original script with pause tags like <code className="text-amber-600 font-mono text-[10px]">(pause)</code> or <code className="text-amber-600 font-mono text-[10px]">(15s)</code>.
+                    </p>
+
+                    <textarea
+                      value={scriptText}
+                      onChange={(e) => setScriptText(e.target.value)}
+                      placeholder="Paste your written meditation script here with (pause) tags..."
+                      rows={rightViewMode === 'split' ? 18 : 22}
+                      className="w-full p-3 rounded-xl bg-white dark:bg-[#141822] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-sans leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none font-mono"
+                    />
+
+                    {/* Align Button */}
+                    <button
+                      type="button"
+                      onClick={handleAlignScript}
+                      disabled={isAligningScript}
+                      className="h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+                    >
+                      {isAligningScript ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Aligning Script with Audio...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>✨ Align Script & Pause Tags with Audio</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* 2. SPOKEN PHRASE CARDS (Shown in 'split' or 'spoken' mode) */}
+                {(rightViewMode === 'split' || rightViewMode === 'spoken') && (
+                  <div
+                    ref={teleprompterRef}
+                    className={`flex flex-col gap-2.5 max-h-[640px] overflow-y-auto p-3 rounded-2xl bg-stone-50 dark:bg-[#0d1017] border border-stone-200 dark:border-stone-800/80 shadow-inner`}
+                  >
+                    <div className="flex items-center justify-between pb-1 border-b border-stone-200/60 dark:border-stone-800/60">
+                      <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
+                        Spoken Audio Phrases ({filteredSegments.length})
+                      </span>
+                      <span className="text-[10px] text-stone-400">Click to jump & verify words</span>
+                    </div>
+
+                    {filteredSegments.map((seg) => {
+                      const isActive = seg.id === activeSegmentId;
+                      return (
+                        <div
+                          key={seg.id}
+                          ref={isActive ? activeCardRef : null}
+                          className={`flex flex-col gap-2 p-3 rounded-xl border transition-all ${
+                            isActive
+                              ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-500/30'
+                              : 'bg-white dark:bg-[#141822] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-800'
+                          }`}
+                        >
+                          {/* Phrase Header: Timecode & Jump Play */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleJumpToSegment(seg)}
+                                className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+                                  isActive && isPlaying
+                                    ? 'bg-amber-500 text-stone-950 animate-pulse'
+                                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-amber-200'
+                                }`}
+                                title="Play this spoken phrase"
+                              >
+                                <Play className="w-3 h-3 fill-current ml-0.5" />
+                              </button>
+                              <span className="font-mono text-[11px] font-semibold text-stone-500 dark:text-stone-400">
+                                {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
+                              </span>
+                            </div>
+
+                            <span className="text-[10px] font-mono text-stone-400">
+                              #{seg.index + 1}
+                            </span>
+                          </div>
+
+                          {/* Editable / Clickable Phrase Text (Glows when active!) */}
+                          <p
+                            onClick={() => handleJumpToSegment(seg)}
+                            className={`text-xs leading-relaxed font-medium cursor-pointer transition-colors ${
+                              isActive
+                                ? 'text-amber-950 dark:text-amber-100 font-bold'
+                                : 'text-stone-800 dark:text-stone-200 hover:text-amber-600'
+                            }`}
+                          >
+                            {seg.text}
+                          </p>
+
+                          {/* Pause Duration Controls */}
+                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-100 dark:border-stone-800/60 flex-wrap">
+                            <span className="text-[10px] text-stone-500 dark:text-stone-400">Pause:</span>
+
+                            {/* Quick Pause Preset Selector */}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {[
+                                { label: '0s', val: 0.0 },
+                                { label: '4s', val: 4.0 },
+                                { label: '6s', val: 6.0 },
+                                { label: '10s', val: 10.0 },
+                                { label: '15s', val: 15.0 },
+                              ].map((p) => (
+                                <button
+                                  key={p.label}
+                                  type="button"
+                                  onClick={() => updateSegmentPause(seg.id, p.val)}
+                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition-all cursor-pointer ${
+                                    Math.abs(seg.pause_duration - p.val) < 0.1
+                                      ? 'bg-amber-500 text-stone-950 font-bold'
+                                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+                                  }`}
+                                >
+                                  {p.label}
+                                </button>
+                              ))}
+
+                              {/* Custom Input */}
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="60"
+                                value={seg.pause_duration}
+                                onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
+                                className="w-10 px-1 py-0.5 text-[10px] font-mono font-bold text-center rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 focus:outline-none"
+                                title="Custom pause in seconds"
+                              />
+                              <span className="text-[10px] text-stone-400">s</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>

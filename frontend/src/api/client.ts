@@ -369,4 +369,17 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete audio project');
     return res.json();
   },
+
+  async alignReferenceScript(fileId: string, scriptText: string): Promise<AudioAnalysisResult> {
+    const res = await fetch(`${API_BASE}/audio/align-script`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fileId, script_text: scriptText }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to align script' }));
+      throw new Error(err.detail || 'Failed to align reference script');
+    }
+    return res.json();
+  },
 };

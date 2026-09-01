@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import logging
 import math
@@ -10,6 +11,8 @@ import uuid
 import wave
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
+
+import httpx
 
 from backend.app.config import settings
 
@@ -205,15 +208,78 @@ class AudioSpacerService:
             })
         return silences
 
+    async def transcribe_audio(self, audio_file_path: Path) -> List[Dict[str, Any]]:
+        """
+        Transcribes speech audio into timestamped spoken phrases using Gemini Audio API.
+        """
+        api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
+        if not api_key or len(api_key.strip()) < 5:
+            logger.info("No Gemini API key configured for audio transcription.")
+            return []
+
+        try:
+            with open(audio_file_path, "rb") as f:
+                audio_bytes = f.read()
+
+            b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+            mime = "audio/wav" if audio_file_path.suffix.lower() == ".wav" else "audio/mp3"
+
+            prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
+Return ONLY a valid JSON array matching this exact schema:
+[
+  {
+    "start_seconds": 0.0,
+    "end_seconds": 3.5,
+    "text": "You feel it coming."
+  }
+]
+Do not wrap in markdown or backticks, return pure JSON."""
+
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
+            payload = {
+                "contents": [{
+                    "parts": [
+                        {"inline_data": {"mime_type": mime, "data": b64_audio}},
+                        {"text": prompt}
+                    ]
+                }],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json"
+                }
+            }
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(raw_text)
+                    results = []
+                    for item in parsed:
+                        if "text" in item and len(item["text"].strip()) > 0:
+                            results.append({
+                                "start_seconds": float(item.get("start_seconds", 0.0)),
+                                "end_seconds": float(item.get("end_seconds", 0.0)),
+                                "text": item["text"].strip()
+                            })
+                    return results
+        except Exception as e:
+            logger.warning(f"Gemini speech transcription failed: {e}")
+            return []
+
+        return []
+
     def align_segments(
         self,
         parsed_script: List[Dict[str, Any]],
         silences: List[Dict[str, float]],
-        total_duration: float
+        total_duration: float,
+        transcriptions: Optional[List[Dict[str, Any]]] = None
     ) -> List[Dict[str, Any]]:
         """
-        Aligns script entries or audio speech blocks with detected silence boundaries to produce
-        a clean editable segment list for the UI.
+        Aligns script entries, transcriptions, or audio speech blocks with detected silence boundaries
+        to produce a clean editable segment list for the UI.
         """
         segments: List[Dict[str, Any]] = []
 
@@ -221,7 +287,6 @@ class AudioSpacerService:
             # Script-driven alignment
             num_script_items = len(parsed_script)
             num_silences = len(silences)
-
             prev_split = 0.0
 
             for idx, entry in enumerate(parsed_script):
@@ -231,14 +296,11 @@ class AudioSpacerService:
 
                 # Match with corresponding silence gap if available
                 if num_silences > 0:
-                    # Estimate expected position in the audio
                     expected_ratio = (idx + 1) / (num_script_items + 1)
                     target_time = total_duration * expected_ratio
                     
-                    # Find closest silence after prev_split + 0.8s
                     valid_silences = [s for s in silences if s["mid"] > prev_split + 0.8]
                     if valid_silences:
-                        # Choose silence closest to target_time
                         best_sil = min(valid_silences, key=lambda s: abs(s["mid"] - target_time))
                         split_time = best_sil["mid"]
                         natural_gap = best_sil["duration"]
@@ -264,10 +326,47 @@ class AudioSpacerService:
                     "pause_tag": pause_tag,
                     "pause_duration": round(pause_dur, 1),
                 })
+        elif transcriptions and len(transcriptions) > 0:
+            # Real speech-to-text transcription alignment
+            prev_split = 0.0
+            num_transcripts = len(transcriptions)
+
+            for idx, item in enumerate(transcriptions):
+                phrase_start = max(prev_split, item["start_seconds"])
+                phrase_end = item["end_seconds"]
+
+                # Find closest silence after phrase_end
+                valid_silences = [s for s in silences if s["mid"] >= phrase_end - 0.2]
+                if valid_silences:
+                    sil = valid_silences[0]
+                    split_time = sil["mid"]
+                    natural_gap = sil["duration"]
+                else:
+                    split_time = min(total_duration, phrase_end + 0.5)
+                    natural_gap = 0.5
+
+                seg_start = round(prev_split, 2)
+                seg_end = round(split_time, 2)
+                prev_split = split_time
+
+                pause_dur = 6.0
+                if idx % 5 == 4:
+                    pause_dur = 12.0
+
+                segments.append({
+                    "id": f"seg_{idx}_{uuid.uuid4().hex[:6]}",
+                    "index": idx,
+                    "text": item["text"],
+                    "start_time": seg_start,
+                    "end_time": seg_end,
+                    "split_time": round(split_time, 3),
+                    "natural_silence_dur": round(natural_gap, 2),
+                    "pause_tag": "pause" if pause_dur <= 6.0 else "long pause",
+                    "pause_duration": round(pause_dur, 1),
+                })
         else:
             # Fallback: Silence / VAD driven segments
             if not silences:
-                # No silence detected, split into 25s chunks
                 chunk_len = 25.0
                 num_chunks = max(1, math.ceil(total_duration / chunk_len))
                 for idx in range(num_chunks):
@@ -276,7 +375,7 @@ class AudioSpacerService:
                     segments.append({
                         "id": f"seg_{idx}_{uuid.uuid4().hex[:6]}",
                         "index": idx,
-                        "text": f"Phrase Block {idx + 1}",
+                        "text": f"Spoken Section {idx + 1}",
                         "start_time": round(s_time, 2),
                         "end_time": round(e_time, 2),
                         "split_time": round(e_time, 3),
@@ -292,15 +391,14 @@ class AudioSpacerService:
                     split_time = sil["mid"]
                     prev_pos = sil["end"]
 
-                    # Default pause rule
                     pause_dur = 6.0
                     if idx % 5 == 4:
-                        pause_dur = 12.0  # Longer pause every 5 phrases
+                        pause_dur = 12.0
 
                     segments.append({
                         "id": f"seg_{idx}_{uuid.uuid4().hex[:6]}",
                         "index": idx,
-                        "text": f"Spoken Phrase {idx + 1}",
+                        "text": f"Spoken Section {idx + 1}",
                         "start_time": round(seg_start, 2),
                         "end_time": round(seg_end, 2),
                         "split_time": round(split_time, 3),
@@ -309,7 +407,6 @@ class AudioSpacerService:
                         "pause_duration": round(pause_dur, 1),
                     })
 
-                # Final tail
                 if prev_pos < total_duration:
                     segments.append({
                         "id": f"seg_{len(silences)}_{uuid.uuid4().hex[:6]}",
@@ -324,6 +421,46 @@ class AudioSpacerService:
                     })
 
         return segments
+
+    def align_script_with_transcript(
+        self,
+        script_text: str,
+        current_segments: List[Dict[str, Any]],
+        silences: List[Dict[str, float]],
+        total_duration: float
+    ) -> List[Dict[str, Any]]:
+        """
+        Aligns a pasted reference script with existing audio timestamps and silences,
+        attaching user's pause tags (e.g. (pause), (15s)) to the corresponding phrase blocks.
+        """
+        parsed_script = self.parse_script(script_text)
+        if not parsed_script:
+            return current_segments
+
+        if current_segments and len(current_segments) > 0:
+            aligned = []
+            num_script = len(parsed_script)
+            num_segs = len(current_segments)
+
+            for idx, entry in enumerate(parsed_script):
+                seg_idx = min(num_segs - 1, int(round(idx * (num_segs / num_script))))
+                target_seg = current_segments[seg_idx]
+
+                aligned.append({
+                    "id": f"seg_{idx}_{uuid.uuid4().hex[:6]}",
+                    "index": idx,
+                    "text": entry["text"],
+                    "start_time": target_seg["start_time"],
+                    "end_time": target_seg["end_time"],
+                    "split_time": target_seg["split_time"],
+                    "natural_silence_dur": target_seg.get("natural_silence_dur", 0.5),
+                    "pause_tag": entry.get("pause_tag", "pause"),
+                    "pause_duration": entry.get("pause_duration", 6.0),
+                })
+            return aligned
+
+        return self.align_segments(parsed_script, silences, total_duration)
+
 
     def apply_smooth_fade(
         self,
@@ -514,8 +651,15 @@ class AudioSpacerService:
 
         waveform_peaks = self.extract_waveform_peaks(temp_wav_path, num_peaks=800)
         silences = await self.detect_silences(temp_wav_path)
-        parsed_script = self.parse_script(script_text or "")
-        segments = self.align_segments(parsed_script, silences, total_duration)
+        
+        parsed_script = []
+        transcriptions = []
+        if script_text and script_text.strip():
+            parsed_script = self.parse_script(script_text)
+        else:
+            transcriptions = await self.transcribe_audio(temp_wav_path)
+
+        segments = self.align_segments(parsed_script, silences, total_duration, transcriptions)
 
         return {
             "file_id": file_id,
@@ -525,7 +669,8 @@ class AudioSpacerService:
             "waveform_peaks": waveform_peaks,
             "silence_intervals": silences,
             "segments": segments,
-            "parsed_script": parsed_script
+            "parsed_script": parsed_script,
+            "transcriptions": transcriptions
         }
 
 

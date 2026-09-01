@@ -176,3 +176,33 @@ def test_audio_projects_inbox_and_batch_upload(tmp_path):
     assert del_res.status_code == 200
     assert del_res.json()["status"] == "deleted"
 
+
+def test_align_script_with_transcript_and_api(tmp_path):
+    wav = tmp_path / "align_test.wav"
+    create_test_sine_wav(wav, duration_sec=3.0)
+
+    # 1. Upload audio without script (simulating batch upload)
+    with open(wav, "rb") as f:
+        res = client.post(
+            "/api/audio/upload",
+            files={"file": ("align_test.wav", f, "audio/wav")}
+        )
+    assert res.status_code == 200
+    data = res.json()
+    file_id = data["file_id"]
+
+    # 2. Align reference script with pause tags
+    ref_script = "You feel it coming. (pause)\nThe chest pulling tight. (15s pause)\nJust notice. (long pause)"
+    align_res = client.post(
+        "/api/audio/align-script",
+        json={"file_id": file_id, "script_text": ref_script}
+    )
+    assert align_res.status_code == 200
+    align_data = align_res.json()
+    assert len(align_data["segments"]) == 3
+    assert align_data["segments"][0]["text"] == "You feel it coming."
+    assert align_data["segments"][0]["pause_duration"] == 6.0
+    assert align_data["segments"][1]["pause_duration"] == 15.0
+    assert align_data["segments"][2]["pause_duration"] == 12.0
+
+
