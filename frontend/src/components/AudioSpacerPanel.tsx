@@ -18,6 +18,7 @@ import {
   HelpCircle,
   Eye,
   Check,
+  ChevronLeft,
   ChevronRight,
   RefreshCw,
   Plus,
@@ -1136,8 +1137,17 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             </button>
                           ))}
 
-                          {/* Custom Number Input */}
-                          <div className="flex items-center gap-1">
+                          {/* Step Adjuster Controls (< and >) */}
+                          <div className="flex items-center gap-0.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => updateSegmentPause(seg.id, Math.max(0, Math.round((seg.pause_duration - 1.0) * 10) / 10))}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
+                              title="Decrease pause by 1s"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            
                             <input
                               type="number"
                               step="0.5"
@@ -1145,11 +1155,20 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               max="60"
                               value={seg.pause_duration}
                               onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
-                              className="w-12 h-7 px-1.5 text-xs font-mono font-bold text-center rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                              title="Custom pause in seconds"
+                              className="w-10 h-6 text-xs font-mono font-bold text-center bg-transparent border-0 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-0 p-0"
+                              title="Pause in seconds"
                             />
-                            <span className="text-xs text-stone-400 font-mono">s</span>
+                            
+                            <button
+                              type="button"
+                              onClick={() => updateSegmentPause(seg.id, Math.round((seg.pause_duration + 1.0) * 10) / 10)}
+                              className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
+                              title="Increase pause by 1s"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                           </div>
+                          <span className="text-xs text-stone-400 font-mono">s</span>
                         </div>
                       </div>
                     </div>
