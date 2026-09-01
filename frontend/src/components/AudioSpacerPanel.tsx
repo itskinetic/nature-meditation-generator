@@ -1141,9 +1141,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           <div className="flex items-center gap-0.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 p-0.5 shadow-2xs">
                             <button
                               type="button"
-                              onClick={() => updateSegmentPause(seg.id, Math.max(0, Math.round((seg.pause_duration - 1.0) * 10) / 10))}
+                              onClick={() => updateSegmentPause(seg.id, Math.max(0, Math.round((seg.pause_duration - 0.5) * 10) / 10))}
                               className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
-                              title="Decrease pause by 1s"
+                              title="Decrease pause by 0.5s"
                             >
                               <ChevronLeft className="w-3.5 h-3.5" />
                             </button>
@@ -1155,15 +1155,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               max="60"
                               value={seg.pause_duration}
                               onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
-                              className="w-10 h-6 text-xs font-mono font-bold text-center bg-transparent border-0 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-0 p-0"
+                              className="w-10 h-6 text-xs font-mono font-bold text-center bg-transparent border-0 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               title="Pause in seconds"
                             />
                             
                             <button
                               type="button"
-                              onClick={() => updateSegmentPause(seg.id, Math.round((seg.pause_duration + 1.0) * 10) / 10)}
+                              onClick={() => updateSegmentPause(seg.id, Math.round((seg.pause_duration + 0.5) * 10) / 10)}
                               className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
-                              title="Increase pause by 1s"
+                              title="Increase pause by 0.5s"
                             >
                               <ChevronRight className="w-3.5 h-3.5" />
                             </button>
