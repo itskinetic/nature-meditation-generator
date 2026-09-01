@@ -239,4 +239,54 @@ def test_database_autosave_script_endpoint(tmp_path):
     assert get_res.json()["script_text"] == "Live autosaved meditation script directly in SQLite."
 
 
+def test_database_update_segments_endpoint(tmp_path):
+    wav = tmp_path / "segments_persist_test.wav"
+    create_test_sine_wav(wav, duration_sec=2.0)
+
+    with open(wav, "rb") as f:
+        res = client.post(
+            "/api/audio/upload",
+            files={"file": ("segments_persist_test.wav", f, "audio/wav")}
+        )
+    assert res.status_code == 200
+    file_id = res.json()["file_id"]
+
+    list_res = client.get("/api/audio/projects")
+    proj = next(p for p in list_res.json()["projects"] if p["file_id"] == file_id)
+    proj_id = proj["id"]
+
+    # Modified segments (merged or split)
+    custom_segments = [
+        {
+            "id": "merged_seg_1",
+            "index": 0,
+            "text": "Somewhere right now, a hand may be closed. Not necessarily this hand.",
+            "start_time": 0.0,
+            "end_time": 1.5,
+            "split_time": 1.5,
+            "natural_silence_dur": 0.5,
+            "pause_tag": "long pause",
+            "pause_duration": 12.0
+        }
+    ]
+
+    patch_res = client.patch(
+        f"/api/audio/projects/{proj_id}/segments",
+        json={"segments": custom_segments}
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["status"] == "saved"
+    assert patch_res.json()["segments_count"] == 1
+
+    # Verify reloading from SQLite returns the merged segment
+    get_res = client.get(f"/api/audio/projects/{proj_id}")
+    assert get_res.status_code == 200
+    loaded_segs = get_res.json()["segments"]
+    assert len(loaded_segs) == 1
+    assert loaded_segs[0]["id"] == "merged_seg_1"
+    assert loaded_segs[0]["pause_duration"] == 12.0
+    assert loaded_segs[0]["text"] == "Somewhere right now, a hand may be closed. Not necessarily this hand."
+
+
+
 

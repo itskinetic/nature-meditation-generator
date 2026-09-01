@@ -1483,6 +1483,8 @@ def update_project_script(
 
     new_script = payload.get("script_text", "")
     p.script_text = new_script
+    if "segments" in payload:
+        p.segments_json = json.dumps(payload.get("segments", []))
     p.updated_at = datetime.datetime.utcnow()
     db.commit()
     db.refresh(p)
@@ -1491,6 +1493,33 @@ def update_project_script(
         "status": "saved",
         "id": p.id,
         "script_text": p.script_text,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None
+    }
+
+
+@router.patch("/audio/projects/{project_id}/segments")
+def update_audio_project_segments(
+    project_id: int,
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Autosaves modified segments (e.g. after merging or splitting phrases) directly to SQLite database.
+    """
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    segs = payload.get("segments", [])
+    p.segments_json = json.dumps(segs)
+    p.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(p)
+
+    return {
+        "status": "saved",
+        "id": p.id,
+        "segments_count": len(segs),
         "updated_at": p.updated_at.isoformat() if p.updated_at else None
     }
 

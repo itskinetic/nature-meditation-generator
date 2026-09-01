@@ -380,6 +380,16 @@ export const api = {
     return res.json();
   },
 
+  async updateProjectSegments(projectId: number, segments: AudioSegment[]): Promise<{ status: string; id: number; segments_count: number }> {
+    const res = await fetch(`${API_BASE}/audio/projects/${projectId}/segments`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ segments }),
+    });
+    if (!res.ok) throw new Error('Failed to save updated phrases to database');
+    return res.json();
+  },
+
   async alignReferenceScript(fileId: string, scriptText: string): Promise<AudioAnalysisResult> {
     const res = await fetch(`${API_BASE}/audio/align-script`, {
       method: 'POST',

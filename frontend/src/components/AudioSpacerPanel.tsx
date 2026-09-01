@@ -28,7 +28,9 @@ import {
   FolderOpen,
   ArrowLeft,
   Search,
-  CheckCheck
+  CheckCheck,
+  Scissors,
+  ArrowDownToLine
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
@@ -484,22 +486,127 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   }, [activeSegmentId, isPlaying, autoScrollEnabled]);
 
+  // Update a single segment's text directly
+  const updateSegmentText = (id: string, newText: string) => {
+    setSegments((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...s, text: newText } : s));
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+      }
+      return updated;
+    });
+  };
+
+  // 1-Click Merge with Next Phrase (Delete Enter)
+  const handleMergeWithNext = (segIndex: number) => {
+    if (segIndex >= segments.length - 1) return;
+    const currentSeg = segments[segIndex];
+    const nextSeg = segments[segIndex + 1];
+
+    const mergedSeg: AudioSegment = {
+      ...currentSeg,
+      text: `${currentSeg.text.trim()} ${nextSeg.text.trim()}`,
+      start_time: currentSeg.start_time,
+      end_time: nextSeg.end_time,
+      split_time: nextSeg.split_time,
+      pause_duration: nextSeg.pause_duration,
+      natural_silence_dur: nextSeg.natural_silence_dur,
+      pause_tag: nextSeg.pause_tag,
+    };
+
+    const updated = [
+      ...segments.slice(0, segIndex),
+      mergedSeg,
+      ...segments.slice(segIndex + 2),
+    ].map((s, idx) => ({ ...s, index: idx }));
+
+    setSegments(updated);
+    if (activeProject?.id) {
+      api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+    }
+  };
+
+  // 1-Click Split Phrase (Add Enter)
+  const handleSplitSegment = (segIndex: number) => {
+    const seg = segments[segIndex];
+    if (!seg) return;
+
+    const words = seg.text.trim().split(/\s+/);
+    let text1 = seg.text;
+    let text2 = '...';
+
+    if (words.length > 1) {
+      const midWord = Math.ceil(words.length / 2);
+      text1 = words.slice(0, midWord).join(' ');
+      text2 = words.slice(midWord).join(' ');
+    }
+
+    const duration = Math.max(0.2, seg.end_time - seg.start_time);
+    const midTime = Math.round((seg.start_time + duration / 2) * 100) / 100;
+
+    const seg1: AudioSegment = {
+      ...seg,
+      id: `seg_${Date.now()}_a`,
+      text: text1,
+      start_time: seg.start_time,
+      end_time: midTime,
+      split_time: midTime,
+      pause_duration: 6.0,
+    };
+
+    const seg2: AudioSegment = {
+      ...seg,
+      id: `seg_${Date.now()}_b`,
+      text: text2,
+      start_time: midTime,
+      end_time: seg.end_time,
+      split_time: seg.split_time,
+      pause_duration: seg.pause_duration,
+    };
+
+    const updated = [
+      ...segments.slice(0, segIndex),
+      seg1,
+      seg2,
+      ...segments.slice(segIndex + 1),
+    ].map((s, idx) => ({ ...s, index: idx }));
+
+    setSegments(updated);
+    if (activeProject?.id) {
+      api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+    }
+  };
+
   // Update a single segment's pause duration
   const updateSegmentPause = (id: string, pauseDuration: number) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, pause_duration: Math.max(0, pauseDuration) } : s))
-    );
+    setSegments((prev) => {
+      const updated = prev.map((s) => (s.id === id ? { ...s, pause_duration: Math.max(0, pauseDuration) } : s));
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+      }
+      return updated;
+    });
   };
 
   // Bulk pause adjustments
   const applyPresetToAll = (duration: number) => {
-    setSegments((prev) => prev.map((s) => ({ ...s, pause_duration: duration })));
+    setSegments((prev) => {
+      const updated = prev.map((s) => ({ ...s, pause_duration: duration }));
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+      }
+      return updated;
+    });
   };
 
   const adjustAllPauses = (delta: number) => {
-    setSegments((prev) =>
-      prev.map((s) => ({ ...s, pause_duration: Math.max(0, Math.round((s.pause_duration + delta) * 10) / 10) }))
-    );
+    setSegments((prev) => {
+      const updated = prev.map((s) => ({ ...s, pause_duration: Math.max(0, Math.round((s.pause_duration + delta) * 10) / 10) }));
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+      }
+      return updated;
+    });
   };
 
   // Calculate total duration comparison metrics
@@ -1157,22 +1264,55 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           </span>
                         </div>
 
-                        <span className="text-[10px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-2 py-0.5 rounded-full">
-                          Phrase #{seg.index + 1}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {/* Split Phrase Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSplitSegment(seg.index);
+                            }}
+                            className="h-6 px-2 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80 shadow-2xs"
+                            title="Split this phrase into two cards (Add Enter)"
+                          >
+                            <Scissors className="w-2.5 h-2.5" />
+                            <span>Split</span>
+                          </button>
+
+                          {/* Merge with Next Button */}
+                          {seg.index < segments.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMergeWithNext(seg.index);
+                              }}
+                              className="h-6 px-2 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80 shadow-2xs"
+                              title="Merge with next phrase (Delete Enter)"
+                            >
+                              <ArrowDownToLine className="w-2.5 h-2.5" />
+                              <span>Merge ↓</span>
+                            </button>
+                          )}
+
+                          <span className="text-[10px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                            Phrase #{seg.index + 1}
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Phrase Text (Glows when active!) */}
-                      <p
-                        onClick={() => handleJumpToSegment(seg)}
-                        className={`text-xs leading-relaxed font-medium cursor-pointer transition-colors ${
+                      {/* Phrase Text (Editable & Clickable to Play) */}
+                      <textarea
+                        rows={2}
+                        value={seg.text}
+                        onChange={(e) => updateSegmentText(seg.id, e.target.value)}
+                        className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1.5 transition-colors ${
                           isActive
-                            ? 'text-amber-950 dark:text-amber-100 font-bold'
-                            : 'text-stone-800 dark:text-stone-200 hover:text-amber-600'
+                            ? 'text-amber-950 dark:text-amber-100 font-bold bg-amber-500/10'
+                            : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-900/60'
                         }`}
-                      >
-                        {seg.text}
-                      </p>
+                        title="Click to edit phrase text directly"
+                      />
 
                       {/* Pause Duration Controls on a Clean Single Row */}
                       <div className="flex items-center justify-between gap-3 pt-2 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-wrap">
