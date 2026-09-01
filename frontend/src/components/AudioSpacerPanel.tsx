@@ -125,6 +125,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
   // Search & Filter state
   const [searchFilter, setSearchFilter] = useState<string>('');
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -392,12 +393,37 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setCurrentTime(seekTime);
   };
 
+  // Pre-calculate cumulative spaced time ranges for each segment when listening to spaced audio
+  const spacedSegments = useMemo(() => {
+    let currentSpacedTime = 0;
+    return segments.map((seg) => {
+      const segDuration = Math.max(0.1, seg.end_time - seg.start_time);
+      const spacedStart = currentSpacedTime;
+      const spacedEnd = currentSpacedTime + segDuration;
+      currentSpacedTime = spacedEnd + (seg.pause_duration || 0);
+      return {
+        ...seg,
+        spaced_start_time: spacedStart,
+        spaced_end_time: spacedEnd,
+      };
+    });
+  }, [segments]);
+
   // Jump to specific segment start & play
   const handleJumpToSegment = (seg: AudioSegment) => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = seg.start_time;
-    setCurrentTime(seg.start_time);
+
+    let targetTime = seg.start_time;
+    if (activeAudioSource === 'spaced') {
+      const spaced = spacedSegments.find((s) => s.id === seg.id);
+      if (spaced) {
+        targetTime = spaced.spaced_start_time;
+      }
+    }
+
+    audio.currentTime = targetTime;
+    setCurrentTime(targetTime);
     setActiveSegmentId(seg.id);
     audio.play().then(() => setIsPlaying(true)).catch(() => {});
   };
@@ -411,28 +437,52 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setCurrentTime(t);
 
     if (activeAudioSource === 'original') {
-      const activeSeg = segments.find((s) => t >= s.start_time && t <= s.end_time);
+      let activeSeg = segments.find((s) => t >= s.start_time && t <= s.end_time);
+      if (!activeSeg) {
+        // Natural pause between phrases: stay on the phrase that just finished
+        activeSeg = [...segments].reverse().find((s) => t >= s.start_time);
+      }
+      if (activeSeg && activeSeg.id !== activeSegmentId) {
+        setActiveSegmentId(activeSeg.id);
+      }
+    } else {
+      // Spaced master playback
+      let activeSeg = spacedSegments.find((s) => t >= s.spaced_start_time && t <= s.spaced_end_time + (s.pause_duration || 0));
+      if (!activeSeg) {
+        activeSeg = [...spacedSegments].reverse().find((s) => t >= s.spaced_start_time);
+      }
       if (activeSeg && activeSeg.id !== activeSegmentId) {
         setActiveSegmentId(activeSeg.id);
       }
     }
   };
 
-  // Auto-scroll the teleprompter script view to keep active segment centered
+  // Auto-scroll the teleprompter script view to keep active segment centered without cutting off
   useEffect(() => {
-    if (activeSegmentId && activeCardRef.current && teleprompterRef.current) {
-      const card = activeCardRef.current;
-      const container = teleprompterRef.current;
-      const cardTop = card.offsetTop;
-      const cardHeight = card.offsetHeight;
-      const containerHeight = container.offsetHeight;
+    if (!autoScrollEnabled || !isPlaying || !activeSegmentId || !activeCardRef.current || !teleprompterRef.current) {
+      return;
+    }
+
+    const card = activeCardRef.current;
+    const container = teleprompterRef.current;
+
+    const containerRect = container.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+
+    // Check if card is getting out of the comfortable viewing zone
+    const isCardOutOfComfortZone =
+      cardRect.top < containerRect.top + 60 || cardRect.bottom > containerRect.bottom - 60;
+
+    if (isCardOutOfComfortZone) {
+      const relativeTop = cardRect.top - containerRect.top + container.scrollTop;
+      const targetScrollTop = relativeTop - container.clientHeight / 2 + card.clientHeight / 2;
 
       container.scrollTo({
-        top: cardTop - containerHeight / 2 + cardHeight / 2,
+        top: Math.max(0, targetScrollTop),
         behavior: 'smooth',
       });
     }
-  }, [activeSegmentId]);
+  }, [activeSegmentId, isPlaying, autoScrollEnabled]);
 
   // Update a single segment's pause duration
   const updateSegmentPause = (id: string, pauseDuration: number) => {
@@ -1047,6 +1097,22 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       className="h-8 pl-8 pr-3 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
+
+                  {/* Auto-scroll toggle button */}
+                  <button
+                    type="button"
+                    onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
+                    className={`h-8 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      autoScrollEnabled
+                        ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 shadow-2xs'
+                        : 'bg-stone-100 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
+                    }`}
+                    title={autoScrollEnabled ? 'Auto-scroll is ON during playback' : 'Auto-scroll is OFF'}
+                  >
+                    <span>Auto-scroll</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${autoScrollEnabled ? 'bg-amber-500 animate-pulse' : 'bg-stone-400'}`} />
+                  </button>
+
                   <span className="text-[11px] font-mono text-stone-400 shrink-0">
                     {filteredSegments.length} of {segments.length}
                   </span>
@@ -1056,7 +1122,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               {/* Scrollable list of wide phrase cards */}
               <div
                 ref={teleprompterRef}
-                className="flex flex-col gap-3 max-h-[620px] overflow-y-auto p-1 pr-2"
+                className="flex flex-col gap-3 max-h-[620px] overflow-y-auto p-1 pr-2 relative"
               >
                 {filteredSegments.map((seg) => {
                   const isActive = seg.id === activeSegmentId;
