@@ -11,7 +11,9 @@ import {
   ActiveJobItem,
   AudioSegment,
   AudioAnalysisResult,
-  AudioProcessResult
+  AudioProcessResult,
+  AudioProjectItem,
+  AudioProjectListResult
 } from '../types';
 
 const API_BASE = '/api';
@@ -328,6 +330,43 @@ export const api = {
       const err = await res.json().catch(() => ({ detail: 'Failed to send audio to studio' }));
       throw new Error(err.detail || 'Failed to send audio to studio');
     }
+    return res.json();
+  },
+
+  async getAudioProjects(status?: string): Promise<AudioProjectListResult> {
+    const q = status && status !== 'all' ? `?status=${encodeURIComponent(status)}` : '';
+    const res = await fetch(`${API_BASE}/audio/projects${q}`);
+    if (!res.ok) throw new Error('Failed to load audio projects');
+    return res.json();
+  },
+
+  async batchUploadAudioFiles(files: File[]): Promise<AudioProjectItem[]> {
+    const formData = new FormData();
+    for (const f of files) {
+      formData.append('files', f);
+    }
+    const res = await fetch(`${API_BASE}/audio/projects/batch-upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to batch upload audio files' }));
+      throw new Error(err.detail || 'Failed to batch upload audio files');
+    }
+    return res.json();
+  },
+
+  async getAudioProject(projectId: number): Promise<AudioProjectItem> {
+    const res = await fetch(`${API_BASE}/audio/projects/${projectId}`);
+    if (!res.ok) throw new Error('Failed to load audio project');
+    return res.json();
+  },
+
+  async deleteAudioProject(projectId: number): Promise<{ status: string; id: number }> {
+    const res = await fetch(`${API_BASE}/audio/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete audio project');
     return res.json();
   },
 };

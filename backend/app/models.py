@@ -117,3 +117,25 @@ class BannedCandidate(Base):
     source_url = Column(String(500), nullable=True)
     reason = Column(String(500), default="Manually banned by user")
     banned_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class AudioProject(Base):
+    __tablename__ = "audio_projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(String(100), unique=True, index=True, nullable=False)
+    title = Column(String(300), nullable=False)
+    original_name = Column(String(300), nullable=False)
+    filename = Column(String(300), nullable=False)
+    duration = Column(Float, default=0.0)
+    status = Column(String(50), default="unprocessed")  # "unprocessed", "processed"
+    script_text = Column(Text, nullable=True)
+    waveform_peaks_json = Column(Text, nullable=True)
+    segments_json = Column(Text, nullable=True)
+    silence_intervals_json = Column(Text, nullable=True)
+    spaced_filename = Column(String(300), nullable=True)
+    spaced_duration = Column(Float, default=0.0)
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+

@@ -274,3 +274,31 @@ export interface AudioProcessResult {
   download_url: string;
 }
 
+export interface AudioProjectItem {
+  id: number;
+  file_id: string;
+  title: string;
+  original_name: string;
+  filename: string;
+  duration: number;
+  status: 'unprocessed' | 'processed';
+  script_text?: string;
+  waveform_peaks: number[];
+  segments: AudioSegment[];
+  silence_intervals: AudioSilenceInterval[];
+  spaced_filename?: string;
+  spaced_duration: number;
+  audio_url: string;
+  download_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface AudioProjectListResult {
+  projects: AudioProjectItem[];
+  total_count: number;
+  unprocessed_count: number;
+  processed_count: number;
+}
+
+

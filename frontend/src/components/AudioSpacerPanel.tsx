@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
   FileAudio,
@@ -20,11 +21,22 @@ import {
   ChevronRight,
   RefreshCw,
   Plus,
-  Minus
+  Minus,
+  Inbox,
+  Trash2,
+  FolderOpen,
+  ArrowLeft,
+  ListFilter
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
-import { AudioAnalysisResult, AudioProcessResult, AudioSegment } from '../types';
+import {
+  AudioAnalysisResult,
+  AudioProcessResult,
+  AudioSegment,
+  AudioProjectItem,
+  AudioProjectListResult
+} from '../types';
 
 interface AudioSpacerPanelProps {
   onUseInStudio: (audioFilename: string, durationSeconds: number, scriptText?: string) => void;
@@ -71,7 +83,21 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   onUseInStudio,
   isDark = false,
 }) => {
-  // File & script input state
+  const queryClient = useQueryClient();
+
+  // Inbox & Projects state
+  const [projectStatusFilter, setProjectStatusFilter] = useState<'all' | 'unprocessed' | 'processed'>('all');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [isBatchUploading, setIsBatchUploading] = useState<boolean>(false);
+
+  // Load persistent Audio Projects from SQLite
+  const { data: projectListResult, isLoading: isProjectsLoading, refetch: refetchProjects } = useQuery<AudioProjectListResult>({
+    queryKey: ['audioProjects', projectStatusFilter],
+    queryFn: () => api.getAudioProjects(projectStatusFilter),
+  });
+
+  // Active Editor State
+  const [activeProject, setActiveProject] = useState<AudioProjectItem | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [scriptText, setScriptText] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -111,40 +137,120 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     if (activeAudioSource === 'spaced' && processedResult?.audio_url) {
       return processedResult.audio_url;
     }
-    return analysisData?.audio_url || '';
-  }, [activeAudioSource, processedResult, analysisData]);
+    if (activeAudioSource === 'spaced' && activeProject?.spaced_filename) {
+      return `/api/audio/stream/${activeProject.spaced_filename}`;
+    }
+    return analysisData?.audio_url || activeProject?.audio_url || '';
+  }, [activeAudioSource, processedResult, analysisData, activeProject]);
 
   // Current active waveform peaks
   const currentPeaks = useMemo(() => {
     if (activeAudioSource === 'spaced' && processedResult?.waveform_peaks) {
       return processedResult.waveform_peaks;
     }
-    return analysisData?.waveform_peaks || [];
-  }, [activeAudioSource, processedResult, analysisData]);
+    return analysisData?.waveform_peaks || activeProject?.waveform_peaks || [];
+  }, [activeAudioSource, processedResult, analysisData, activeProject]);
 
   // Current active duration
   const activeDuration = useMemo(() => {
     if (activeAudioSource === 'spaced' && processedResult?.spaced_duration) {
       return processedResult.spaced_duration;
     }
-    return analysisData?.duration || 0;
-  }, [activeAudioSource, processedResult, analysisData]);
+    if (activeAudioSource === 'spaced' && activeProject?.spaced_duration) {
+      return activeProject.spaced_duration;
+    }
+    return analysisData?.duration || activeProject?.duration || 0;
+  }, [activeAudioSource, processedResult, analysisData, activeProject]);
 
-  // Handle file selection
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setAudioFile(file);
-      setAnalysisData(null);
-      setProcessedResult(null);
-      setErrorMessage(null);
+  // Delete Project Mutation
+  const deleteProjectMutation = useMutation({
+    mutationFn: (id: number) => api.deleteAudioProject(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+      if (activeProject?.id === deletedId) {
+        handleCloseEditor();
+      }
+    },
+  });
+
+  // Handle Batch Files Upload into Inbox
+  const handleBatchFilesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsBatchUploading(true);
+    setErrorMessage(null);
+
+    try {
+      const fileList = Array.from(files);
+      await api.batchUploadAudioFiles(fileList);
+      await queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+    } catch (err: any) {
+      console.error('Batch upload error:', err);
+      setErrorMessage(err.message || 'Failed to upload audio files.');
+    } finally {
+      setIsBatchUploading(false);
+      e.target.value = '';
     }
   };
 
-  // Trigger Audio Analysis
+  // Open a project from the Inbox into the editor
+  const handleOpenProject = (project: AudioProjectItem) => {
+    setActiveProject(project);
+    setSelectedProjectId(project.id);
+    setAnalysisData({
+      file_id: project.file_id,
+      original_name: project.original_name,
+      duration: project.duration,
+      waveform_peaks: project.waveform_peaks,
+      silence_intervals: project.silence_intervals,
+      segments: project.segments,
+      audio_url: project.audio_url,
+    });
+    setSegments(project.segments || []);
+    setScriptText(project.script_text || '');
+    setDuration(project.duration);
+    if (project.status === 'processed' && project.spaced_filename) {
+      setProcessedResult({
+        file_id: project.file_id,
+        original_duration: project.duration,
+        spaced_duration: project.spaced_duration,
+        total_pauses_count: project.segments?.filter((s) => s.pause_duration > 0).length || 0,
+        total_silence_added: Math.max(0, project.spaced_duration - project.duration),
+        waveform_peaks: project.waveform_peaks,
+        spaced_filename: project.spaced_filename,
+        audio_url: `/api/audio/stream/${project.spaced_filename}`,
+        download_url: `/api/audio/download/${project.spaced_filename}`,
+      });
+      setActiveAudioSource('spaced');
+    } else {
+      setProcessedResult(null);
+      setActiveAudioSource('original');
+    }
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setErrorMessage(null);
+  };
+
+  // Close editor and return to Inbox view
+  const handleCloseEditor = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    setActiveProject(null);
+    setSelectedProjectId(null);
+    setAnalysisData(null);
+    setSegments([]);
+    setProcessedResult(null);
+    setIsPlaying(false);
+    setCurrentTime(0);
+    refetchProjects();
+  };
+
+  // Handle single file upload & analyze in one step
   const handleAnalyze = async () => {
     if (!audioFile) {
-      setErrorMessage('Please select or drop an audio file first.');
+      setErrorMessage('Please select an audio file first.');
       return;
     }
 
@@ -159,6 +265,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       setActiveAudioSource('original');
       setCurrentTime(0);
       setIsPlaying(false);
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
     } catch (err: any) {
       console.error('Audio analysis error:', err);
       setErrorMessage(err.message || 'Failed to analyze audio file. Please check audio format.');
@@ -169,7 +276,8 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
   // Trigger Spaced Audio Processing
   const handleProcessSpacing = async () => {
-    if (!analysisData?.file_id || segments.length === 0) {
+    const fileId = analysisData?.file_id || activeProject?.file_id;
+    if (!fileId || segments.length === 0) {
       setErrorMessage('No audio segments found to process.');
       return;
     }
@@ -178,11 +286,12 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setErrorMessage(null);
 
     try {
-      const res = await api.processAudioSpacing(analysisData.file_id, segments, 0.05);
+      const res = await api.processAudioSpacing(fileId, segments, 0.05);
       setProcessedResult(res);
       setActiveAudioSource('spaced');
       setCurrentTime(0);
       setIsPlaying(false);
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
     } catch (err: any) {
       console.error('Spacing process error:', err);
       setErrorMessage(err.message || 'Failed to generate spaced audio master.');
@@ -246,7 +355,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       const cardHeight = card.offsetHeight;
       const containerHeight = container.offsetHeight;
 
-      // Scroll smoothly to center
       container.scrollTo({
         top: cardTop - containerHeight / 2 + cardHeight / 2,
         behavior: 'smooth',
@@ -274,10 +382,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
   // Calculate total duration comparison metrics
   const calculatedEstimatedDuration = useMemo(() => {
-    const orig = analysisData?.duration || 0;
+    const orig = analysisData?.duration || activeProject?.duration || 0;
     const addedPauses = segments.reduce((acc, s) => acc + (s.pause_duration || 0), 0);
-    return orig + addedPauses + 4.5; // includes intro lead-in and outro quiet buffer
-  }, [analysisData, segments]);
+    return orig + addedPauses + 4.5;
+  }, [analysisData, activeProject, segments]);
 
   // Filtered segments for display
   const filteredSegments = useMemo(() => {
@@ -286,10 +394,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return segments.filter((s) => s.text.toLowerCase().includes(q) || s.index.toString().includes(q));
   }, [segments, searchFilter]);
 
-  // Load sample script helper
-  const handleLoadSampleScript = () => {
-    setScriptText(SAMPLE_SCRIPT_WITH_TAGS);
-  };
+  const projects = projectListResult?.projects || [];
 
   return (
     <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-16">
@@ -318,15 +423,23 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 Audio Lab & Meditation Pacing Studio
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400">
-                Drop your raw voiceover audio, auto-space pauses to match your meditation script, and verify every spoken word.
+                Upload multiple raw voiceovers into your inbox, auto-space pauses to match meditation scripts, and verify words.
               </p>
             </div>
           </div>
         </div>
 
-        {/* Global Preset Shortcuts */}
+        {/* Global Preset Shortcuts when an audio is open in editor */}
         {analysisData && (
           <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={handleCloseEditor}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-200/70 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 flex items-center gap-1.5 transition-all cursor-pointer mr-2"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Inbox</span>
+            </button>
             <span className="text-xs font-medium text-stone-500 dark:text-stone-400 mr-1">Presets:</span>
             <button
               type="button"
@@ -377,96 +490,202 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         </div>
       )}
 
-      {/* Step 1: Input Setup (Dropzone & Script Area) */}
-      {!analysisData && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-6 shadow-xs">
-          {/* Audio Dropzone */}
-          <div className="flex flex-col gap-3">
-            <label className="text-sm font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-2">
-              <FileAudio className="w-4 h-4 text-amber-500" />
-              <span>Step 1: Upload Raw Voiceover Audio</span>
-            </label>
-
-            <label className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-500 dark:hover:border-amber-400 rounded-2xl bg-white dark:bg-[#0a0c10] cursor-pointer transition-all group">
-              <input
-                type="file"
-                accept="audio/*,.mp3,.wav,.m4a,.aac,.flac"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <div className="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
-                <Upload className="w-7 h-7" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-stone-800 dark:text-stone-200">
-                  {audioFile ? audioFile.name : 'Click to upload or drag & drop audio'}
-                </p>
-                <p className="text-xs text-stone-400 mt-1">
-                  Supports MP3, WAV, M4A, AAC, FLAC (Voiceover files from ElevenLabs, Audacity, etc.)
-                </p>
-              </div>
-              {audioFile && (
-                <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-medium flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Ready ({(audioFile.size / (1024 * 1024)).toFixed(2)} MB)</span>
-                </div>
-              )}
-            </label>
+      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY (Shown at top or when no file active) */}
+      <div className="flex flex-col gap-4 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs transition-colors">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <Inbox className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                Audio Inbox & Projects Queue
+              </h3>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                Uploaded tracks stay safely here until you are ready to space & process them.
+              </p>
+            </div>
           </div>
 
-          {/* Script Input with Pause Tag recognition */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-stone-800 dark:text-stone-200 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-500" />
-                <span>Step 2: Paste Script with Pause Markers (Optional)</span>
-              </label>
+          {/* Filter Pills & Batch Upload Trigger */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-200/70 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 text-xs">
               <button
                 type="button"
-                onClick={handleLoadSampleScript}
-                className="text-xs text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                onClick={() => setProjectStatusFilter('all')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  projectStatusFilter === 'all'
+                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                }`}
               >
-                Load Example Meditation Script
+                All ({projectListResult?.total_count || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectStatusFilter('unprocessed')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  projectStatusFilter === 'unprocessed'
+                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                }`}
+              >
+                Inbox / Raw ({projectListResult?.unprocessed_count || 0})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProjectStatusFilter('processed')}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  projectStatusFilter === 'processed'
+                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                }`}
+              >
+                Paced Masters ({projectListResult?.processed_count || 0})
               </button>
             </div>
 
-            <textarea
-              value={scriptText}
-              onChange={(e) => setScriptText(e.target.value)}
-              placeholder="Paste your meditation script here...
-Tags recognized:
-(pause) -> 6s
-(short pause) -> 4s
-(long pause) -> 12s
-(15s pause) -> explicit seconds"
-              rows={8}
-              className="w-full p-4 rounded-2xl bg-white dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 text-xs font-mono leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-            />
-
-            {/* Analyze trigger button */}
-            <button
-              type="button"
-              onClick={handleAnalyze}
-              disabled={!audioFile || isAnalyzing}
-              className="h-12 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-stone-950 font-bold flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer mt-1"
-            >
-              {isAnalyzing ? (
+            {/* Batch Upload Audio Button */}
+            <label className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
+              <input
+                type="file"
+                multiple
+                accept="audio/*,.mp3,.wav,.m4a,.aac,.flac"
+                onChange={handleBatchFilesUpload}
+                disabled={isBatchUploading}
+                className="hidden"
+              />
+              {isBatchUploading ? (
                 <>
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                  <span>Analyzing Silences & Aligning Script...</span>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Uploading Batch...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 fill-current" />
-                  <span>Analyze & Open Audio Lab Workspace</span>
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>+ Upload Audio Files</span>
                 </>
               )}
-            </button>
+            </label>
           </div>
         </div>
-      )}
 
-      {/* Main Workspace (Side-by-Side: Left Waveform & Controls, Right Synchronized Script Teleprompter) */}
+        {/* Project Cards Grid */}
+        {projects.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-1">
+            {projects.map((proj) => {
+              const isCurrent = activeProject?.id === proj.id;
+              const isProcessed = proj.status === 'processed';
+
+              return (
+                <div
+                  key={proj.id}
+                  className={`flex flex-col justify-between p-3.5 rounded-2xl border transition-all ${
+                    isCurrent
+                      ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-500 shadow-md ring-2 ring-amber-500/30'
+                      : 'bg-white dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-700'
+                  }`}
+                >
+                  <div className="flex flex-col gap-2">
+                    {/* Status Badge & Actions */}
+                    <div className="flex items-center justify-between gap-1.5">
+                      {isProcessed ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Paced Master
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> In Inbox (Raw)
+                        </span>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm(`Delete audio "${proj.title}"?`)) {
+                            deleteProjectMutation.mutate(proj.id);
+                          }
+                        }}
+                        className="p-1 rounded-lg text-stone-400 hover:text-red-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                        title="Delete audio project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Title */}
+                    <h4
+                      onClick={() => handleOpenProject(proj)}
+                      className="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-2 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
+                      title={proj.title}
+                    >
+                      {proj.title}
+                    </h4>
+
+                    {/* Duration Info */}
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-stone-500 dark:text-stone-400">
+                      <span>Raw: {formatTime(proj.duration)}</span>
+                      {isProcessed && proj.spaced_duration > 0 && (
+                        <>
+                          <ChevronRight className="w-3 h-3 text-stone-400" />
+                          <span className="text-amber-600 dark:text-amber-400 font-bold">
+                            {formatTime(proj.spaced_duration)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Action Buttons */}
+                  <div className="flex items-center justify-between gap-1.5 pt-3 mt-2 border-t border-stone-100 dark:border-stone-800/80">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenProject(proj)}
+                      className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-700 dark:text-stone-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <FolderOpen className="w-3 h-3" />
+                      <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
+                    </button>
+
+                    {isProcessed && proj.download_url && (
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={proj.download_url}
+                          download={proj.spaced_filename || 'spaced_voiceover.mp3'}
+                          className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
+                          title="Download Paced MP3"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const dur = proj.spaced_duration || proj.duration;
+                            onUseInStudio(proj.spaced_filename || proj.filename, dur, proj.script_text);
+                          }}
+                          className="p-1 rounded-lg bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors font-bold"
+                          title="Send directly to Video Studio"
+                        >
+                          <Film className="w-3.5 h-3.5 fill-current" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-8 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              No audio files in inbox yet. Drag and drop audio files above to build your audio pacing queue!
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Editor Section (Shown when a file/project is opened) */}
       {analysisData && (
         <div className="flex flex-col gap-6">
           {/* Top Bar: Source Switcher & Global Duration Comparison */}
@@ -492,7 +711,7 @@ Tags recognized:
                 <button
                   type="button"
                   onClick={() => {
-                    if (processedResult) {
+                    if (processedResult || activeProject?.spaced_filename) {
                       setActiveAudioSource('spaced');
                       setCurrentTime(0);
                       setIsPlaying(false);
@@ -508,8 +727,8 @@ Tags recognized:
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>
-                    {processedResult
-                      ? `Paced Master (${formatTime(processedResult.spaced_duration)})`
+                    {processedResult || activeProject?.spaced_duration
+                      ? `Paced Master (${formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || 0)})`
                       : `Paced Preview (${formatTime(calculatedEstimatedDuration)})`}
                   </span>
                 </button>
@@ -529,27 +748,13 @@ Tags recognized:
               <div className="flex items-center gap-1.5">
                 <span className="text-stone-500">Paced Master:</span>
                 <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                  {formatTime(processedResult?.spaced_duration || calculatedEstimatedDuration)}
+                  {formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration)}
                 </span>
               </div>
               <div className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-semibold">
-                +{formatTime((processedResult?.spaced_duration || calculatedEstimatedDuration) - analysisData.duration)} pauses
+                +{formatTime((processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration) - analysisData.duration)} pauses
               </div>
             </div>
-
-            {/* Re-upload / change file */}
-            <button
-              type="button"
-              onClick={() => {
-                setAnalysisData(null);
-                setProcessedResult(null);
-                setIsPlaying(false);
-              }}
-              className="text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 flex items-center gap-1 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Change Audio File</span>
-            </button>
           </div>
 
           {/* SIDE-BY-SIDE MAIN VIEW */}
@@ -576,7 +781,7 @@ Tags recognized:
                     <Sparkles className="w-4 h-4 text-amber-500" />
                     <span>Master & Export Paced Voiceover</span>
                   </h3>
-                  {processedResult && (
+                  {(processedResult || activeProject?.status === 'processed') && (
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1">
                       <Check className="w-3 h-3" /> Master Ready
                     </span>
@@ -610,16 +815,16 @@ Tags recognized:
 
                   {/* Download MP3 */}
                   <a
-                    href={processedResult ? processedResult.download_url : '#'}
-                    download={processedResult?.spaced_filename || 'paced_voiceover.mp3'}
+                    href={processedResult ? processedResult.download_url : activeProject?.download_url || '#'}
+                    download={processedResult?.spaced_filename || activeProject?.spaced_filename || 'paced_voiceover.mp3'}
                     onClick={(e) => {
-                      if (!processedResult) {
+                      if (!processedResult && !activeProject?.spaced_filename) {
                         e.preventDefault();
                         handleProcessSpacing();
                       }
                     }}
                     className={`h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer ${
-                      processedResult
+                      processedResult || activeProject?.spaced_filename
                         ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 hover:bg-amber-100'
                         : 'bg-stone-100 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-400'
                     }`}
@@ -632,17 +837,16 @@ Tags recognized:
                   <button
                     type="button"
                     onClick={async () => {
-                      if (!processedResult) {
+                      if (!processedResult && !activeProject?.spaced_filename) {
                         await handleProcessSpacing();
                       }
-                      const activeFile = processedResult?.spaced_filename || `${analysisData.file_id}_spaced.mp3`;
-                      const durSec = processedResult?.spaced_duration || calculatedEstimatedDuration;
-                      
+                      const activeFile = processedResult?.spaced_filename || activeProject?.spaced_filename || `${analysisData.file_id}_spaced.mp3`;
+                      const durSec = processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration;
+
                       try {
                         const studioRes = await api.sendAudioToStudio(activeFile);
                         onUseInStudio(studioRes.filename, durSec, scriptText);
                       } catch (e) {
-                        // Fallback
                         onUseInStudio(activeFile, durSec, scriptText);
                       }
                     }}

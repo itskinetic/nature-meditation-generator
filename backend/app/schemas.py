@@ -416,3 +416,31 @@ class AudioProcessResponse(BaseModel):
     audio_url: str
     download_url: str
 
+
+class AudioProjectSchema(BaseModel):
+    id: int
+    file_id: str
+    title: str
+    original_name: str
+    filename: str
+    duration: float
+    status: str = "unprocessed"
+    script_text: Optional[str] = None
+    waveform_peaks: List[float] = []
+    segments: List[AudioSegmentSchema] = []
+    silence_intervals: List[AudioSilenceIntervalSchema] = []
+    spaced_filename: Optional[str] = None
+    spaced_duration: float = 0.0
+    audio_url: str
+    download_url: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class AudioProjectListResponse(BaseModel):
+    projects: List[AudioProjectSchema]
+    total_count: int
+    unprocessed_count: int
+    processed_count: int
+
+

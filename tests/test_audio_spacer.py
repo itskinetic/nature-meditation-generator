@@ -135,3 +135,44 @@ def test_api_audio_upload_and_process(tmp_path):
     assert proc_data["spaced_duration"] > proc_data["original_duration"]
     assert "download_url" in proc_data
     assert "audio_url" in proc_data
+
+
+def test_audio_projects_inbox_and_batch_upload(tmp_path):
+    wav1 = tmp_path / "batch_1.wav"
+    wav2 = tmp_path / "batch_2.wav"
+    create_test_sine_wav(wav1, duration_sec=1.5)
+    create_test_sine_wav(wav2, duration_sec=2.5)
+
+    with open(wav1, "rb") as f1, open(wav2, "rb") as f2:
+        res = client.post(
+            "/api/audio/projects/batch-upload",
+            files=[
+                ("files", ("batch_1.wav", f1, "audio/wav")),
+                ("files", ("batch_2.wav", f2, "audio/wav")),
+            ]
+        )
+
+    assert res.status_code == 200
+    batch_data = res.json()
+    assert len(batch_data) == 2
+    assert batch_data[0]["status"] == "unprocessed"
+    assert batch_data[1]["status"] == "unprocessed"
+
+    # List all projects
+    list_res = client.get("/api/audio/projects")
+    assert list_res.status_code == 200
+    list_data = list_res.json()
+    assert list_data["total_count"] >= 2
+    assert list_data["unprocessed_count"] >= 2
+
+    # Get single project
+    proj_id = batch_data[0]["id"]
+    get_res = client.get(f"/api/audio/projects/{proj_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["id"] == proj_id
+
+    # Delete project
+    del_res = client.delete(f"/api/audio/projects/{proj_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "deleted"
+

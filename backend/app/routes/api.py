@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import json
 import logging
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.config import settings
 from backend.app.database import get_db, SessionLocal
-from backend.app.models import GenerationJob, VideoLibraryItem, KeywordBankItem, BannedCandidate
+from backend.app.models import GenerationJob, VideoLibraryItem, KeywordBankItem, BannedCandidate, AudioProject
 from backend.app.schemas import (
     IntentAnalysisRequest, IntentAnalysisResult,
     PresetSchema, SearchRequest, SearchResponse, EnvironmentSearchSpec,
@@ -23,7 +24,7 @@ from backend.app.schemas import (
     StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
     KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest,
     AudioSegmentSchema, AudioSilenceIntervalSchema, AudioAnalysisRequest, AudioAnalysisResponse,
-    AudioProcessRequest, AudioProcessResponse
+    AudioProcessRequest, AudioProcessResponse, AudioProjectSchema, AudioProjectListResponse
 )
 from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
@@ -1281,14 +1282,224 @@ def delete_keyword_from_bank(item_id: int, db: Session = Depends(get_db)):
 
 # --- AUDIO LAB / AUDIO SPACER DASHBOARD ENDPOINTS ---
 
+@router.get("/audio/projects", response_model=AudioProjectListResponse)
+def get_audio_projects(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Lists all saved audio projects / inbox tracks with status counts.
+    """
+    query = db.query(AudioProject).order_by(AudioProject.created_at.desc())
+    all_projects = query.all()
+
+    total_count = len(all_projects)
+    unprocessed_count = sum(1 for p in all_projects if p.status == "unprocessed")
+    processed_count = sum(1 for p in all_projects if p.status == "processed")
+
+    filtered_projects = all_projects
+    if status and status != "all":
+        filtered_projects = [p for p in all_projects if p.status == status]
+
+    project_schemas = []
+    for p in filtered_projects:
+        try:
+            peaks = json.loads(p.waveform_peaks_json) if p.waveform_peaks_json else []
+        except Exception:
+            peaks = []
+        try:
+            segs = [AudioSegmentSchema(**s) for s in json.loads(p.segments_json)] if p.segments_json else []
+        except Exception:
+            segs = []
+        try:
+            sils = [AudioSilenceIntervalSchema(**s) for s in json.loads(p.silence_intervals_json)] if p.silence_intervals_json else []
+        except Exception:
+            sils = []
+
+        audio_stream_name = p.spaced_filename if (p.status == "processed" and p.spaced_filename) else p.filename
+        download_url = f"/api/audio/download/{p.spaced_filename}" if p.spaced_filename else None
+
+        project_schemas.append(
+            AudioProjectSchema(
+                id=p.id,
+                file_id=p.file_id,
+                title=p.title,
+                original_name=p.original_name,
+                filename=p.filename,
+                duration=p.duration,
+                status=p.status,
+                script_text=p.script_text,
+                waveform_peaks=peaks,
+                segments=segs,
+                silence_intervals=sils,
+                spaced_filename=p.spaced_filename,
+                spaced_duration=p.spaced_duration or 0.0,
+                audio_url=f"/api/audio/stream/{audio_stream_name}",
+                download_url=download_url,
+                created_at=p.created_at,
+                updated_at=p.updated_at
+            )
+        )
+
+    return AudioProjectListResponse(
+        projects=project_schemas,
+        total_count=total_count,
+        unprocessed_count=unprocessed_count,
+        processed_count=processed_count
+    )
+
+
+@router.post("/audio/projects/batch-upload", response_model=List[AudioProjectSchema])
+async def batch_upload_audio(
+    files: List[UploadFile] = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Uploads multiple raw audio files to the persistent Audio Inbox.
+    Unprocessed audio tracks will remain stored until the user is ready to pace them.
+    """
+    created_projects = []
+
+    for file in files:
+        file_uuid = uuid.uuid4().hex[:8]
+        clean_filename = f"{file_uuid}_{file.filename}"
+        target_path = settings.AUDIO_DIR / clean_filename
+
+        with open(target_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        try:
+            analysis = await audio_spacer_service.analyze_audio_file(
+                input_file_path=target_path,
+                script_text=None
+            )
+            wav_name = Path(analysis["normalized_wav_path"]).name
+
+            # Create or update AudioProject in DB
+            db_project = AudioProject(
+                file_id=analysis["file_id"],
+                title=file.filename or clean_filename,
+                original_name=file.filename or clean_filename,
+                filename=wav_name,
+                duration=analysis["duration"],
+                status="unprocessed",
+                script_text="",
+                waveform_peaks_json=json.dumps(analysis["waveform_peaks"]),
+                segments_json=json.dumps([s for s in analysis["segments"]]),
+                silence_intervals_json=json.dumps([s for s in analysis["silence_intervals"]]),
+                spaced_filename=None,
+                spaced_duration=0.0
+            )
+            db.add(db_project)
+            db.commit()
+            db.refresh(db_project)
+
+            created_projects.append(
+                AudioProjectSchema(
+                    id=db_project.id,
+                    file_id=db_project.file_id,
+                    title=db_project.title,
+                    original_name=db_project.original_name,
+                    filename=db_project.filename,
+                    duration=db_project.duration,
+                    status=db_project.status,
+                    script_text=db_project.script_text,
+                    waveform_peaks=analysis["waveform_peaks"],
+                    segments=[AudioSegmentSchema(**seg) for seg in analysis["segments"]],
+                    silence_intervals=[AudioSilenceIntervalSchema(**s) for s in analysis["silence_intervals"]],
+                    spaced_filename=None,
+                    spaced_duration=0.0,
+                    audio_url=f"/api/audio/stream/{wav_name}",
+                    download_url=None,
+                    created_at=db_project.created_at,
+                    updated_at=db_project.updated_at
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Error processing batch item {file.filename}: {e}")
+
+    return created_projects
+
+
+@router.get("/audio/projects/{project_id}", response_model=AudioProjectSchema)
+def get_audio_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    Loads an audio project into the Audio Lab editor with full state.
+    """
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    try:
+        peaks = json.loads(p.waveform_peaks_json) if p.waveform_peaks_json else []
+    except Exception:
+        peaks = []
+    try:
+        segs = [AudioSegmentSchema(**s) for s in json.loads(p.segments_json)] if p.segments_json else []
+    except Exception:
+        segs = []
+    try:
+        sils = [AudioSilenceIntervalSchema(**s) for s in json.loads(p.silence_intervals_json)] if p.silence_intervals_json else []
+    except Exception:
+        sils = []
+
+    audio_stream_name = p.spaced_filename if (p.status == "processed" and p.spaced_filename) else p.filename
+    download_url = f"/api/audio/download/{p.spaced_filename}" if p.spaced_filename else None
+
+    return AudioProjectSchema(
+        id=p.id,
+        file_id=p.file_id,
+        title=p.title,
+        original_name=p.original_name,
+        filename=p.filename,
+        duration=p.duration,
+        status=p.status,
+        script_text=p.script_text,
+        waveform_peaks=peaks,
+        segments=segs,
+        silence_intervals=sils,
+        spaced_filename=p.spaced_filename,
+        spaced_duration=p.spaced_duration or 0.0,
+        audio_url=f"/api/audio/stream/{audio_stream_name}",
+        download_url=download_url,
+        created_at=p.created_at,
+        updated_at=p.updated_at
+    )
+
+
+@router.delete("/audio/projects/{project_id}")
+def delete_audio_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    Deletes an audio project and associated disk files.
+    """
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    # Clean up files from disk
+    for f in [p.filename, p.spaced_filename]:
+        if f:
+            disk_file = settings.AUDIO_DIR / os.path.basename(f)
+            if disk_file.exists():
+                try:
+                    disk_file.unlink()
+                except Exception:
+                    pass
+
+    db.delete(p)
+    db.commit()
+    return {"status": "deleted", "id": project_id}
+
+
 @router.post("/audio/upload", response_model=AudioAnalysisResponse)
 async def upload_and_analyze_audio(
     file: UploadFile = File(...),
-    script_text: Optional[str] = Form(None)
+    script_text: Optional[str] = Form(None),
+    db: Session = Depends(get_db)
 ):
     """
     Upload voiceover audio file, normalize to PCM WAV, generate waveform peaks,
-    detect natural silences, and parse script tags.
+    detect natural silences, parse script tags, and save to SQLite.
     """
     file_uuid = uuid.uuid4().hex[:8]
     clean_filename = f"{file_uuid}_{file.filename}"
@@ -1303,6 +1514,25 @@ async def upload_and_analyze_audio(
             script_text=script_text
         )
         wav_name = Path(analysis["normalized_wav_path"]).name
+
+        # Save to DB
+        db_proj = AudioProject(
+            file_id=analysis["file_id"],
+            title=file.filename or clean_filename,
+            original_name=file.filename or clean_filename,
+            filename=wav_name,
+            duration=analysis["duration"],
+            status="unprocessed",
+            script_text=script_text or "",
+            waveform_peaks_json=json.dumps(analysis["waveform_peaks"]),
+            segments_json=json.dumps(analysis["segments"]),
+            silence_intervals_json=json.dumps(analysis["silence_intervals"]),
+            spaced_filename=None,
+            spaced_duration=0.0
+        )
+        db.add(db_proj)
+        db.commit()
+
         return AudioAnalysisResponse(
             file_id=analysis["file_id"],
             original_name=file.filename or clean_filename,
@@ -1318,7 +1548,7 @@ async def upload_and_analyze_audio(
 
 
 @router.post("/audio/analyze", response_model=AudioAnalysisResponse)
-async def reanalyze_audio(req: AudioAnalysisRequest):
+async def reanalyze_audio(req: AudioAnalysisRequest, db: Session = Depends(get_db)):
     """
     Re-analyzes an existing uploaded audio file with updated script text.
     """
@@ -1335,6 +1565,14 @@ async def reanalyze_audio(req: AudioAnalysisRequest):
             script_text=req.script_text
         )
         wav_name = wav_path.name
+
+        # Update in DB
+        db_proj = db.query(AudioProject).filter(AudioProject.file_id == req.file_id).first()
+        if db_proj:
+            db_proj.script_text = req.script_text or ""
+            db_proj.segments_json = json.dumps(analysis["segments"])
+            db.commit()
+
         return AudioAnalysisResponse(
             file_id=req.file_id,
             original_name=f"{req.file_id}.wav",
@@ -1350,10 +1588,10 @@ async def reanalyze_audio(req: AudioAnalysisRequest):
 
 
 @router.post("/audio/process", response_model=AudioProcessResponse)
-async def process_spaced_audio(req: AudioProcessRequest):
+async def process_spaced_audio(req: AudioProcessRequest, db: Session = Depends(get_db)):
     """
     Slices raw PCM audio at exact silence midpoints, injects silence buffers,
-    applies smooth S-curve fades, and masters the final spaced MP3.
+    applies smooth S-curve fades, masters the final spaced MP3, and updates project status.
     """
     wav_path = settings.AUDIO_DIR / f"{req.file_id}_norm.wav"
     if not wav_path.exists():
@@ -1369,6 +1607,15 @@ async def process_spaced_audio(req: AudioProcessRequest):
             output_mp3=output_mp3_path,
             fade_duration=req.fade_duration or 0.05
         )
+
+        # Update DB Project
+        db_proj = db.query(AudioProject).filter(AudioProject.file_id == req.file_id).first()
+        if db_proj:
+            db_proj.status = "processed"
+            db_proj.spaced_filename = output_mp3_name
+            db_proj.spaced_duration = result["spaced_duration"]
+            db_proj.segments_json = json.dumps([s.model_dump() for s in req.segments])
+            db.commit()
 
         return AudioProcessResponse(
             file_id=req.file_id,
@@ -1391,7 +1638,6 @@ async def stream_audio_file(filename: str):
     """
     Streams audio file (WAV / MP3) from the audio storage directory.
     """
-    # Sanitize filename
     clean_name = os.path.basename(filename)
     file_path = settings.AUDIO_DIR / clean_name
 
@@ -1460,4 +1706,5 @@ async def send_audio_to_studio(
         "duration_minutes": dur_minutes,
         "audio_url": f"/api/audio/stream/{clean_name}"
     }
+
 
