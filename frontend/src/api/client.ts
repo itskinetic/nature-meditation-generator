@@ -370,6 +370,16 @@ export const api = {
     return res.json();
   },
 
+  async updateProjectScript(projectId: number, scriptText: string): Promise<{ status: string; id: number; script_text: string }> {
+    const res = await fetch(`${API_BASE}/audio/projects/${projectId}/script`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ script_text: scriptText }),
+    });
+    if (!res.ok) throw new Error('Failed to save script to database');
+    return res.json();
+  },
+
   async alignReferenceScript(fileId: string, scriptText: string): Promise<AudioAnalysisResult> {
     const res = await fetch(`${API_BASE}/audio/align-script`, {
       method: 'POST',

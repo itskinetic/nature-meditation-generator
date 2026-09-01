@@ -26,7 +26,8 @@ import {
   Trash2,
   FolderOpen,
   ArrowLeft,
-  Search
+  Search,
+  CheckCheck
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
@@ -100,10 +101,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [activeProject, setActiveProject] = useState<AudioProjectItem | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [scriptText, setScriptText] = useState<string>('');
+  const [saveStatusText, setSaveStatusText] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isAligningScript, setIsAligningScript] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const autosaveTimeoutRef = useRef<any>(null);
 
   // Analysis & Segments State
   const [analysisData, setAnalysisData] = useState<AudioAnalysisResult | null>(null);
@@ -163,6 +167,17 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return analysisData?.duration || activeProject?.duration || 0;
   }, [activeAudioSource, processedResult, analysisData, activeProject]);
 
+  // Auto-restore project from session / localStorage across reloads
+  useEffect(() => {
+    const savedProjId = localStorage.getItem('zenhub_active_audio_project_id');
+    if (savedProjId && !activeProject && projectListResult?.projects) {
+      const match = projectListResult.projects.find((p) => String(p.id) === savedProjId);
+      if (match) {
+        handleOpenProject(match);
+      }
+    }
+  }, [projectListResult?.projects]);
+
   // Delete Project Mutation
   const deleteProjectMutation = useMutation({
     mutationFn: (id: number) => api.deleteAudioProject(id),
@@ -199,6 +214,8 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const handleOpenProject = (project: AudioProjectItem) => {
     setActiveProject(project);
     setSelectedProjectId(project.id);
+    localStorage.setItem('zenhub_active_audio_project_id', String(project.id));
+
     setAnalysisData({
       file_id: project.file_id,
       original_name: project.original_name,
@@ -210,7 +227,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     });
     setSegments(project.segments || []);
     setScriptText(project.script_text || '');
+    setSaveStatusText('saved');
     setDuration(project.duration);
+
     if (project.status === 'processed' && project.spaced_filename) {
       setProcessedResult({
         file_id: project.file_id,
@@ -238,6 +257,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     if (audioRef.current) {
       audioRef.current.pause();
     }
+    localStorage.removeItem('zenhub_active_audio_project_id');
     setActiveProject(null);
     setSelectedProjectId(null);
     setAnalysisData(null);
@@ -246,6 +266,29 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setIsPlaying(false);
     setCurrentTime(0);
     refetchProjects();
+  };
+
+  // Debounced Autosave of Reference Script directly to SQLite Database
+  const handleScriptTextChange = (newText: string) => {
+    setScriptText(newText);
+    const projId = activeProject?.id;
+    if (!projId) return;
+
+    setSaveStatusText('saving');
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current);
+    }
+
+    autosaveTimeoutRef.current = setTimeout(async () => {
+      try {
+        await api.updateProjectScript(projId, newText);
+        setSaveStatusText('saved');
+        queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+      } catch (err) {
+        console.warn('Database autosave error:', err);
+        setSaveStatusText('idle');
+      }
+    }, 600);
   };
 
   // Align Pasted Reference Script with Audio Timestamps & Pauses
@@ -267,6 +310,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       const res = await api.alignReferenceScript(fileId, scriptText);
       setAnalysisData(res);
       setSegments(res.segments);
+      setSaveStatusText('saved');
       queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
     } catch (err: any) {
       console.error('Script alignment error:', err);
@@ -424,7 +468,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               Audio Lab & Meditation Pacing Studio
             </h2>
             <p className="text-xs text-stone-500 dark:text-stone-400">
-              Upload voiceovers to your inbox, view word-for-word transcriptions & reference scripts, and master pauses.
+              Upload voiceovers, view word-for-word transcriptions & reference scripts, and master pauses.
             </p>
           </div>
         </div>
@@ -490,7 +534,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         </div>
       )}
 
-      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY (Shown when viewing inbox or browsing files) */}
+      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY */}
       {!analysisData && (
         <div className="flex flex-col gap-4 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs transition-colors">
           <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -844,12 +888,24 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
                     Written Reference Script
                   </span>
+
+                  {/* SQLite Database Autosave Badge */}
+                  {saveStatusText === 'saving' && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Saving to DB...
+                    </span>
+                  )}
+                  {saveStatusText === 'saved' && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                      <CheckCheck className="w-3 h-3" /> Saved in Database
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setScriptText(SAMPLE_SCRIPT_WITH_TAGS)}
+                    onClick={() => handleScriptTextChange(SAMPLE_SCRIPT_WITH_TAGS)}
                     className="text-[11px] text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer"
                   >
                     Insert Sample
@@ -897,7 +953,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               {/* Full-size comfortable script editor */}
               <textarea
                 value={scriptText}
-                onChange={(e) => setScriptText(e.target.value)}
+                onChange={(e) => handleScriptTextChange(e.target.value)}
                 placeholder="Paste your written meditation script here with (pause), (long pause), or (15s) tags..."
                 rows={22}
                 className="w-full p-4 rounded-2xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-y"

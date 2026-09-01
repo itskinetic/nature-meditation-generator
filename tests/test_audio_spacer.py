@@ -206,3 +206,37 @@ def test_align_script_with_transcript_and_api(tmp_path):
     assert align_data["segments"][2]["pause_duration"] == 12.0
 
 
+def test_database_autosave_script_endpoint(tmp_path):
+    wav = tmp_path / "autosave_test.wav"
+    create_test_sine_wav(wav, duration_sec=2.0)
+
+    with open(wav, "rb") as f:
+        res = client.post(
+            "/api/audio/upload",
+            files={"file": ("autosave_test.wav", f, "audio/wav")}
+        )
+    assert res.status_code == 200
+    file_id = res.json()["file_id"]
+
+    # Get project ID
+    list_res = client.get("/api/audio/projects")
+    assert list_res.status_code == 200
+    projects = list_res.json()["projects"]
+    proj = next(p for p in projects if p["file_id"] == file_id)
+    proj_id = proj["id"]
+
+    # Autosave new script to database
+    patch_res = client.patch(
+        f"/api/audio/projects/{proj_id}/script",
+        json={"script_text": "Live autosaved meditation script directly in SQLite."}
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["status"] == "saved"
+
+    # Reload from DB (simulating opening on another device)
+    get_res = client.get(f"/api/audio/projects/{proj_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["script_text"] == "Live autosaved meditation script directly in SQLite."
+
+
+

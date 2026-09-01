@@ -1468,6 +1468,33 @@ def get_audio_project(project_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.patch("/audio/projects/{project_id}/script")
+def update_project_script(
+    project_id: int,
+    payload: Dict[str, Any] = Body(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Autosaves updated reference script text directly to SQLite database for cross-device persistence.
+    """
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    new_script = payload.get("script_text", "")
+    p.script_text = new_script
+    p.updated_at = datetime.datetime.utcnow()
+    db.commit()
+    db.refresh(p)
+
+    return {
+        "status": "saved",
+        "id": p.id,
+        "script_text": p.script_text,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None
+    }
+
+
 @router.delete("/audio/projects/{project_id}")
 def delete_audio_project(project_id: int, db: Session = Depends(get_db)):
     """
@@ -1490,6 +1517,7 @@ def delete_audio_project(project_id: int, db: Session = Depends(get_db)):
     db.delete(p)
     db.commit()
     return {"status": "deleted", "id": project_id}
+
 
 
 @router.post("/audio/upload", response_model=AudioAnalysisResponse)
