@@ -1709,14 +1709,27 @@ async def transcribe_audio_file(
     if not req.file_id:
         raise HTTPException(status_code=400, detail="file_id is required")
 
+    db_proj = db.query(AudioProject).filter(AudioProject.file_id == req.file_id).first()
+
     wav_path = settings.AUDIO_DIR / f"{req.file_id}_norm.wav"
+    if not wav_path.exists() and db_proj and db_proj.filename:
+        alt_path = settings.AUDIO_DIR / db_proj.filename
+        if alt_path.exists():
+            wav_path = alt_path
+    if not wav_path.exists():
+        matches = list(settings.AUDIO_DIR.glob(f"{req.file_id}*"))
+        if matches:
+            wav_path = matches[0]
     if not wav_path.exists():
         raise HTTPException(status_code=404, detail=f"Audio file {req.file_id} not found")
 
-    db_proj = db.query(AudioProject).filter(AudioProject.file_id == req.file_id).first()
-
     # Transcribe via Gemini
     transcriptions = await audio_spacer_service.transcribe_audio(wav_path)
+    if not transcriptions:
+        raise HTTPException(
+            status_code=500,
+            detail="Gemini AI transcription did not return phrases. Please verify your API key/quota and retry."
+        )
 
     existing_silences = json.loads(db_proj.silence_intervals_json) if (db_proj and db_proj.silence_intervals_json) else []
     if not existing_silences:

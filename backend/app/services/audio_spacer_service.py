@@ -225,7 +225,14 @@ class AudioSpacerService:
         except Exception:
             total_duration = 300.0
 
-        candidate_models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]
+        candidate_models = [
+            "gemini-flash-lite-latest",
+            "gemini-3.1-flash-lite",
+            "gemini-3-flash-preview",
+            "gemini-3.5-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-3.6-flash"
+        ]
         chunk_duration = 180.0  # 3-minute chunks for guaranteed sub-10MB payload and fast processing
         num_chunks = max(1, math.ceil(total_duration / chunk_duration))
         all_transcriptions = []
@@ -288,16 +295,43 @@ Do not wrap in markdown, return pure JSON."""
                                 raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
                                 raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
                                 raw_text = re.sub(r'\s*```$', '', raw_text)
-                                parsed = json.loads(raw_text)
-                                for item in parsed:
-                                    if "text" in item and len(item["text"].strip()) > 0:
-                                        all_transcriptions.append({
-                                            "start_seconds": round(float(item.get("start_seconds", 0.0)) + start_offset, 2),
-                                            "end_seconds": round(float(item.get("end_seconds", 0.0)) + start_offset, 2),
-                                            "text": item["text"].strip()
-                                        })
-                                chunk_success = True
-                                break
+
+                                match = re.search(r'(\[.*\]|\{.*\})', raw_text, re.DOTALL)
+                                raw_json = match.group(1) if match else raw_text
+
+                                try:
+                                    parsed = json.loads(raw_json)
+                                except Exception:
+                                    array_match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
+                                    if array_match:
+                                        parsed = json.loads(array_match.group(0))
+                                    else:
+                                        continue
+
+                                if isinstance(parsed, dict):
+                                    for k in ["phrases", "segments", "transcriptions", "transcript", "items", "results"]:
+                                        if k in parsed and isinstance(parsed[k], list):
+                                            parsed = parsed[k]
+                                            break
+
+                                chunk_items = []
+                                if isinstance(parsed, list):
+                                    for item in parsed:
+                                        if isinstance(item, dict):
+                                            txt = str(item.get("text") or item.get("phrase") or item.get("transcript") or "").strip()
+                                            if txt:
+                                                start_val = item.get("start_seconds") or item.get("start") or item.get("startTime") or item.get("start_time") or 0.0
+                                                end_val = item.get("end_seconds") or item.get("end") or item.get("endTime") or item.get("end_time") or (float(start_val) + 2.0)
+                                                chunk_items.append({
+                                                    "start_seconds": round(float(start_val) + start_offset, 2),
+                                                    "end_seconds": round(float(end_val) + start_offset, 2),
+                                                    "text": txt
+                                                })
+
+                                if chunk_items:
+                                    all_transcriptions.extend(chunk_items)
+                                    chunk_success = True
+                                    break
                             else:
                                 logger.warning(f"Model {model_name} status {resp.status_code}: {resp.text[:100]}")
                         except Exception as ex:
