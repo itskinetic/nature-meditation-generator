@@ -251,20 +251,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setCurrentTime(0);
     setIsPlaying(false);
     setErrorMessage(null);
-
-    // If opening an older project that has "Spoken Phrase" placeholders, automatically transcribe now
-    const hasPlaceholders = (project.segments || []).some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section'));
-    if (hasPlaceholders && project.file_id) {
-      setIsTranscribing(true);
-      api.transcribeAudio(project.file_id)
-        .then((res) => {
-          setAnalysisData(res);
-          setSegments(res.segments);
-          queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
-        })
-        .catch((e) => console.warn('Auto-transcribe on project open error:', e))
-        .finally(() => setIsTranscribing(false));
-    }
   };
 
   // Close editor and return to Inbox view
@@ -1012,25 +998,43 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
                 {/* Search / Filter box & AI Transcribe Button */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={handleTranscribeAudio}
-                    disabled={isTranscribing}
-                    className="h-8 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 hover:text-stone-950 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-amber-500/30"
-                    title="Transcribe speech audio into exact spoken phrases with Gemini AI"
-                  >
-                    {isTranscribing ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Transcribing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-current" />
-                        <span>✨ AI Transcribe Speech</span>
-                      </>
-                    )}
-                  </button>
+                  {segments.length > 0 && !segments.some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section')) ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-1">
+                        <CheckCheck className="w-3.5 h-3.5" /> Saved in Database
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleTranscribeAudio}
+                        disabled={isTranscribing}
+                        className="h-8 px-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                        title="Re-run AI speech transcription"
+                      >
+                        {isTranscribing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        <span>Re-Transcribe</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleTranscribeAudio}
+                      disabled={isTranscribing}
+                      className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      title="Transcribe speech audio into exact spoken phrases with Gemini AI"
+                    >
+                      {isTranscribing ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Transcribing Audio...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 fill-current" />
+                          <span>✨ AI Transcribe Speech</span>
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
