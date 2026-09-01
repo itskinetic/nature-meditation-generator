@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Upload,
@@ -389,13 +389,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   };
 
-  const handleSeek = (seekTime: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = seekTime;
-    setCurrentTime(seekTime);
-  };
-
   // Pre-calculate cumulative spaced time ranges for each segment when listening to spaced audio
   const spacedSegments = useMemo(() => {
     let currentSpacedTime = 0;
@@ -411,6 +404,57 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       };
     });
   }, [segments]);
+
+  // Unified segment synchronization helper for both playback timeupdate and scrubbing/seeking
+  const syncActiveSegment = useCallback(
+    (t: number) => {
+      if (segments.length === 0) return;
+
+      if (activeAudioSource === 'original') {
+        // Find the segment that covers time t
+        let activeSeg = segments.find((s) => t >= s.start_time && t < s.end_time);
+        if (!activeSeg) {
+          // If in silence gap between phrases, stay on the phrase that just finished
+          const nextSeg = segments.find((s) => s.start_time > t);
+          if (nextSeg && nextSeg.index > 0) {
+            activeSeg = segments[nextSeg.index - 1];
+          } else if (!nextSeg && segments.length > 0) {
+            activeSeg = segments[segments.length - 1];
+          } else if (segments.length > 0) {
+            activeSeg = segments[0];
+          }
+        }
+        if (activeSeg && activeSeg.id !== activeSegmentId) {
+          setActiveSegmentId(activeSeg.id);
+        }
+      } else {
+        // Spaced master playback
+        let activeSeg = spacedSegments.find((s) => t >= s.spaced_start_time && t < s.spaced_end_time + (s.pause_duration || 0));
+        if (!activeSeg) {
+          const nextSeg = spacedSegments.find((s) => s.spaced_start_time > t);
+          if (nextSeg && nextSeg.index > 0) {
+            activeSeg = spacedSegments[nextSeg.index - 1];
+          } else if (!nextSeg && spacedSegments.length > 0) {
+            activeSeg = spacedSegments[spacedSegments.length - 1];
+          } else if (spacedSegments.length > 0) {
+            activeSeg = spacedSegments[0];
+          }
+        }
+        if (activeSeg && activeSeg.id !== activeSegmentId) {
+          setActiveSegmentId(activeSeg.id);
+        }
+      }
+    },
+    [segments, spacedSegments, activeAudioSource, activeSegmentId]
+  );
+
+  const handleSeek = (seekTime: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = seekTime;
+    setCurrentTime(seekTime);
+    syncActiveSegment(seekTime);
+  };
 
   // Jump to specific segment start & play
   const handleJumpToSegment = (seg: AudioSegment) => {
@@ -438,48 +482,31 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     const t = audio.currentTime;
     setCurrentTime(t);
-
-    if (activeAudioSource === 'original') {
-      let activeSeg = segments.find((s) => t >= s.start_time && t <= s.end_time);
-      if (!activeSeg) {
-        // Natural pause between phrases: stay on the phrase that just finished
-        activeSeg = [...segments].reverse().find((s) => t >= s.start_time);
-      }
-      if (activeSeg && activeSeg.id !== activeSegmentId) {
-        setActiveSegmentId(activeSeg.id);
-      }
-    } else {
-      // Spaced master playback
-      let activeSeg = spacedSegments.find((s) => t >= s.spaced_start_time && t <= s.spaced_end_time + (s.pause_duration || 0));
-      if (!activeSeg) {
-        activeSeg = [...spacedSegments].reverse().find((s) => t >= s.spaced_start_time);
-      }
-      if (activeSeg && activeSeg.id !== activeSegmentId) {
-        setActiveSegmentId(activeSeg.id);
-      }
-    }
+    syncActiveSegment(t);
   };
 
-  // Auto-scroll the teleprompter script view to keep active segment centered without cutting off
+  // Auto-scroll the teleprompter script view to keep active segment comfortably in view without cutting off
   useEffect(() => {
-    if (!autoScrollEnabled || !isPlaying || !activeSegmentId || !activeCardRef.current || !teleprompterRef.current) {
+    if (!autoScrollEnabled || !isPlaying || !activeSegmentId || !teleprompterRef.current) {
       return;
     }
 
-    const card = activeCardRef.current;
     const container = teleprompterRef.current;
+    const cardEl = container.querySelector(`[data-segment-id="${activeSegmentId}"]`) as HTMLElement | null;
+    if (!cardEl) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const cardRect = card.getBoundingClientRect();
+    const cardTop = cardEl.offsetTop;
+    const cardHeight = cardEl.offsetHeight;
+    const containerHeight = container.clientHeight;
+    const currentScrollTop = container.scrollTop;
 
-    // Check if card is getting out of the comfortable viewing zone
-    const isCardOutOfComfortZone =
-      cardRect.top < containerRect.top + 60 || cardRect.bottom > containerRect.bottom - 60;
+    const cardVisibleTop = cardTop - currentScrollTop;
+    const cardVisibleBottom = cardVisibleTop + cardHeight;
+    const margin = 70;
 
-    if (isCardOutOfComfortZone) {
-      const relativeTop = cardRect.top - containerRect.top + container.scrollTop;
-      const targetScrollTop = relativeTop - container.clientHeight / 2 + card.clientHeight / 2;
-
+    // Only scroll when card moves outside comfortable margin bounds
+    if (cardVisibleTop < margin || cardVisibleBottom > containerHeight - margin) {
+      const targetScrollTop = cardTop - containerHeight / 2 + cardHeight / 2;
       container.scrollTo({
         top: Math.max(0, targetScrollTop),
         behavior: 'smooth',
@@ -1264,6 +1291,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   return (
                     <div
                       key={seg.id}
+                      data-segment-id={seg.id}
                       ref={isActive ? activeCardRef : null}
                       className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all ${
                         isActive
