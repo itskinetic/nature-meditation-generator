@@ -128,6 +128,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   // Search & Filter state
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
+  const [mobileTab, setMobileTab] = useState<'phrases' | 'script'>('phrases');
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -641,69 +642,69 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       />
 
       {/* Header Banner */}
-      <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-stone-200/80 dark:border-stone-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-stone-200/80 dark:border-stone-800/80">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-            <Sliders className="w-5 h-5" />
+          <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0">
+            <Sliders className="w-4 h-4 md:w-5 md:h-5" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
-              Audio Lab & Meditation Pacing Studio
+            <h2 className="text-base md:text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
+              Audio Lab & Meditation Studio
             </h2>
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              Upload voiceovers, view word-for-word transcriptions & reference scripts, and master pauses.
+            <p className="text-[11px] md:text-xs text-stone-500 dark:text-stone-400 line-clamp-1">
+              Upload voiceovers, view word-for-word transcripts, and master pauses.
             </p>
           </div>
         </div>
 
         {/* Global Preset Shortcuts when an audio is open in editor */}
         {analysisData && (
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full sm:w-auto shrink-0">
             <button
               type="button"
               onClick={handleCloseEditor}
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-stone-200/70 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 flex items-center gap-1.5 transition-all cursor-pointer mr-2"
+              className="px-2.5 py-1 text-xs font-semibold rounded-xl bg-stone-200/70 dark:bg-stone-800 hover:bg-stone-300 dark:hover:bg-stone-700 text-stone-800 dark:text-stone-200 flex items-center gap-1 transition-all cursor-pointer shrink-0"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to Inbox</span>
+              <ArrowLeft className="w-3 h-3" />
+              <span>Inbox</span>
             </button>
-            <span className="text-xs font-medium text-stone-500 dark:text-stone-400 mr-1">Presets:</span>
+            <span className="text-[11px] font-medium text-stone-400 dark:text-stone-500 shrink-0">Presets:</span>
             <button
               type="button"
               onClick={() => applyPresetToAll(5.0)}
-              className="px-2.5 py-1 text-xs rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer"
+              className="px-2 py-1 text-[11px] rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer shrink-0"
             >
               Gentle (5s)
             </button>
             <button
               type="button"
               onClick={() => applyPresetToAll(8.0)}
-              className="px-2.5 py-1 text-xs rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer"
+              className="px-2 py-1 text-[11px] rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer shrink-0"
             >
               Standard (8s)
             </button>
             <button
               type="button"
               onClick={() => applyPresetToAll(15.0)}
-              className="px-2.5 py-1 text-xs rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer"
+              className="px-2 py-1 text-[11px] rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-200 dark:border-stone-700 transition-all cursor-pointer shrink-0"
             >
               Deep Rest (15s)
             </button>
             <button
               type="button"
               onClick={() => adjustAllPauses(1.0)}
-              className="px-2 py-1 text-xs rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 flex items-center gap-0.5 cursor-pointer"
+              className="px-1.5 py-1 text-[11px] rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 flex items-center gap-0.5 cursor-pointer shrink-0"
               title="Add 1s to all pauses"
             >
-              <Plus className="w-3 h-3" /> 1s
+              <Plus className="w-2.5 h-2.5" /> 1s
             </button>
             <button
               type="button"
               onClick={() => adjustAllPauses(-1.0)}
-              className="px-2 py-1 text-xs rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 flex items-center gap-0.5 cursor-pointer"
+              className="px-1.5 py-1 text-[11px] rounded-lg font-medium bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 border border-stone-200 dark:border-stone-700 flex items-center gap-0.5 cursor-pointer shrink-0"
               title="Subtract 1s from all pauses"
             >
-              <Minus className="w-3 h-3" /> 1s
+              <Minus className="w-2.5 h-2.5" /> 1s
             </button>
           </div>
         )}
@@ -916,13 +917,12 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
       {/* OPTION B: FULL-WIDTH STUDIO WORKSPACE (When an audio project is opened) */}
       {analysisData && (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4">
           {/* 1. TOP HEADER CONTROL DECK: Source Selector, Duration Metrics & Master Export Toolbar */}
-          <div className="flex items-center justify-between gap-4 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm flex-wrap">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 md:p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-xs">
             {/* Audio Source Switcher */}
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Audio Deck:</span>
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => {
@@ -930,13 +930,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     setCurrentTime(0);
                     setIsPlaying(false);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`py-1 px-2.5 rounded-lg text-xs font-semibold text-center transition-all cursor-pointer ${
                     activeAudioSource === 'original'
                       ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  Raw Voiceover ({formatTime(analysisData.duration)})
+                  Raw ({formatTime(analysisData.duration)})
                 </button>
                 <button
                   type="button"
@@ -949,53 +949,50 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       handleProcessSpacing();
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`py-1 px-2.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeAudioSource === 'spaced'
                       ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3 h-3" />
                   <span>
                     {processedResult || activeProject?.spaced_duration
-                      ? `Paced Master (${formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || 0)})`
-                      : `Paced Preview (${formatTime(calculatedEstimatedDuration)})`}
+                      ? `Paced (${formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || 0)})`
+                      : `Paced (${formatTime(calculatedEstimatedDuration)})`}
                   </span>
                 </button>
               </div>
 
               {/* Duration metrics */}
-              <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
-                <span className="text-stone-400">|</span>
-                <span className="text-stone-500">Raw: {formatTime(analysisData.duration)}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+              <div className="flex items-center gap-1.5 text-[11px] md:text-xs font-mono text-stone-500">
+                <span className="hidden sm:inline text-stone-400">|</span>
+                <span>Raw: {formatTime(analysisData.duration)}</span>
+                <ChevronRight className="w-3 h-3 text-stone-400" />
                 <span className="font-bold text-amber-600 dark:text-amber-400">
                   Master: {formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration)}
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold text-[11px]">
-                  +{formatTime((processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration) - analysisData.duration)}
                 </span>
               </div>
             </div>
 
             {/* Master Export Actions */}
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full md:w-auto">
               {/* Render Spaced Master */}
               <button
                 type="button"
                 onClick={handleProcessSpacing}
                 disabled={isProcessing}
-                className="h-9 px-3.5 rounded-xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                className="h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
               >
                 {isProcessing ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <RefreshCw className="w-3 h-3 animate-spin" />
                     <span>Rendering...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
-                    <span>Render Spaced Master</span>
+                    <Sparkles className="w-3 h-3 text-amber-400 dark:text-amber-600" />
+                    <span>Render Master</span>
                   </>
                 )}
               </button>
@@ -1010,13 +1007,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     handleProcessSpacing();
                   }
                 }}
-                className={`h-9 px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                className={`h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
                   processedResult || activeProject?.spaced_filename
                     ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100'
                     : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
                 }`}
               >
-                <Download className="w-3.5 h-3.5" />
+                <Download className="w-3 h-3" />
                 <span>Download MP3</span>
               </a>
 
@@ -1037,7 +1034,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     onUseInStudio(activeFile, durSec, scriptText);
                   }
                 }}
-                className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                className="col-span-2 sm:col-span-1 h-8 md:h-9 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
               >
                 <Film className="w-3.5 h-3.5 text-stone-950" />
                 <span>Send to Video Studio</span>
@@ -1060,27 +1057,55 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
             />
           </div>
 
-          {/* 3. BOTTOM SECTION: TRUE 50/50 SIDE-BY-SIDE STUDIO WORKSPACE */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Mobile Segmented Tab Switcher (< lg) */}
+          <div className="flex lg:hidden items-center p-1 rounded-2xl bg-stone-200/60 dark:bg-stone-800/80 border border-stone-300/60 dark:border-stone-700/60 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setMobileTab('phrases')}
+              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                mobileTab === 'phrases'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Spoken Phrases ({filteredSegments.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('script')}
+              className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                mobileTab === 'script'
+                  ? 'bg-amber-500 text-stone-950 shadow-xs'
+                  : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Reference Script</span>
+            </button>
+          </div>
+
+          {/* 3. BOTTOM SECTION: 50/50 ON DESKTOP, TABBED ON MOBILE */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
             {/* LEFT 50%: WRITTEN REFERENCE SCRIPT STUDIO */}
-            <div className="flex flex-col gap-3 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className={`flex flex-col gap-3 p-3 md:p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm ${mobileTab === 'script' ? 'flex' : 'hidden lg:flex'}`}>
               {/* Sticky Top Toolbar for Script Editor */}
-              <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800 flex-wrap">
+              <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-stone-200 dark:border-stone-800 flex-wrap">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-amber-500" />
                   <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
-                    Written Reference Script
+                    Reference Script
                   </span>
 
                   {/* SQLite Database Autosave Badge */}
                   {saveStatusText === 'saving' && (
                     <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
-                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Saving to DB...
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Saving...
                     </span>
                   )}
                   {saveStatusText === 'saved' && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-                      <CheckCheck className="w-3 h-3" /> Saved in Database
+                      <CheckCheck className="w-3 h-3" /> Saved
                     </span>
                   )}
                 </div>
@@ -1091,7 +1116,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     onClick={() => handleScriptTextChange(SAMPLE_SCRIPT_WITH_TAGS)}
                     className="text-[11px] text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer"
                   >
-                    Insert Sample
+                    Sample
                   </button>
 
                   {/* Prominent Sticky Align Button */}
@@ -1099,17 +1124,17 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     type="button"
                     onClick={handleAlignScript}
                     disabled={isAligningScript}
-                    className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    className="h-7 md:h-8 px-2.5 md:px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-[11px] md:text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                   >
                     {isAligningScript ? (
                       <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <RefreshCw className="w-3 h-3 animate-spin" />
                         <span>Aligning...</span>
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>✨ Align Script & Pause Tags with Audio</span>
+                        <Sparkles className="w-3 h-3" />
+                        <span>Align Tags</span>
                       </>
                     )}
                   </button>
@@ -1117,18 +1142,18 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               </div>
 
               {/* Tag guide helper pills */}
-              <div className="flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400 flex-wrap">
-                <span>Pause notation:</span>
-                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+              <div className="flex items-center gap-1 text-[10px] text-stone-500 dark:text-stone-400 overflow-x-auto no-scrollbar py-0.5">
+                <span className="shrink-0">Tags:</span>
+                <code className="px-1 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-bold shrink-0">
                   (pause)
                 </code>
-                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                <code className="px-1 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-bold shrink-0">
                   (short pause)
                 </code>
-                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                <code className="px-1 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-bold shrink-0">
                   (long pause)
                 </code>
-                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                <code className="px-1 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-bold shrink-0">
                   (15s pause)
                 </code>
               </div>
@@ -1138,37 +1163,36 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 value={scriptText}
                 onChange={(e) => handleScriptTextChange(e.target.value)}
                 placeholder="Paste your written meditation script here with (pause), (long pause), or (15s) tags..."
-                rows={22}
-                className="w-full p-4 rounded-2xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-y"
+                rows={18}
+                className="w-full p-3 rounded-2xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-y"
               />
             </div>
 
             {/* RIGHT 50%: SPOKEN PHRASE TELEPROMPTER & PAUSE EDITOR */}
-            <div className="flex flex-col gap-3 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm">
+            <div className={`flex flex-col gap-3 p-3 md:p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm ${mobileTab === 'phrases' ? 'flex' : 'hidden lg:flex'}`}>
               {/* Sticky Top Toolbar for Phrases & Search */}
-              <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
-                    Spoken Audio Phrases
-                  </span>
-                </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-stone-200 dark:border-stone-800">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
+                      Spoken Phrases
+                    </span>
+                  </div>
 
-                {/* Search / Filter box & AI Transcribe Button */}
-                <div className="flex items-center gap-2 flex-wrap">
                   {segments.length > 0 && !segments.some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section')) ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-xs font-bold flex items-center gap-1">
-                        <CheckCheck className="w-3.5 h-3.5" /> Saved in Database
+                    <div className="flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-0.5">
+                        <CheckCheck className="w-3 h-3" /> Saved
                       </span>
                       <button
                         type="button"
                         onClick={handleTranscribeAudio}
                         disabled={isTranscribing}
-                        className="h-8 px-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                        className="h-6 px-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer"
                         title="Re-run AI speech transcription"
                       >
-                        {isTranscribing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        {isTranscribing ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
                         <span>Re-Transcribe</span>
                       </button>
                     </div>
@@ -1177,31 +1201,34 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       type="button"
                       onClick={handleTranscribeAudio}
                       disabled={isTranscribing}
-                      className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                      className="h-7 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
                       title="Transcribe speech audio into exact spoken phrases with Gemini AI"
                     >
                       {isTranscribing ? (
                         <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Transcribing Audio...</span>
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>Transcribing...</span>
                         </>
                       ) : (
                         <>
-                          <Sparkles className="w-3.5 h-3.5 fill-current" />
-                          <span>✨ AI Transcribe Speech</span>
+                          <Sparkles className="w-3 h-3 fill-current" />
+                          <span>AI Transcribe</span>
                         </>
                       )}
                     </button>
                   )}
+                </div>
 
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
+                {/* Search / Filter box & Auto-scroll Toggle */}
+                <div className="flex items-center gap-1.5 flex-nowrap">
+                  <div className="relative flex-1 sm:w-44">
+                    <Search className="w-3 h-3 absolute left-2.5 top-2.5 text-stone-400" />
                     <input
                       type="text"
                       value={searchFilter}
                       onChange={(e) => setSearchFilter(e.target.value)}
                       placeholder="Search words..."
-                      className="h-8 pl-8 pr-3 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full h-7 pl-7 pr-2 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
 
@@ -1209,27 +1236,27 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
-                    className={`h-8 px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                    className={`h-7 px-2 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 ${
                       autoScrollEnabled
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 shadow-2xs'
                         : 'bg-stone-100 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
                     }`}
                     title={autoScrollEnabled ? 'Auto-scroll is ON during playback' : 'Auto-scroll is OFF'}
                   >
-                    <span>Auto-scroll</span>
+                    <span>Scroll</span>
                     <span className={`w-1.5 h-1.5 rounded-full ${autoScrollEnabled ? 'bg-amber-500 animate-pulse' : 'bg-stone-400'}`} />
                   </button>
 
-                  <span className="text-[11px] font-mono text-stone-400 shrink-0">
-                    {filteredSegments.length} of {segments.length}
+                  <span className="text-[10px] font-mono text-stone-400 shrink-0">
+                    {filteredSegments.length}
                   </span>
                 </div>
               </div>
 
-              {/* Scrollable list of wide phrase cards */}
+              {/* Scrollable list of ultra-compact phrase cards */}
               <div
                 ref={teleprompterRef}
-                className="flex flex-col gap-3 max-h-[620px] overflow-y-auto p-1 pr-2 relative"
+                className="flex flex-col gap-2.5 max-h-[640px] overflow-y-auto p-0.5 pr-1.5 relative"
               >
                 {filteredSegments.map((seg) => {
                   const isActive = seg.id === activeSegmentId;
@@ -1238,33 +1265,33 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     <div
                       key={seg.id}
                       ref={isActive ? activeCardRef : null}
-                      className={`flex flex-col gap-2.5 p-4 rounded-2xl border transition-all ${
+                      className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all ${
                         isActive
-                          ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-500/30'
+                          ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 shadow-sm ring-2 ring-amber-500/30'
                           : 'bg-stone-50 dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-700'
                       }`}
                     >
                       {/* Phrase Header: Timecode & Jump Play */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-between gap-1.5 flex-nowrap">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <button
                             type="button"
                             onClick={() => handleJumpToSegment(seg)}
-                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                               isActive && isPlaying
                                 ? 'bg-amber-500 text-stone-950 animate-pulse shadow-xs'
                                 : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-amber-200 dark:hover:bg-amber-950/80'
                             }`}
                             title="Play this spoken phrase"
                           >
-                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                            <Play className="w-3 h-3 fill-current ml-0.5" />
                           </button>
-                          <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-300">
+                          <span className="font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
                             {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1 shrink-0">
                           {/* Split Phrase Button */}
                           <button
                             type="button"
@@ -1272,11 +1299,11 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               e.stopPropagation();
                               handleSplitSegment(seg.index);
                             }}
-                            className="h-6 px-2 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80 shadow-2xs"
-                            title="Split this phrase into two cards (Add Enter)"
+                            className="h-5 px-1.5 rounded-md bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-0.5 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80"
+                            title="Split phrase (Add Enter)"
                           >
                             <Scissors className="w-2.5 h-2.5" />
-                            <span>Split</span>
+                            <span className="hidden sm:inline">Split</span>
                           </button>
 
                           {/* Merge with Next Button */}
@@ -1287,26 +1314,26 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                                 e.stopPropagation();
                                 handleMergeWithNext(seg.index);
                               }}
-                              className="h-6 px-2 rounded-lg bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[11px] font-medium flex items-center gap-1 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80 shadow-2xs"
-                              title="Merge with next phrase (Delete Enter)"
+                              className="h-5 px-1.5 rounded-md bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-0.5 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80"
+                              title="Merge with next (Delete Enter)"
                             >
                               <ArrowDownToLine className="w-2.5 h-2.5" />
-                              <span>Merge ↓</span>
+                              <span className="hidden sm:inline">Merge</span>
                             </button>
                           )}
 
-                          <span className="text-[10px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-2 py-0.5 rounded-full">
-                            Phrase #{seg.index + 1}
+                          <span className="text-[9px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-1.5 py-0.5 rounded-full">
+                            #{seg.index + 1}
                           </span>
                         </div>
                       </div>
 
                       {/* Phrase Text (Editable & Clickable to Play) */}
                       <textarea
-                        rows={2}
+                        rows={1}
                         value={seg.text}
                         onChange={(e) => updateSegmentText(seg.id, e.target.value)}
-                        className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1.5 transition-colors ${
+                        className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1 transition-colors ${
                           isActive
                             ? 'text-amber-950 dark:text-amber-100 font-bold bg-amber-500/10'
                             : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-900/60'
@@ -1314,28 +1341,29 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         title="Click to edit phrase text directly"
                       />
 
-                      {/* Pause Duration Controls on a Clean Single Row */}
-                      <div className="flex items-center justify-between gap-3 pt-2 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-wrap">
-                        <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
-                          Trailing Pause:
+                      {/* Pause Duration Controls on a Clean Single Non-wrapping Row */}
+                      <div className="flex items-center justify-between gap-1 pt-1.5 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-nowrap">
+                        <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 shrink-0">
+                          Pause:
                         </span>
 
-                        {/* Single-row Pause Preset Selector */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                        <div className="flex items-center gap-1 flex-nowrap shrink-0">
                           {[
-                            { label: '0s', val: 0.0 },
-                            { label: '4s', val: 4.0 },
-                            { label: '6s', val: 6.0 },
-                            { label: '10s', val: 10.0 },
-                            { label: '15s', val: 15.0 },
+                            { label: '0s', val: 0.0, hideOnMobile: false },
+                            { label: '4s', val: 4.0, hideOnMobile: true },
+                            { label: '6s', val: 6.0, hideOnMobile: false },
+                            { label: '10s', val: 10.0, hideOnMobile: true },
+                            { label: '15s', val: 15.0, hideOnMobile: false },
                           ].map((p) => (
                             <button
                               key={p.label}
                               type="button"
                               onClick={() => updateSegmentPause(seg.id, p.val)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
+                              className={`px-1.5 py-0.5 rounded-md text-[11px] font-mono font-medium transition-all cursor-pointer ${
+                                p.hideOnMobile ? 'hidden sm:inline-block' : 'inline-block'
+                              } ${
                                 Math.abs(seg.pause_duration - p.val) < 0.1
-                                  ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                                  ? 'bg-amber-500 text-stone-950 font-bold shadow-2xs'
                                   : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
                               }`}
                             >
@@ -1344,16 +1372,16 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           ))}
 
                           {/* Step Adjuster Controls (< and >) */}
-                          <div className="flex items-center gap-0.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 p-0.5 shadow-2xs">
+                          <div className="flex items-center gap-0.5 rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 p-0.5 shadow-2xs ml-0.5">
                             <button
                               type="button"
                               onClick={() => updateSegmentPause(seg.id, Math.max(0, Math.round((seg.pause_duration - 0.5) * 10) / 10))}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
+                              className="w-5 h-5 rounded-md flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
                               title="Decrease pause by 0.5s"
                             >
-                              <ChevronLeft className="w-3.5 h-3.5" />
+                              <ChevronLeft className="w-3 h-3" />
                             </button>
-                            
+
                             <input
                               type="number"
                               step="0.5"
@@ -1361,20 +1389,20 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               max="60"
                               value={seg.pause_duration}
                               onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
-                              className="w-10 h-6 text-xs font-mono font-bold text-center bg-transparent border-0 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className="w-8 h-5 text-[11px] font-mono font-bold text-center bg-transparent border-0 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-0 p-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               title="Pause in seconds"
                             />
-                            
+
                             <button
                               type="button"
                               onClick={() => updateSegmentPause(seg.id, Math.round((seg.pause_duration + 0.5) * 10) / 10)}
-                              className="w-6 h-6 rounded-lg flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
+                              className="w-5 h-5 rounded-md flex items-center justify-center text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-700 transition-all cursor-pointer select-none"
                               title="Increase pause by 0.5s"
                             >
-                              <ChevronRight className="w-3.5 h-3.5" />
+                              <ChevronRight className="w-3 h-3" />
                             </button>
                           </div>
-                          <span className="text-xs text-stone-400 font-mono">s</span>
+                          <span className="text-[10px] text-stone-400 font-mono">s</span>
                         </div>
                       </div>
                     </div>
