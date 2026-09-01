@@ -104,6 +104,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [saveStatusText, setSaveStatusText] = useState<'saved' | 'saving' | 'idle'>('idle');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isAligningScript, setIsAligningScript] = useState<boolean>(false);
+  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -317,6 +318,30 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       setErrorMessage(err.message || 'Failed to align reference script.');
     } finally {
       setIsAligningScript(false);
+    }
+  };
+
+  // Directly transcribe speech audio using Gemini AI
+  const handleTranscribeAudio = async () => {
+    const fileId = analysisData?.file_id || activeProject?.file_id;
+    if (!fileId) {
+      setErrorMessage('Please load an audio file first.');
+      return;
+    }
+
+    setIsTranscribing(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await api.transcribeAudio(fileId);
+      setAnalysisData(res);
+      setSegments(res.segments);
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+    } catch (err: any) {
+      console.error('Speech transcription error:', err);
+      setErrorMessage(err.message || 'Speech transcription failed.');
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -971,8 +996,28 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   </span>
                 </div>
 
-                {/* Search / Filter box */}
-                <div className="flex items-center gap-2">
+                {/* Search / Filter box & AI Transcribe Button */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleTranscribeAudio}
+                    disabled={isTranscribing}
+                    className="h-8 px-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500 hover:text-stone-950 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border border-amber-500/30"
+                    title="Transcribe speech audio into exact spoken phrases with Gemini AI"
+                  >
+                    {isTranscribing ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Transcribing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-current" />
+                        <span>✨ AI Transcribe Speech</span>
+                      </>
+                    )}
+                  </button>
+
                   <div className="relative">
                     <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
                     <input

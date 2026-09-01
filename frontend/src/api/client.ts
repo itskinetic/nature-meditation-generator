@@ -392,4 +392,17 @@ export const api = {
     }
     return res.json();
   },
+
+  async transcribeAudio(fileId: string): Promise<AudioAnalysisResult> {
+    const res = await fetch(`${API_BASE}/audio/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ file_id: fileId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to transcribe audio' }));
+      throw new Error(err.detail || 'Failed to transcribe audio');
+    }
+    return res.json();
+  },
 };

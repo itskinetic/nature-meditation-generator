@@ -1668,6 +1668,60 @@ async def align_reference_script(
     )
 
 
+@router.post("/audio/transcribe", response_model=AudioAnalysisResponse)
+async def transcribe_audio_file(
+    req: AudioAnalysisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Directly triggers AI speech-to-text transcription on an existing audio file using Gemini AI,
+    updating the project phrase cards with the exact spoken words.
+    """
+    if not req.file_id:
+        raise HTTPException(status_code=400, detail="file_id is required")
+
+    wav_path = settings.AUDIO_DIR / f"{req.file_id}_norm.wav"
+    if not wav_path.exists():
+        raise HTTPException(status_code=404, detail=f"Audio file {req.file_id} not found")
+
+    db_proj = db.query(AudioProject).filter(AudioProject.file_id == req.file_id).first()
+
+    # Transcribe via Gemini
+    transcriptions = await audio_spacer_service.transcribe_audio(wav_path)
+
+    existing_silences = json.loads(db_proj.silence_intervals_json) if (db_proj and db_proj.silence_intervals_json) else []
+    if not existing_silences:
+        existing_silences = await audio_spacer_service.detect_silences(wav_path)
+
+    with wave.open(str(wav_path), 'rb') as wf:
+        total_duration = wf.getnframes() / wf.getframerate()
+
+    new_segments = audio_spacer_service.align_segments(
+        parsed_script=[],
+        silences=existing_silences,
+        total_duration=total_duration,
+        transcriptions=transcriptions
+    )
+
+    peaks = audio_spacer_service.extract_waveform_peaks(wav_path, num_peaks=800)
+
+    if db_proj:
+        db_proj.segments_json = json.dumps(new_segments)
+        db_proj.silence_intervals_json = json.dumps(existing_silences)
+        db.commit()
+
+    return AudioAnalysisResponse(
+        file_id=req.file_id,
+        original_name=f"{req.file_id}.wav",
+        duration=round(total_duration, 2),
+        waveform_peaks=peaks,
+        silence_intervals=[AudioSilenceIntervalSchema(**s) for s in existing_silences],
+        segments=[AudioSegmentSchema(**seg) for seg in new_segments],
+        audio_url=f"/api/audio/stream/{wav_path.name}"
+    )
+
+
+
 
 @router.post("/audio/process", response_model=AudioProcessResponse)
 async def process_spaced_audio(req: AudioProcessRequest, db: Session = Depends(get_db)):

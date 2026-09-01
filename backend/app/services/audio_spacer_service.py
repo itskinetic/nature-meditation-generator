@@ -211,18 +211,28 @@ class AudioSpacerService:
     async def transcribe_audio(self, audio_file_path: Path) -> List[Dict[str, Any]]:
         """
         Transcribes speech audio into timestamped spoken phrases using Gemini Audio API.
+        Compresses audio to 16kHz mono MP3 first to fit within API payload limits.
         """
         api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
         if not api_key or len(api_key.strip()) < 5:
             logger.info("No Gemini API key configured for audio transcription.")
             return []
 
+        compressed_mp3 = settings.CACHE_DIR / f"{audio_file_path.stem}_transcribe.mp3"
         try:
-            with open(audio_file_path, "rb") as f:
+            # Compress to lightweight 16kHz mono MP3 (~1-2MB for 7min voiceover)
+            cmd = [
+                self.ffmpeg_bin, "-y", "-i", str(audio_file_path),
+                "-ar", "16000", "-ac", "1", "-b:a", "32k",
+                str(compressed_mp3)
+            ]
+            await asyncio.to_thread(lambda: subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+            with open(compressed_mp3, "rb") as f:
                 audio_bytes = f.read()
 
             b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            mime = "audio/wav" if audio_file_path.suffix.lower() == ".wav" else "audio/mp3"
+            mime = "audio/mp3"
 
             prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
 Return ONLY a valid JSON array matching this exact schema:
@@ -249,11 +259,14 @@ Do not wrap in markdown or backticks, return pure JSON."""
                 }
             }
 
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=90.0) as client:
                 resp = await client.post(url, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
-                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                    # Clean markdown codeblocks if present
+                    raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
+                    raw_text = re.sub(r'\s*```$', '', raw_text)
                     parsed = json.loads(raw_text)
                     results = []
                     for item in parsed:
@@ -264,9 +277,17 @@ Do not wrap in markdown or backticks, return pure JSON."""
                                 "text": item["text"].strip()
                             })
                     return results
+                else:
+                    logger.warning(f"Gemini API returned status {resp.status_code}: {resp.text}")
         except Exception as e:
             logger.warning(f"Gemini speech transcription failed: {e}")
             return []
+        finally:
+            if compressed_mp3.exists():
+                try:
+                    compressed_mp3.unlink()
+                except Exception:
+                    pass
 
         return []
 
