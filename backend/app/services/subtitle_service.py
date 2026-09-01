@@ -174,7 +174,7 @@ Return ONLY valid JSON matching this schema:
   }
 ]
 """
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.api_key}"
                 payload = {
                     "contents": [{
                         "parts": [

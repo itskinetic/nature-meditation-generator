@@ -211,31 +211,28 @@ class AudioSpacerService:
     async def transcribe_audio(self, audio_file_path: Path) -> List[Dict[str, Any]]:
         """
         Transcribes speech audio into timestamped spoken phrases using Gemini Audio API.
-        Compresses audio to 16kHz mono MP3 first to fit within API payload limits.
+        Converts audio to 16kHz mono WAV and uses candidate models (gemini-3.5-flash, gemini-3.6-flash).
         """
         api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
         if not api_key or len(api_key.strip()) < 5:
             logger.info("No Gemini API key configured for audio transcription.")
             return []
 
-        compressed_mp3 = settings.CACHE_DIR / f"{audio_file_path.stem}_transcribe.mp3"
+        # Get audio duration
         try:
-            # Compress to lightweight 16kHz mono MP3 (~1-2MB for 7min voiceover)
-            cmd = [
-                self.ffmpeg_bin, "-y", "-i", str(audio_file_path),
-                "-ar", "16000", "-ac", "1", "-b:a", "32k",
-                str(compressed_mp3)
-            ]
-            await asyncio.to_thread(lambda: subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+            with wave.open(str(audio_file_path), 'rb') as wf:
+                total_duration = wf.getnframes() / wf.getframerate()
+        except Exception:
+            total_duration = 300.0
 
-            with open(compressed_mp3, "rb") as f:
-                audio_bytes = f.read()
+        candidate_models = ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-flash-latest"]
+        chunk_duration = 180.0  # 3-minute chunks for guaranteed sub-10MB payload and fast processing
+        num_chunks = max(1, math.ceil(total_duration / chunk_duration))
+        all_transcriptions = []
 
-            b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-            mime = "audio/mp3"
-
-            prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
-Return ONLY a valid JSON array matching this exact schema:
+        prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
+Return ONLY a valid JSON array of objects with keys start_seconds, end_seconds, text.
+Example:
 [
   {
     "start_seconds": 0.0,
@@ -243,53 +240,79 @@ Return ONLY a valid JSON array matching this exact schema:
     "text": "You feel it coming."
   }
 ]
-Do not wrap in markdown or backticks, return pure JSON."""
+Do not wrap in markdown, return pure JSON."""
 
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-            payload = {
-                "contents": [{
-                    "parts": [
-                        {"inline_data": {"mime_type": mime, "data": b64_audio}},
-                        {"text": prompt}
-                    ]
-                }],
-                "generationConfig": {
-                    "temperature": 0.1,
-                    "response_mime_type": "application/json"
+        for chunk_idx in range(num_chunks):
+            start_offset = chunk_idx * chunk_duration
+            chunk_wav = settings.CACHE_DIR / f"{audio_file_path.stem}_chunk_{chunk_idx}.wav"
+
+            try:
+                cmd = [
+                    self.ffmpeg_bin, "-y",
+                    "-ss", str(start_offset),
+                    "-t", str(chunk_duration),
+                    "-i", str(audio_file_path),
+                    "-ar", "16000", "-ac", "1",
+                    str(chunk_wav)
+                ]
+                await asyncio.to_thread(lambda: subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+
+                with open(chunk_wav, "rb") as f:
+                    audio_bytes = f.read()
+
+                if len(audio_bytes) < 1000:
+                    continue
+
+                b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"inline_data": {"mime_type": "audio/wav", "data": b64_audio}},
+                            {"text": prompt}
+                        ]
+                    }],
+                    "generationConfig": {
+                        "temperature": 0.1,
+                        "response_mime_type": "application/json"
+                    }
                 }
-            }
 
-            async with httpx.AsyncClient(timeout=90.0) as client:
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                    # Clean markdown codeblocks if present
-                    raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
-                    raw_text = re.sub(r'\s*```$', '', raw_text)
-                    parsed = json.loads(raw_text)
-                    results = []
-                    for item in parsed:
-                        if "text" in item and len(item["text"].strip()) > 0:
-                            results.append({
-                                "start_seconds": float(item.get("start_seconds", 0.0)),
-                                "end_seconds": float(item.get("end_seconds", 0.0)),
-                                "text": item["text"].strip()
-                            })
-                    return results
-                else:
-                    logger.warning(f"Gemini API returned status {resp.status_code}: {resp.text}")
-        except Exception as e:
-            logger.warning(f"Gemini speech transcription failed: {e}")
-            return []
-        finally:
-            if compressed_mp3.exists():
-                try:
-                    compressed_mp3.unlink()
-                except Exception:
-                    pass
+                chunk_success = False
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    for model_name in candidate_models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                        try:
+                            resp = await client.post(url, json=payload)
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                                raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
+                                raw_text = re.sub(r'\s*```$', '', raw_text)
+                                parsed = json.loads(raw_text)
+                                for item in parsed:
+                                    if "text" in item and len(item["text"].strip()) > 0:
+                                        all_transcriptions.append({
+                                            "start_seconds": round(float(item.get("start_seconds", 0.0)) + start_offset, 2),
+                                            "end_seconds": round(float(item.get("end_seconds", 0.0)) + start_offset, 2),
+                                            "text": item["text"].strip()
+                                        })
+                                chunk_success = True
+                                break
+                            else:
+                                logger.warning(f"Model {model_name} status {resp.status_code}: {resp.text[:100]}")
+                        except Exception as ex:
+                            logger.warning(f"Model {model_name} chunk {chunk_idx} error: {ex}")
 
-        return []
+            except Exception as e:
+                logger.warning(f"Error processing chunk {chunk_idx}: {e}")
+            finally:
+                if chunk_wav.exists():
+                    try:
+                        chunk_wav.unlink()
+                    except Exception:
+                        pass
+
+        return all_transcriptions
 
     def align_segments(
         self,
