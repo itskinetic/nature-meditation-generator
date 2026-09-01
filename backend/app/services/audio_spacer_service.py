@@ -430,36 +430,15 @@ Do not wrap in markdown or backticks, return pure JSON."""
         total_duration: float
     ) -> List[Dict[str, Any]]:
         """
-        Aligns a pasted reference script with existing audio timestamps and silences,
+        Aligns a pasted reference script with existing audio silences and timestamps,
         attaching user's pause tags (e.g. (pause), (15s)) to the corresponding phrase blocks.
         """
         parsed_script = self.parse_script(script_text)
         if not parsed_script:
             return current_segments
 
-        if current_segments and len(current_segments) > 0:
-            aligned = []
-            num_script = len(parsed_script)
-            num_segs = len(current_segments)
-
-            for idx, entry in enumerate(parsed_script):
-                seg_idx = min(num_segs - 1, int(round(idx * (num_segs / num_script))))
-                target_seg = current_segments[seg_idx]
-
-                aligned.append({
-                    "id": f"seg_{idx}_{uuid.uuid4().hex[:6]}",
-                    "index": idx,
-                    "text": entry["text"],
-                    "start_time": target_seg["start_time"],
-                    "end_time": target_seg["end_time"],
-                    "split_time": target_seg["split_time"],
-                    "natural_silence_dur": target_seg.get("natural_silence_dur", 0.5),
-                    "pause_tag": entry.get("pause_tag", "pause"),
-                    "pause_duration": entry.get("pause_duration", 6.0),
-                })
-            return aligned
-
         return self.align_segments(parsed_script, silences, total_duration)
+
 
 
     def apply_smooth_fade(

@@ -26,9 +26,7 @@ import {
   Trash2,
   FolderOpen,
   ArrowLeft,
-  Columns,
-  List,
-  Edit3
+  Search
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
@@ -106,9 +104,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [isAligningScript, setIsAligningScript] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Right column View Mode: 'split' | 'spoken' | 'script'
-  const [rightViewMode, setRightViewMode] = useState<'split' | 'spoken' | 'script'>('split');
 
   // Analysis & Segments State
   const [analysisData, setAnalysisData] = useState<AudioAnalysisResult | null>(null);
@@ -253,33 +248,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     refetchProjects();
   };
 
-  // Handle single file upload & analyze in one step
-  const handleAnalyze = async () => {
-    if (!audioFile) {
-      setErrorMessage('Please select an audio file first.');
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setErrorMessage(null);
-
-    try {
-      const res = await api.uploadAndAnalyzeAudio(audioFile, scriptText);
-      setAnalysisData(res);
-      setSegments(res.segments);
-      setDuration(res.duration);
-      setActiveAudioSource('original');
-      setCurrentTime(0);
-      setIsPlaying(false);
-      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
-    } catch (err: any) {
-      console.error('Audio analysis error:', err);
-      setErrorMessage(err.message || 'Failed to analyze audio file. Please check audio format.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   // Align Pasted Reference Script with Audio Timestamps & Pauses
   const handleAlignScript = async () => {
     const fileId = analysisData?.file_id || activeProject?.file_id;
@@ -403,13 +371,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     );
   };
 
-  // Update a single segment's text
-  const updateSegmentText = (id: string, newText: string) => {
-    setSegments((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, text: newText } : s))
-    );
-  };
-
   // Bulk pause adjustments
   const applyPresetToAll = (duration: number) => {
     setSegments((prev) => prev.map((s) => ({ ...s, pause_duration: duration })));
@@ -454,19 +415,17 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
       {/* Header Banner */}
       <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-stone-200/80 dark:border-stone-800/80">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-              <Sliders className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
-                Audio Lab & Meditation Pacing Studio
-              </h2>
-              <p className="text-xs text-stone-500 dark:text-stone-400">
-                Upload voiceovers to your inbox, view word-for-word transcriptions & reference scripts, and master pauses.
-              </p>
-            </div>
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+            <Sliders className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
+              Audio Lab & Meditation Pacing Studio
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Upload voiceovers to your inbox, view word-for-word transcriptions & reference scripts, and master pauses.
+            </p>
           </div>
         </div>
 
@@ -531,209 +490,212 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         </div>
       )}
 
-      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY */}
-      <div className="flex flex-col gap-4 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs transition-colors">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-              <Inbox className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-stone-900 dark:text-white">
-                Audio Inbox & Projects Queue
-              </h3>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                Uploaded tracks stay safely here until you are ready to space & process them.
-              </p>
-            </div>
-          </div>
-
-          {/* Filter Pills & Batch Upload Trigger */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-200/70 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 text-xs">
-              <button
-                type="button"
-                onClick={() => setProjectStatusFilter('all')}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  projectStatusFilter === 'all'
-                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                }`}
-              >
-                All ({projectListResult?.total_count || 0})
-              </button>
-              <button
-                type="button"
-                onClick={() => setProjectStatusFilter('unprocessed')}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  projectStatusFilter === 'unprocessed'
-                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                }`}
-              >
-                Inbox / Raw ({projectListResult?.unprocessed_count || 0})
-              </button>
-              <button
-                type="button"
-                onClick={() => setProjectStatusFilter('processed')}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  projectStatusFilter === 'processed'
-                    ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                }`}
-              >
-                Paced Masters ({projectListResult?.processed_count || 0})
-              </button>
+      {/* PERSISTENT AUDIO INBOX & QUEUE TRAY (Shown when viewing inbox or browsing files) */}
+      {!analysisData && (
+        <div className="flex flex-col gap-4 bg-stone-50 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 rounded-3xl p-5 shadow-xs transition-colors">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <Inbox className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-stone-900 dark:text-white">
+                  Audio Inbox & Projects Queue
+                </h3>
+                <p className="text-[11px] text-stone-500 dark:text-stone-400">
+                  Uploaded tracks stay safely here until you are ready to space & process them.
+                </p>
+              </div>
             </div>
 
-            {/* Batch Upload Audio Button */}
-            <label className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
-              <input
-                type="file"
-                multiple
-                accept="audio/*,.mp3,.wav,.m4a,.aac,.flac"
-                onChange={handleBatchFilesUpload}
-                disabled={isBatchUploading}
-                className="hidden"
-              />
-              {isBatchUploading ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Uploading Batch...</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="w-3.5 h-3.5" />
-                  <span>+ Upload Audio Files</span>
-                </>
-              )}
-            </label>
-          </div>
-        </div>
-
-        {/* Project Cards Grid */}
-        {projects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-1">
-            {projects.map((proj) => {
-              const isCurrent = activeProject?.id === proj.id;
-              const isProcessed = proj.status === 'processed';
-
-              return (
-                <div
-                  key={proj.id}
-                  className={`flex flex-col justify-between p-3.5 rounded-2xl border transition-all ${
-                    isCurrent
-                      ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-500 shadow-md ring-2 ring-amber-500/30'
-                      : 'bg-white dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-700'
+            {/* Filter Pills & Batch Upload Trigger */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-200/70 dark:bg-stone-900 border border-stone-300 dark:border-stone-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setProjectStatusFilter('all')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                    projectStatusFilter === 'all'
+                      ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
                   }`}
                 >
-                  <div className="flex flex-col gap-2">
-                    {/* Status Badge & Actions */}
-                    <div className="flex items-center justify-between gap-1.5">
-                      {isProcessed ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" /> Paced Master
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> In Inbox (Raw)
-                        </span>
-                      )}
+                  All ({projectListResult?.total_count || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectStatusFilter('unprocessed')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                    projectStatusFilter === 'unprocessed'
+                      ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  }`}
+                >
+                  Inbox / Raw ({projectListResult?.unprocessed_count || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectStatusFilter('processed')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                    projectStatusFilter === 'processed'
+                      ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                      : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
+                  }`}
+                >
+                  Paced Masters ({projectListResult?.processed_count || 0})
+                </button>
+              </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm(`Delete audio "${proj.title}"?`)) {
-                            deleteProjectMutation.mutate(proj.id);
-                          }
-                        }}
-                        className="p-1 rounded-lg text-stone-400 hover:text-red-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
-                        title="Delete audio project"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+              {/* Batch Upload Audio Button */}
+              <label className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
+                <input
+                  type="file"
+                  multiple
+                  accept="audio/*,.mp3,.wav,.m4a,.aac,.flac"
+                  onChange={handleBatchFilesUpload}
+                  disabled={isBatchUploading}
+                  className="hidden"
+                />
+                {isBatchUploading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Uploading Batch...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>+ Upload Audio Files</span>
+                  </>
+                )}
+              </label>
+            </div>
+          </div>
 
-                    {/* Title */}
-                    <h4
-                      onClick={() => handleOpenProject(proj)}
-                      className="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-2 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
-                      title={proj.title}
-                    >
-                      {proj.title}
-                    </h4>
+          {/* Project Cards Grid */}
+          {projects.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-1">
+              {projects.map((proj) => {
+                const isCurrent = activeProject?.id === proj.id;
+                const isProcessed = proj.status === 'processed';
 
-                    {/* Duration Info */}
-                    <div className="flex items-center gap-2 text-[11px] font-mono text-stone-500 dark:text-stone-400">
-                      <span>Raw: {formatTime(proj.duration)}</span>
-                      {isProcessed && proj.spaced_duration > 0 && (
-                        <>
-                          <ChevronRight className="w-3 h-3 text-stone-400" />
-                          <span className="text-amber-600 dark:text-amber-400 font-bold">
-                            {formatTime(proj.spaced_duration)}
+                return (
+                  <div
+                    key={proj.id}
+                    className={`flex flex-col justify-between p-3.5 rounded-2xl border transition-all ${
+                      isCurrent
+                        ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-500 shadow-md ring-2 ring-amber-500/30'
+                        : 'bg-white dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-400 dark:hover:border-amber-700'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-2">
+                      {/* Status Badge & Actions */}
+                      <div className="flex items-center justify-between gap-1.5">
+                        {isProcessed ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Paced Master
                           </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> In Inbox (Raw)
+                          </span>
+                        )}
 
-                  {/* Bottom Action Buttons */}
-                  <div className="flex items-center justify-between gap-1.5 pt-3 mt-2 border-t border-stone-100 dark:border-stone-800/80">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenProject(proj)}
-                      className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-700 dark:text-stone-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                    >
-                      <FolderOpen className="w-3 h-3" />
-                      <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
-                    </button>
-
-                    {isProcessed && proj.download_url && (
-                      <div className="flex items-center gap-1">
-                        <a
-                          href={proj.download_url}
-                          download={proj.spaced_filename || 'spaced_voiceover.mp3'}
-                          className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
-                          title="Download Paced MP3"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                        </a>
                         <button
                           type="button"
-                          onClick={() => {
-                            const dur = proj.spaced_duration || proj.duration;
-                            onUseInStudio(proj.spaced_filename || proj.filename, dur, proj.script_text);
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete audio "${proj.title}"?`)) {
+                              deleteProjectMutation.mutate(proj.id);
+                            }
                           }}
-                          className="p-1 rounded-lg bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors font-bold"
-                          title="Send directly to Video Studio"
+                          className="p-1 rounded-lg text-stone-400 hover:text-red-500 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
+                          title="Delete audio project"
                         >
-                          <Film className="w-3.5 h-3.5 fill-current" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="p-8 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
-            <p className="text-xs text-stone-500 dark:text-stone-400">
-              No audio files in inbox yet. Drag and drop audio files above to build your audio pacing queue!
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* Editor Section (Shown when a file/project is opened) */}
+                      {/* Title */}
+                      <h4
+                        onClick={() => handleOpenProject(proj)}
+                        className="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-2 hover:text-amber-600 dark:hover:text-amber-400 cursor-pointer"
+                        title={proj.title}
+                      >
+                        {proj.title}
+                      </h4>
+
+                      {/* Duration Info */}
+                      <div className="flex items-center gap-2 text-[11px] font-mono text-stone-500 dark:text-stone-400">
+                        <span>Raw: {formatTime(proj.duration)}</span>
+                        {isProcessed && proj.spaced_duration > 0 && (
+                          <>
+                            <ChevronRight className="w-3 h-3 text-stone-400" />
+                            <span className="text-amber-600 dark:text-amber-400 font-bold">
+                              {formatTime(proj.spaced_duration)}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Buttons */}
+                    <div className="flex items-center justify-between gap-1.5 pt-3 mt-2 border-t border-stone-100 dark:border-stone-800/80">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenProject(proj)}
+                        className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-700 dark:text-stone-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                      >
+                        <FolderOpen className="w-3 h-3" />
+                        <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
+                      </button>
+
+                      {isProcessed && proj.download_url && (
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={proj.download_url}
+                            download={proj.spaced_filename || 'spaced_voiceover.mp3'}
+                            className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
+                            title="Download Paced MP3"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const dur = proj.spaced_duration || proj.duration;
+                              onUseInStudio(proj.spaced_filename || proj.filename, dur, proj.script_text);
+                            }}
+                            className="p-1.5 rounded-lg bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors font-bold cursor-pointer"
+                            title="Send directly to Video Studio"
+                          >
+                            <Film className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-8 text-center border-2 border-dashed border-stone-200 dark:border-stone-800 rounded-2xl">
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                No audio files in inbox yet. Click "+ Upload Audio Files" above to add voiceovers!
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* OPTION B: FULL-WIDTH STUDIO WORKSPACE (When an audio project is opened) */}
       {analysisData && (
-        <div className="flex flex-col gap-6">
-          {/* Top Bar: Source Switcher & Global Duration Comparison */}
-          <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-stone-100/90 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 flex-wrap">
+        <div className="flex flex-col gap-5">
+          {/* 1. TOP HEADER CONTROL DECK: Source Selector, Duration Metrics & Master Export Toolbar */}
+          <div className="flex items-center justify-between gap-4 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm flex-wrap">
+            {/* Audio Source Switcher */}
             <div className="flex items-center gap-3">
-              <span className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Audio Source:</span>
-              <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-200/70 dark:bg-stone-900 border border-stone-300 dark:border-stone-800">
+              <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Audio Deck:</span>
+              <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -741,9 +703,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     setCurrentTime(0);
                     setIsPlaying(false);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     activeAudioSource === 'original'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
@@ -760,9 +722,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       handleProcessSpacing();
                     }
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                     activeAudioSource === 'spaced'
-                      ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                      ? 'bg-amber-500 text-stone-950 shadow-xs'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100'
                   }`}
                 >
@@ -774,361 +736,306 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   </span>
                 </button>
               </div>
+
+              {/* Duration metrics */}
+              <div className="hidden sm:flex items-center gap-2 text-xs font-mono">
+                <span className="text-stone-400">|</span>
+                <span className="text-stone-500">Raw: {formatTime(analysisData.duration)}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
+                <span className="font-bold text-amber-600 dark:text-amber-400">
+                  Master: {formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration)}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold text-[11px]">
+                  +{formatTime((processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration) - analysisData.duration)}
+                </span>
+              </div>
             </div>
 
-            {/* Metrics cards */}
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-amber-500" />
-                <span className="text-stone-500">Original:</span>
-                <span className="font-mono font-semibold text-stone-900 dark:text-stone-100">
-                  {formatTime(analysisData.duration)}
-                </span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-stone-400" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-stone-500">Paced Master:</span>
-                <span className="font-mono font-bold text-amber-600 dark:text-amber-400">
-                  {formatTime(processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration)}
-                </span>
-              </div>
-              <div className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono font-semibold">
-                +{formatTime((processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration) - analysisData.duration)} pauses
-              </div>
+            {/* Master Export Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Render Spaced Master */}
+              <button
+                type="button"
+                onClick={handleProcessSpacing}
+                disabled={isProcessing}
+                className="h-9 px-3.5 rounded-xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+              >
+                {isProcessing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Rendering...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600" />
+                    <span>Render Spaced Master</span>
+                  </>
+                )}
+              </button>
+
+              {/* Download MP3 */}
+              <a
+                href={processedResult ? processedResult.download_url : activeProject?.download_url || '#'}
+                download={processedResult?.spaced_filename || activeProject?.spaced_filename || 'paced_voiceover.mp3'}
+                onClick={(e) => {
+                  if (!processedResult && !activeProject?.spaced_filename) {
+                    e.preventDefault();
+                    handleProcessSpacing();
+                  }
+                }}
+                className={`h-9 px-3.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all cursor-pointer ${
+                  processedResult || activeProject?.spaced_filename
+                    ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100'
+                    : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
+                }`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download MP3</span>
+              </a>
+
+              {/* Send to Video Studio */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!processedResult && !activeProject?.spaced_filename) {
+                    await handleProcessSpacing();
+                  }
+                  const activeFile = processedResult?.spaced_filename || activeProject?.spaced_filename || `${analysisData.file_id}_spaced.mp3`;
+                  const durSec = processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration;
+
+                  try {
+                    const studioRes = await api.sendAudioToStudio(activeFile);
+                    onUseInStudio(studioRes.filename, durSec, scriptText);
+                  } catch (e) {
+                    onUseInStudio(activeFile, durSec, scriptText);
+                  }
+                }}
+                className="h-9 px-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+              >
+                <Film className="w-3.5 h-3.5 text-stone-950" />
+                <span>Send to Video Studio</span>
+              </button>
             </div>
           </div>
 
-          {/* MAIN VIEW */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* LEFT COLUMN: Waveform & Master Actions (6 cols) */}
-            <div className="lg:col-span-6 flex flex-col gap-5">
-              {/* Waveform Visualizer */}
-              <AudioWaveform
-                peaks={currentPeaks}
-                duration={activeDuration || duration}
-                currentTime={currentTime}
-                isPlaying={isPlaying}
-                onSeek={handleSeek}
-                onTogglePlay={handleTogglePlay}
-                segments={segments}
-                activeSegmentId={activeSegmentId}
-                isDark={isDark}
-              />
+          {/* 2. TOP SECTION: FULL-WIDTH 100% INTERACTIVE WAVEFORM DECK */}
+          <div className="w-full">
+            <AudioWaveform
+              peaks={currentPeaks}
+              duration={activeDuration || duration}
+              currentTime={currentTime}
+              isPlaying={isPlaying}
+              onSeek={handleSeek}
+              onTogglePlay={handleTogglePlay}
+              segments={segments}
+              activeSegmentId={activeSegmentId}
+              isDark={isDark}
+            />
+          </div>
 
-              {/* Master Process & Export Actions Card */}
-              <div className="p-5 rounded-2xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Master & Export Paced Voiceover</span>
-                  </h3>
-                  {(processedResult || activeProject?.status === 'processed') && (
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Master Ready
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Splices raw audio losslessly at natural silence midpoints with 50ms S-curve soft fades, ensuring zero word clipping.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  {/* Process Master Button */}
-                  <button
-                    type="button"
-                    onClick={handleProcessSpacing}
-                    disabled={isProcessing}
-                    className="h-11 rounded-xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>Rendering Master...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 text-amber-400 dark:text-amber-600" />
-                        <span>Render Spaced Master</span>
-                      </>
-                    )}
-                  </button>
-
-                  {/* Download MP3 */}
-                  <a
-                    href={processedResult ? processedResult.download_url : activeProject?.download_url || '#'}
-                    download={processedResult?.spaced_filename || activeProject?.spaced_filename || 'paced_voiceover.mp3'}
-                    onClick={(e) => {
-                      if (!processedResult && !activeProject?.spaced_filename) {
-                        e.preventDefault();
-                        handleProcessSpacing();
-                      }
-                    }}
-                    className={`h-11 rounded-xl font-bold text-xs flex items-center justify-center gap-2 border transition-all cursor-pointer ${
-                      processedResult || activeProject?.spaced_filename
-                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700/80 text-amber-900 dark:text-amber-200 hover:bg-amber-100'
-                        : 'bg-stone-100 dark:bg-stone-800/60 border-stone-200 dark:border-stone-700 text-stone-400'
-                    }`}
-                  >
-                    <Download className="w-4 h-4" />
-                    <span>Download MP3</span>
-                  </a>
-
-                  {/* Send to Video Studio */}
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!processedResult && !activeProject?.spaced_filename) {
-                        await handleProcessSpacing();
-                      }
-                      const activeFile = processedResult?.spaced_filename || activeProject?.spaced_filename || `${analysisData.file_id}_spaced.mp3`;
-                      const durSec = processedResult?.spaced_duration || activeProject?.spaced_duration || calculatedEstimatedDuration;
-
-                      try {
-                        const studioRes = await api.sendAudioToStudio(activeFile);
-                        onUseInStudio(studioRes.filename, durSec, scriptText);
-                      } catch (e) {
-                        onUseInStudio(activeFile, durSec, scriptText);
-                      }
-                    }}
-                    className="h-11 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer"
-                  >
-                    <Film className="w-4 h-4 fill-current" />
-                    <span>Send to Video Studio</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Segment Search & Filter */}
-              <div className="flex items-center justify-between gap-3">
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Search phrases or words in script..."
-                  className="w-full px-3.5 py-2 text-xs rounded-xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
-                />
-                <span className="text-xs text-stone-400 shrink-0 font-mono">
-                  {filteredSegments.length} of {segments.length} phrases
-                </span>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: DUAL SCRIPT REFERENCE & SPOKEN TELEPROMPTER (6 cols) */}
-            <div className="lg:col-span-6 flex flex-col gap-3">
-              {/* Header & View Mode Switcher */}
-              <div className="flex items-center justify-between px-1 flex-wrap gap-2">
+          {/* 3. BOTTOM SECTION: TRUE 50/50 SIDE-BY-SIDE STUDIO WORKSPACE */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            {/* LEFT 50%: WRITTEN REFERENCE SCRIPT STUDIO */}
+            <div className="flex flex-col gap-3 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm">
+              {/* Sticky Top Toolbar for Script Editor */}
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-amber-500" />
+                  <FileText className="w-4 h-4 text-amber-500" />
                   <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
-                    Script Reference & Teleprompter
+                    Written Reference Script
                   </span>
                 </div>
 
-                {/* View Mode Toggle Pills */}
-                <div className="flex items-center gap-1 p-1 rounded-xl bg-stone-100 dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 text-xs">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setRightViewMode('split')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
-                      rightViewMode === 'split'
-                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                    }`}
+                    onClick={() => setScriptText(SAMPLE_SCRIPT_WITH_TAGS)}
+                    className="text-[11px] text-stone-500 dark:text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 hover:underline cursor-pointer"
                   >
-                    <Columns className="w-3 h-3" />
-                    <span>Split View</span>
+                    Insert Sample
                   </button>
+
+                  {/* Prominent Sticky Align Button */}
                   <button
                     type="button"
-                    onClick={() => setRightViewMode('spoken')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
-                      rightViewMode === 'spoken'
-                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                    }`}
+                    onClick={handleAlignScript}
+                    disabled={isAligningScript}
+                    className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                   >
-                    <List className="w-3 h-3" />
-                    <span>Spoken Words</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRightViewMode('script')}
-                    className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 cursor-pointer ${
-                      rightViewMode === 'script'
-                        ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
-                        : 'text-stone-600 dark:text-stone-400 hover:text-stone-900'
-                    }`}
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>Reference Script</span>
+                    {isAligningScript ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Aligning...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>✨ Align Script & Pause Tags with Audio</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
 
-              {/* DUAL WORKSPACE LAYOUT */}
-              <div className={`grid gap-3 items-start ${rightViewMode === 'split' ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-                {/* 1. REFERENCE SCRIPT PANEL (Shown in 'split' or 'script' mode) */}
-                {(rightViewMode === 'split' || rightViewMode === 'script') && (
-                  <div className="flex flex-col gap-2.5 p-3 rounded-2xl bg-stone-50 dark:bg-[#0d1017] border border-stone-200 dark:border-stone-800/80 shadow-inner">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-amber-500" />
-                        <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
-                          Written Reference Script
+              {/* Tag guide helper pills */}
+              <div className="flex items-center gap-1.5 text-[11px] text-stone-500 dark:text-stone-400 flex-wrap">
+                <span>Pause notation:</span>
+                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                  (pause)
+                </code>
+                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                  (short pause)
+                </code>
+                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                  (long pause)
+                </code>
+                <code className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-bold">
+                  (15s pause)
+                </code>
+              </div>
+
+              {/* Full-size comfortable script editor */}
+              <textarea
+                value={scriptText}
+                onChange={(e) => setScriptText(e.target.value)}
+                placeholder="Paste your written meditation script here with (pause), (long pause), or (15s) tags..."
+                rows={22}
+                className="w-full p-4 rounded-2xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-y"
+              />
+            </div>
+
+            {/* RIGHT 50%: SPOKEN PHRASE TELEPROMPTER & PAUSE EDITOR */}
+            <div className="flex flex-col gap-3 p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm">
+              {/* Sticky Top Toolbar for Phrases & Search */}
+              <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-200 dark:border-stone-800 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
+                    Spoken Audio Phrases
+                  </span>
+                </div>
+
+                {/* Search / Filter box */}
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
+                    <input
+                      type="text"
+                      value={searchFilter}
+                      onChange={(e) => setSearchFilter(e.target.value)}
+                      placeholder="Search words..."
+                      className="h-8 pl-8 pr-3 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                  <span className="text-[11px] font-mono text-stone-400 shrink-0">
+                    {filteredSegments.length} of {segments.length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Scrollable list of wide phrase cards */}
+              <div
+                ref={teleprompterRef}
+                className="flex flex-col gap-3 max-h-[620px] overflow-y-auto p-1 pr-2"
+              >
+                {filteredSegments.map((seg) => {
+                  const isActive = seg.id === activeSegmentId;
+
+                  return (
+                    <div
+                      key={seg.id}
+                      ref={isActive ? activeCardRef : null}
+                      className={`flex flex-col gap-2.5 p-4 rounded-2xl border transition-all ${
+                        isActive
+                          ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-500/30'
+                          : 'bg-stone-50 dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-700'
+                      }`}
+                    >
+                      {/* Phrase Header: Timecode & Jump Play */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleJumpToSegment(seg)}
+                            className={`w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                              isActive && isPlaying
+                                ? 'bg-amber-500 text-stone-950 animate-pulse shadow-xs'
+                                : 'bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-amber-200 dark:hover:bg-amber-950/80'
+                            }`}
+                            title="Play this spoken phrase"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                          </button>
+                          <span className="font-mono text-xs font-bold text-stone-600 dark:text-stone-300">
+                            {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-2 py-0.5 rounded-full">
+                          Phrase #{seg.index + 1}
                         </span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setScriptText(SAMPLE_SCRIPT_WITH_TAGS)}
-                        className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+
+                      {/* Phrase Text (Glows when active!) */}
+                      <p
+                        onClick={() => handleJumpToSegment(seg)}
+                        className={`text-xs leading-relaxed font-medium cursor-pointer transition-colors ${
+                          isActive
+                            ? 'text-amber-950 dark:text-amber-100 font-bold'
+                            : 'text-stone-800 dark:text-stone-200 hover:text-amber-600'
+                        }`}
                       >
-                        Insert Sample
-                      </button>
-                    </div>
+                        {seg.text}
+                      </p>
 
-                    <p className="text-[11px] text-stone-500 dark:text-stone-400">
-                      Paste your original script with pause tags like <code className="text-amber-600 font-mono text-[10px]">(pause)</code> or <code className="text-amber-600 font-mono text-[10px]">(15s)</code>.
-                    </p>
+                      {/* Pause Duration Controls on a Clean Single Row */}
+                      <div className="flex items-center justify-between gap-3 pt-2 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-wrap">
+                        <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">
+                          Trailing Pause:
+                        </span>
 
-                    <textarea
-                      value={scriptText}
-                      onChange={(e) => setScriptText(e.target.value)}
-                      placeholder="Paste your written meditation script here with (pause) tags..."
-                      rows={rightViewMode === 'split' ? 18 : 22}
-                      className="w-full p-3 rounded-xl bg-white dark:bg-[#141822] border border-stone-200 dark:border-stone-800 text-xs text-stone-900 dark:text-stone-100 font-sans leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none font-mono"
-                    />
+                        {/* Single-row Pause Preset Selector */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {[
+                            { label: '0s', val: 0.0 },
+                            { label: '4s', val: 4.0 },
+                            { label: '6s', val: 6.0 },
+                            { label: '10s', val: 10.0 },
+                            { label: '15s', val: 15.0 },
+                          ].map((p) => (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => updateSegmentPause(seg.id, p.val)}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
+                                Math.abs(seg.pause_duration - p.val) < 0.1
+                                  ? 'bg-amber-500 text-stone-950 font-bold shadow-xs'
+                                  : 'bg-white dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          ))}
 
-                    {/* Align Button */}
-                    <button
-                      type="button"
-                      onClick={handleAlignScript}
-                      disabled={isAligningScript}
-                      className="h-9 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
-                    >
-                      {isAligningScript ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Aligning Script with Audio...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>✨ Align Script & Pause Tags with Audio</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* 2. SPOKEN PHRASE CARDS (Shown in 'split' or 'spoken' mode) */}
-                {(rightViewMode === 'split' || rightViewMode === 'spoken') && (
-                  <div
-                    ref={teleprompterRef}
-                    className={`flex flex-col gap-2.5 max-h-[640px] overflow-y-auto p-3 rounded-2xl bg-stone-50 dark:bg-[#0d1017] border border-stone-200 dark:border-stone-800/80 shadow-inner`}
-                  >
-                    <div className="flex items-center justify-between pb-1 border-b border-stone-200/60 dark:border-stone-800/60">
-                      <span className="text-xs font-bold text-stone-800 dark:text-stone-200">
-                        Spoken Audio Phrases ({filteredSegments.length})
-                      </span>
-                      <span className="text-[10px] text-stone-400">Click to jump & verify words</span>
-                    </div>
-
-                    {filteredSegments.map((seg) => {
-                      const isActive = seg.id === activeSegmentId;
-                      return (
-                        <div
-                          key={seg.id}
-                          ref={isActive ? activeCardRef : null}
-                          className={`flex flex-col gap-2 p-3 rounded-xl border transition-all ${
-                            isActive
-                              ? 'bg-amber-100/90 dark:bg-amber-950/80 border-amber-400 dark:border-amber-600 shadow-md ring-2 ring-amber-500/30'
-                              : 'bg-white dark:bg-[#141822] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-800'
-                          }`}
-                        >
-                          {/* Phrase Header: Timecode & Jump Play */}
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => handleJumpToSegment(seg)}
-                                className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
-                                  isActive && isPlaying
-                                    ? 'bg-amber-500 text-stone-950 animate-pulse'
-                                    : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-amber-200'
-                                }`}
-                                title="Play this spoken phrase"
-                              >
-                                <Play className="w-3 h-3 fill-current ml-0.5" />
-                              </button>
-                              <span className="font-mono text-[11px] font-semibold text-stone-500 dark:text-stone-400">
-                                {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
-                              </span>
-                            </div>
-
-                            <span className="text-[10px] font-mono text-stone-400">
-                              #{seg.index + 1}
-                            </span>
-                          </div>
-
-                          {/* Editable / Clickable Phrase Text (Glows when active!) */}
-                          <p
-                            onClick={() => handleJumpToSegment(seg)}
-                            className={`text-xs leading-relaxed font-medium cursor-pointer transition-colors ${
-                              isActive
-                                ? 'text-amber-950 dark:text-amber-100 font-bold'
-                                : 'text-stone-800 dark:text-stone-200 hover:text-amber-600'
-                            }`}
-                          >
-                            {seg.text}
-                          </p>
-
-                          {/* Pause Duration Controls */}
-                          <div className="flex items-center justify-between gap-2 pt-1 border-t border-stone-100 dark:border-stone-800/60 flex-wrap">
-                            <span className="text-[10px] text-stone-500 dark:text-stone-400">Pause:</span>
-
-                            {/* Quick Pause Preset Selector */}
-                            <div className="flex items-center gap-1 flex-wrap">
-                              {[
-                                { label: '0s', val: 0.0 },
-                                { label: '4s', val: 4.0 },
-                                { label: '6s', val: 6.0 },
-                                { label: '10s', val: 10.0 },
-                                { label: '15s', val: 15.0 },
-                              ].map((p) => (
-                                <button
-                                  key={p.label}
-                                  type="button"
-                                  onClick={() => updateSegmentPause(seg.id, p.val)}
-                                  className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition-all cursor-pointer ${
-                                    Math.abs(seg.pause_duration - p.val) < 0.1
-                                      ? 'bg-amber-500 text-stone-950 font-bold'
-                                      : 'bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:bg-stone-200 dark:hover:bg-stone-700'
-                                  }`}
-                                >
-                                  {p.label}
-                                </button>
-                              ))}
-
-                              {/* Custom Input */}
-                              <input
-                                type="number"
-                                step="0.5"
-                                min="0"
-                                max="60"
-                                value={seg.pause_duration}
-                                onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
-                                className="w-10 px-1 py-0.5 text-[10px] font-mono font-bold text-center rounded bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 focus:outline-none"
-                                title="Custom pause in seconds"
-                              />
-                              <span className="text-[10px] text-stone-400">s</span>
-                            </div>
+                          {/* Custom Number Input */}
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="60"
+                              value={seg.pause_duration}
+                              onChange={(e) => updateSegmentPause(seg.id, parseFloat(e.target.value) || 0)}
+                              className="w-12 h-7 px-1.5 text-xs font-mono font-bold text-center rounded-lg bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-stone-800 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                              title="Custom pause in seconds"
+                            />
+                            <span className="text-xs text-stone-400 font-mono">s</span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
