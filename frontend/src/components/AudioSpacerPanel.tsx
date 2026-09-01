@@ -251,6 +251,20 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setCurrentTime(0);
     setIsPlaying(false);
     setErrorMessage(null);
+
+    // If opening an older project that has "Spoken Phrase" placeholders, automatically transcribe now
+    const hasPlaceholders = (project.segments || []).some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section'));
+    if (hasPlaceholders && project.file_id) {
+      setIsTranscribing(true);
+      api.transcribeAudio(project.file_id)
+        .then((res) => {
+          setAnalysisData(res);
+          setSegments(res.segments);
+          queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+        })
+        .catch((e) => console.warn('Auto-transcribe on project open error:', e))
+        .finally(() => setIsTranscribing(false));
+    }
   };
 
   // Close editor and return to Inbox view

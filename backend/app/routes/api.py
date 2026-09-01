@@ -1423,7 +1423,7 @@ async def batch_upload_audio(
 
 
 @router.get("/audio/projects/{project_id}", response_model=AudioProjectSchema)
-def get_audio_project(project_id: int, db: Session = Depends(get_db)):
+async def get_audio_project(project_id: int, db: Session = Depends(get_db)):
     """
     Loads an audio project into the Audio Lab editor with full state.
     """
@@ -1443,6 +1443,19 @@ def get_audio_project(project_id: int, db: Session = Depends(get_db)):
         sils = [AudioSilenceIntervalSchema(**s) for s in json.loads(p.silence_intervals_json)] if p.silence_intervals_json else []
     except Exception:
         sils = []
+
+    # Auto-transcribe legacy/placeholder projects on fetch so exact words always appear
+    wav_path = settings.AUDIO_DIR / f"{p.file_id}_norm.wav"
+    if wav_path.exists() and any(s.text.startswith("Spoken Phrase") or s.text.startswith("Spoken Section") for s in segs):
+        try:
+            transcripts = await audio_spacer_service.transcribe_audio(wav_path)
+            if transcripts:
+                new_segs = audio_spacer_service.align_segments([], [s.model_dump() for s in sils], p.duration, transcripts)
+                p.segments_json = json.dumps(new_segs)
+                db.commit()
+                segs = [AudioSegmentSchema(**s) for s in new_segs]
+        except Exception as e:
+            logger.warning(f"Auto-transcribe on get_audio_project error: {e}")
 
     audio_stream_name = p.spaced_filename if (p.status == "processed" and p.spaced_filename) else p.filename
     download_url = f"/api/audio/download/{p.spaced_filename}" if p.spaced_filename else None
