@@ -281,7 +281,7 @@ export interface AudioProjectItem {
   original_name: string;
   filename: string;
   duration: number;
-  status: 'unprocessed' | 'processed';
+  status: 'unprocessed' | 'transcribing' | 'transcribed' | 'processing' | 'processed' | 'failed' | string;
   script_text?: string;
   waveform_peaks: number[];
   segments: AudioSegment[];

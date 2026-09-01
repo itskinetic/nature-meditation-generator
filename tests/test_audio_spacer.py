@@ -288,5 +288,33 @@ def test_database_update_segments_endpoint(tmp_path):
     assert loaded_segs[0]["text"] == "Somewhere right now, a hand may be closed. Not necessarily this hand."
 
 
+def test_async_transcription_endpoint(tmp_path):
+    """
+    Tests POST /api/audio/projects/{project_id}/transcribe-async starts background job and updates status.
+    """
+    test_wav = tmp_path / "async_transcribe_test.wav"
+    create_test_sine_wav(test_wav, duration_sec=1.5)
+    with open(test_wav, "rb") as f:
+        res = client.post(
+            "/api/audio/upload",
+            files={"file": ("async_transcribe_test.wav", f, "audio/wav")},
+            data={"script_text": ""}
+        )
+    assert res.status_code == 200
+    file_id = res.json()["file_id"]
 
+    list_res = client.get("/api/audio/projects")
+    proj = next(p for p in list_res.json()["projects"] if p["file_id"] == file_id)
+    proj_id = proj["id"]
 
+    # Trigger background transcription
+    async_res = client.post(f"/api/audio/projects/{proj_id}/transcribe-async")
+    assert async_res.status_code == 200
+    data = async_res.json()
+    assert data["status"] == "transcribing"
+    assert data["project_id"] == proj_id
+
+    # Verify project status in DB reflects transcribing
+    get_res = client.get(f"/api/audio/projects/{proj_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["status"] in ["transcribing", "transcribed", "failed"]

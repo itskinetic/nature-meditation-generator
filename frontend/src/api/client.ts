@@ -415,4 +415,16 @@ export const api = {
     }
     return res.json();
   },
+
+  async transcribeProjectAsync(projectId: number): Promise<{ status: string; project_id: number; message: string }> {
+    const res = await fetch(`${API_BASE}/audio/projects/${projectId}/transcribe-async`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to start background transcription' }));
+      throw new Error(err.detail || 'Failed to start background transcription');
+    }
+    return res.json();
+  },
 };

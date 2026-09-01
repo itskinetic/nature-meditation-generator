@@ -1763,6 +1763,104 @@ async def transcribe_audio_file(
     )
 
 
+async def run_project_transcription(project_id: int):
+    """
+    Background worker that runs Gemini AI speech transcription for an AudioProject,
+    aligns segments, and updates SQLite database with the results.
+    """
+    logger.info(f"Starting background transcription task for project {project_id}")
+    db = SessionLocal()
+    try:
+        p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+        if not p:
+            logger.warning(f"AudioProject {project_id} not found for background transcription.")
+            return
+
+        # Resolve audio file
+        wav_path = settings.AUDIO_DIR / f"{p.file_id}_norm.wav"
+        if not wav_path.exists() and p.filename:
+            alt_path = settings.AUDIO_DIR / p.filename
+            if alt_path.exists():
+                wav_path = alt_path
+        if not wav_path.exists():
+            matches = list(settings.AUDIO_DIR.glob(f"{p.file_id}*"))
+            if matches:
+                wav_path = matches[0]
+
+        if not wav_path.exists():
+            logger.error(f"Audio file for project {project_id} ({p.file_id}) not found on disk.")
+            p.status = "failed"
+            db.commit()
+            return
+
+        # Run transcription via Gemini
+        transcriptions = await audio_spacer_service.transcribe_audio(wav_path)
+
+        existing_silences = json.loads(p.silence_intervals_json) if p.silence_intervals_json else []
+        if not existing_silences:
+            existing_silences = await audio_spacer_service.detect_silences(wav_path)
+
+        with wave.open(str(wav_path), 'rb') as wf:
+            total_duration = wf.getnframes() / wf.getframerate()
+
+        new_segments = audio_spacer_service.align_segments(
+            parsed_script=[],
+            silences=existing_silences,
+            total_duration=total_duration,
+            transcriptions=transcriptions
+        )
+
+        peaks = audio_spacer_service.extract_waveform_peaks(wav_path, num_peaks=800)
+
+        p.segments_json = json.dumps(new_segments)
+        p.silence_intervals_json = json.dumps(existing_silences)
+        p.waveform_peaks_json = json.dumps(peaks)
+        p.status = "transcribed"
+        p.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        logger.info(f"Background transcription complete for project {project_id}: {len(new_segments)} phrases extracted.")
+    except Exception as e:
+        logger.error(f"Background transcription failed for project {project_id}: {e}")
+        try:
+            p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+            if p:
+                p.status = "failed"
+                p.updated_at = datetime.datetime.utcnow()
+                db.commit()
+        except Exception:
+            pass
+    finally:
+        db.close()
+
+
+@router.post("/audio/projects/{project_id}/transcribe-async")
+async def start_async_project_transcription(
+    project_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers asynchronous background transcription for an audio project.
+    Allows user to navigate away, upload more files, or close the browser while the VPS transcribes.
+    """
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    p.status = "transcribing"
+    p.updated_at = datetime.datetime.utcnow()
+    db.commit()
+
+    # Launch background task
+    background_tasks.add_task(run_project_transcription, project_id)
+
+    return {
+        "status": "transcribing",
+        "project_id": project_id,
+        "message": "AI speech transcription started in the background. You can safely leave this view."
+    }
+
+
 
 
 @router.post("/audio/process", response_model=AudioProcessResponse)
