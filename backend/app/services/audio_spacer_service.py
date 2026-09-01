@@ -211,12 +211,12 @@ class AudioSpacerService:
     async def transcribe_audio(self, audio_file_path: Path) -> List[Dict[str, Any]]:
         """
         Transcribes speech audio into timestamped spoken phrases using Gemini Audio API.
-        Converts audio to 16kHz mono WAV and uses candidate models (gemini-3.5-flash, gemini-3.6-flash).
+        Converts audio to 16kHz mono WAV and uses candidate models with automatic retry and error reporting.
         """
         api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
         if not api_key or len(api_key.strip()) < 5:
             logger.info("No Gemini API key configured for audio transcription.")
-            return []
+            raise ValueError("No Gemini API key configured on server. Please set GEMINI_API_KEY in your VPS environment.")
 
         # Get audio duration
         try:
@@ -236,6 +236,7 @@ class AudioSpacerService:
         chunk_duration = 180.0  # 3-minute chunks for guaranteed sub-10MB payload and fast processing
         num_chunks = max(1, math.ceil(total_duration / chunk_duration))
         all_transcriptions = []
+        last_error_detail = None
 
         prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
 Return ONLY a valid JSON array of objects with keys start_seconds, end_seconds, text.
@@ -332,12 +333,21 @@ Do not wrap in markdown, return pure JSON."""
                                     all_transcriptions.extend(chunk_items)
                                     chunk_success = True
                                     break
+                            elif resp.status_code == 429:
+                                last_error_detail = f"Google API Quota Exceeded (HTTP 429). Your Gemini API quota limit was reached. Please check your Google Cloud quota or retry shortly."
+                                logger.warning(f"Model {model_name} quota error 429")
+                            elif resp.status_code == 503:
+                                last_error_detail = f"Google Gemini Servers Busy (HTTP 503). Model {model_name} is experiencing temporary high demand."
+                                logger.warning(f"Model {model_name} busy 503")
                             else:
+                                last_error_detail = f"Google API returned error {resp.status_code}: {resp.text[:120]}"
                                 logger.warning(f"Model {model_name} status {resp.status_code}: {resp.text[:100]}")
                         except Exception as ex:
+                            last_error_detail = f"Network connection error while contacting Google Gemini: {str(ex)}"
                             logger.warning(f"Model {model_name} chunk {chunk_idx} error: {ex}")
 
             except Exception as e:
+                last_error_detail = f"Audio processing error: {str(e)}"
                 logger.warning(f"Error processing chunk {chunk_idx}: {e}")
             finally:
                 if chunk_wav.exists():
@@ -345,6 +355,10 @@ Do not wrap in markdown, return pure JSON."""
                         chunk_wav.unlink()
                     except Exception:
                         pass
+
+        if not all_transcriptions:
+            msg = last_error_detail or "Gemini speech transcription did not detect any speech in the audio track."
+            raise RuntimeError(msg)
 
         return all_transcriptions
 

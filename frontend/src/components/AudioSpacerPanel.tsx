@@ -30,7 +30,8 @@ import {
   Search,
   CheckCheck,
   Scissors,
-  ArrowDownToLine
+  ArrowDownToLine,
+  X
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
 import { api } from '../api/client';
@@ -737,11 +738,40 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         )}
       </div>
 
-      {/* Error Alert */}
+      {/* Interactive Diagnostic Error Prompt */}
       {errorMessage && (
-        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 text-xs flex items-center gap-2.5">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-300 text-xs flex flex-col gap-1.5 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-bold">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+              <span>Operation Notice / Failure Reason:</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-1 rounded-lg transition-colors cursor-pointer"
+              title="Dismiss error"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <p className="text-xs leading-relaxed font-mono opacity-90 pl-6 bg-red-500/5 dark:bg-red-950/30 p-2 rounded-xl border border-red-500/20">
+            {errorMessage}
+          </p>
+          <div className="flex items-center gap-2 pl-6 pt-1 flex-wrap">
+            <button
+              type="button"
+              onClick={handleTranscribeAudio}
+              disabled={isTranscribing}
+              className="px-2.5 py-1 rounded-lg bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <RefreshCw className={`w-3 h-3 ${isTranscribing ? 'animate-spin' : ''}`} />
+              <span>Retry AI Transcription</span>
+            </button>
+            <span className="text-[11px] text-stone-500 dark:text-stone-400">
+              Tip: Quota issues resolve automatically in ~60 seconds.
+            </span>
+          </div>
         </div>
       )}
 
@@ -1279,6 +1309,27 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Informative helper prompt when audio is untranscribed or showing fallback sections */}
+              {segments.some((s) => s.text.startsWith('Spoken Section') || s.text.startsWith('Spoken Phrase')) && (
+                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span className="font-semibold text-[11px]">
+                      Audio is currently split into silence segments. Click "AI Transcribe" to extract the exact spoken words!
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleTranscribeAudio}
+                    disabled={isTranscribing}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <Sparkles className="w-3 h-3 fill-current" />
+                    <span>{isTranscribing ? 'Transcribing...' : 'AI Transcribe Now'}</span>
+                  </button>
+                </div>
+              )}
 
               {/* Scrollable list of ultra-compact phrase cards */}
               <div
