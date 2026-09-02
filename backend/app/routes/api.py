@@ -145,13 +145,23 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
             # Fetch candidates for this environment
             per_page = min(15, max(8, int(target_clips * 2)))
-            queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+            # Prefer explicit queries passed from request, otherwise use environment queries
+            queries_to_run = []
+            if req.queries and len(req.queries) > 0:
+                queries_to_run = list(req.queries[:2])
+            else:
+                queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+
             if req.prioritize_slow_motion and req.studio_mode != "documentary":
                 enriched = []
                 for q in queries_to_run:
                     words = q.split()
                     if len(words) <= 4 and not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
-                        enriched.append(f"slow motion {q}")
+                        # Check if "slow motion" is not already in the query to avoid duplication
+                        if "slow motion" not in q.lower():
+                            enriched.append(f"slow motion {q}")
+                        else:
+                            enriched.append(q)
                     else:
                         enriched.append(q)
                 queries_to_run = enriched
@@ -217,8 +227,13 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             )
             
             async def score_single(c: CandidateItem):
-                score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
-                score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "wide")
+                score_res = await scoring_service.score_candidate(
+                    candidate=c,
+                    analysis=env_dummy_analysis,
+                    preset=env_preset,
+                    studio_mode=active_mode,
+                    shot_preference=req.shot_preference or "wide"
+                )
 
                 c.intent_match = score_res.intent_match
                 c.theme_match = score_res.theme_match
@@ -286,8 +301,15 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 title=beat.visual_subject,
                 studio_mode="documentary"
             )
-            for c in beat_filtered:
-                score_res = scoring_service._score_heuristic(c, beat_dummy_analysis, None)
+
+            async def score_single_beat(c: CandidateItem):
+                score_res = await scoring_service.score_candidate(
+                    candidate=c,
+                    analysis=beat_dummy_analysis,
+                    preset=None,
+                    studio_mode="documentary",
+                    shot_preference=beat.camera_shot or "wide_vista"
+                )
                 c.intent_match = score_res.intent_match
                 c.theme_match = score_res.theme_match
                 c.calmness = score_res.calmness
@@ -296,7 +318,11 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 c.shot_type = score_res.shot_type or beat.camera_shot or "wide_vista"
                 c.is_approved = score_res.keep
                 c.rejection_reason = score_res.reason if not score_res.keep else None
-                if score_res.keep:
+                return c
+
+            scored_beat = await asyncio.gather(*[score_single_beat(c) for c in beat_filtered])
+            for c in scored_beat:
+                if c.is_approved:
                     approved.append(c)
                 else:
                     rejected.append(c)
@@ -331,8 +357,13 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
         )
 
         async def score_single_generic(c: CandidateItem):
-            score_res = scoring_service._score_heuristic(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation")
-            score_res = scoring_service._apply_scoring_thresholds(score_res, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "wide")
+            score_res = await scoring_service.score_candidate(
+                candidate=c,
+                analysis=dummy_analysis,
+                preset=preset,
+                studio_mode=req.studio_mode or "meditation",
+                shot_preference=req.shot_preference or "wide"
+            )
 
             c.intent_match = score_res.intent_match
             c.theme_match = score_res.theme_match
@@ -340,10 +371,9 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             c.motion_intensity = score_res.motion_intensity
             c.visual_quality = score_res.visual_quality
             c.shot_type = score_res.shot_type or "wide_vista"
-            c.subtheme = score_res.subtheme
+            c.subtheme = score_res.subtheme if hasattr(score_res, 'subtheme') and score_res.subtheme else c.subtheme
             c.is_approved = score_res.keep
             c.rejection_reason = score_res.reason if not score_res.keep else None
-            return c
             return c
 
         scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:30]])
