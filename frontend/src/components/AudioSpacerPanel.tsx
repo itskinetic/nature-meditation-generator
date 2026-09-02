@@ -34,6 +34,7 @@ import {
   X
 } from 'lucide-react';
 import { AudioWaveform } from './AudioWaveform';
+import { PhraseWaveformScrubber } from './PhraseWaveformScrubber';
 import { api } from '../api/client';
 import {
   AudioAnalysisResult,
@@ -143,6 +144,11 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
   const [mobileTab, setMobileTab] = useState<'phrases' | 'script'>('phrases');
   const [isMasterOutdated, setIsMasterOutdated] = useState<boolean>(false);
+  const [editingTime, setEditingTime] = useState<{
+    segIndex: number;
+    field: 'start' | 'end';
+    value: string;
+  } | null>(null);
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -808,6 +814,45 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       if (activeProject?.id) {
         api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
       }
+    }
+  };
+
+  // Parse user typed time string: supports "mm:ss", "mm:ss.s", "m:s", or raw seconds like "154.5"
+  const parseTimeInput = (str: string): number | null => {
+    const clean = str.trim();
+    if (!clean) return null;
+    if (clean.includes(':')) {
+      const parts = clean.split(':');
+      if (parts.length === 2) {
+        const mins = parseFloat(parts[0]);
+        const secs = parseFloat(parts[1]);
+        if (!isNaN(mins) && !isNaN(secs)) {
+          return Math.round((mins * 60 + secs) * 10) / 10;
+        }
+      }
+    }
+    const num = parseFloat(clean);
+    return !isNaN(num) ? Math.round(num * 10) / 10 : null;
+  };
+
+  // Commit typed timestamp value
+  const saveEditedTime = () => {
+    if (!editingTime) return;
+    const { segIndex, field, value } = editingTime;
+    setEditingTime(null);
+
+    const parsed = parseTimeInput(value);
+    if (parsed === null) return;
+
+    const seg = segments[segIndex];
+    if (!seg) return;
+
+    if (field === 'start') {
+      const delta = parsed - seg.start_time;
+      adjustStartTime(segIndex, delta);
+    } else {
+      const delta = parsed - seg.end_time;
+      adjustEndTime(segIndex, delta);
     }
   };
 
@@ -1839,8 +1884,37 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             <Play className="w-3 h-3 fill-current ml-0.5" />
                           </button>
                           <div className="flex items-center gap-1 font-mono text-[11px] font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
-                            {/* Start Time & +/- buttons */}
-                            <span className="tabular-nums">{formatTime(seg.start_time)}</span>
+                            {/* Start Time (Editable Input or Clickable Text) */}
+                            {editingTime?.segIndex === seg.index && editingTime?.field === 'start' ? (
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingTime.value}
+                                onChange={(e) => setEditingTime({ ...editingTime, value: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEditedTime();
+                                  else if (e.key === 'Escape') setEditingTime(null);
+                                }}
+                                onBlur={saveEditedTime}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-13 px-1 py-0.5 rounded bg-white dark:bg-stone-900 border border-amber-500 text-stone-900 dark:text-stone-100 font-mono text-[11px] font-bold text-center focus:outline-none ring-1 ring-amber-500 shadow-2xs"
+                                placeholder="00:00"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTime({ segIndex: seg.index, field: 'start', value: formatTime(seg.start_time) });
+                                }}
+                                className="tabular-nums px-1 py-0.5 rounded hover:bg-stone-200/70 dark:hover:bg-stone-800 hover:text-amber-600 dark:hover:text-amber-400 cursor-text transition-colors"
+                                title="Click to type exact timestamp (e.g. 02:28 or 148)"
+                              >
+                                {formatTime(seg.start_time)}
+                              </button>
+                            )}
+
+                            {/* Start +/- buttons */}
                             <div
                               className="flex items-center rounded-md bg-stone-200/90 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 p-0.5 shadow-2xs"
                               onClick={(e) => e.stopPropagation()}
@@ -1865,8 +1939,37 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
                             <span className="text-stone-400 dark:text-stone-500 mx-0.5">–</span>
 
-                            {/* End Time & +/- buttons */}
-                            <span className="tabular-nums">{formatTime(seg.end_time)}</span>
+                            {/* End Time (Editable Input or Clickable Text) */}
+                            {editingTime?.segIndex === seg.index && editingTime?.field === 'end' ? (
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingTime.value}
+                                onChange={(e) => setEditingTime({ ...editingTime, value: e.target.value })}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') saveEditedTime();
+                                  else if (e.key === 'Escape') setEditingTime(null);
+                                }}
+                                onBlur={saveEditedTime}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-13 px-1 py-0.5 rounded bg-white dark:bg-stone-900 border border-amber-500 text-stone-900 dark:text-stone-100 font-mono text-[11px] font-bold text-center focus:outline-none ring-1 ring-amber-500 shadow-2xs"
+                                placeholder="00:00"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTime({ segIndex: seg.index, field: 'end', value: formatTime(seg.end_time) });
+                                }}
+                                className="tabular-nums px-1 py-0.5 rounded hover:bg-stone-200/70 dark:hover:bg-stone-800 hover:text-amber-600 dark:hover:text-amber-400 cursor-text transition-colors"
+                                title="Click to type exact timestamp (e.g. 02:34 or 154)"
+                              >
+                                {formatTime(seg.end_time)}
+                              </button>
+                            )}
+
+                            {/* End +/- buttons */}
                             <div
                               className="flex items-center rounded-md bg-stone-200/90 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 p-0.5 shadow-2xs"
                               onClick={(e) => e.stopPropagation()}
@@ -1897,6 +2000,29 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           </span>
                         </div>
                       </div>
+
+                      {/* Mini Phrase Waveform Visualizer & Interactive Scrubber */}
+                      <PhraseWaveformScrubber
+                        segment={seg}
+                        peaks={currentPeaks}
+                        totalDuration={activeDuration || duration}
+                        currentTime={currentTime}
+                        isActive={isActive}
+                        isPlaying={isPlaying}
+                        isDark={isDark}
+                        silences={analysisData?.silence_intervals || activeProject?.silence_intervals || []}
+                        onSeek={(seekTime) => {
+                          const audio = audioRef.current;
+                          if (audio) {
+                            audio.currentTime = seekTime;
+                            setCurrentTime(seekTime);
+                            setActiveSegmentId(seg.id);
+                            if (!isPlaying) {
+                              audio.play().then(() => setIsPlaying(true)).catch(() => {});
+                            }
+                          }
+                        }}
+                      />
 
                       {/* Phrase Text (Editable & Keyboard Split/Merge Enabled) */}
                       <textarea
