@@ -431,12 +431,16 @@ class FFmpegService:
             if progress_callback:
                 progress_callback(pct, f"Prepared master video {u_idx + 1}/{total_unique}")
 
-        # Step 2: Instant 15s Chunk Extraction from Master Tracks
+        # Step 2: Parallel Slicing with Multi-Core Worker Pool
+        total_cuts = len(clips_info)
         if progress_callback:
-            progress_callback(52, f"Assembling {len(clips_info)} progressive sequence cuts")
+            progress_callback(52, f"Assembling {total_cuts} sequence cuts in parallel")
 
-        normalized_clips: List[Path] = []
-        for idx, clip_item in enumerate(clips_info):
+        slice_semaphore = asyncio.Semaphore(4)
+        completed_count = 0
+
+        async def _process_single_slice(idx: int, clip_item: Dict[str, Any]) -> Tuple[int, Path]:
+            nonlocal completed_count
             cid = clip_item.get("candidate_id") or clip_item.get("source_video_id")
             master_file = master_map.get(cid)
 
@@ -444,18 +448,25 @@ class FFmpegService:
             start_off = float(clip_item.get("start_offset", 0.0))
             norm_clip = job_dir / f"norm_clip_{idx:03d}.mp4"
 
-            if master_file and master_file.exists():
-                await self.slice_clip_from_master(master_file, norm_clip, start_offset=start_off, duration=play_dur)
-            else:
-                # Fallback if master file is missing
-                raw_clip = await self.download_candidate(clip_item, job_dir, idx)
-                await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, start_offset=start_off, playback_speed=playback_speed)
+            async with slice_semaphore:
+                if master_file and master_file.exists():
+                    await self.slice_clip_from_master(master_file, norm_clip, start_offset=start_off, duration=play_dur)
+                else:
+                    # Fallback if master file is missing
+                    raw_clip = await self.download_candidate(clip_item, job_dir, idx)
+                    await self.normalize_clip(raw_clip, norm_clip, play_dur, width, height, start_offset=start_off, playback_speed=playback_speed)
 
-            normalized_clips.append(norm_clip)
+            completed_count += 1
+            if progress_callback and (completed_count % 5 == 0 or completed_count == total_cuts):
+                pct = 52 + int(8 * completed_count / max(1, total_cuts))
+                progress_callback(pct, f"Assembled cut {completed_count}/{total_cuts}")
 
-            if idx % 10 == 0 and progress_callback:
-                pct = 52 + int(8 * (idx + 1) / max(1, len(clips_info)))
-                progress_callback(pct, f"Assembled cut {idx + 1}/{len(clips_info)}")
+            return idx, norm_clip
+
+        tasks = [_process_single_slice(idx, clip_item) for idx, clip_item in enumerate(clips_info)]
+        slice_results = await asyncio.gather(*tasks)
+        slice_results.sort(key=lambda x: x[0])
+        normalized_clips: List[Path] = [r[1] for r in slice_results]
 
         # Step 3: Prepare audio tracks (Music + Voiceover)
         if progress_callback:
@@ -659,7 +670,7 @@ class FFmpegService:
         to avoid holding 100+ decoder streams in memory, yielding 20x faster rendering speed.
         """
         num_clips = len(normalized_clips)
-        if num_clips <= 8:
+        if num_clips <= 10:
             return await self._render_single_batch_xfade(
                 batch_clips=normalized_clips,
                 batch_info=clips_info,
@@ -669,8 +680,8 @@ class FFmpegService:
                 log_file_path=log_file_path
             )
 
-        # Batch in chunks of 6 clips
-        BATCH_SIZE = 6
+        # Batch in chunks of 10 clips for optimal performance and minimal memory footprint
+        BATCH_SIZE = 10
         batch_outputs: List[Path] = []
         job_dir = output_path.parent
 
@@ -692,47 +703,63 @@ class FFmpegService:
                 return False
             batch_outputs.append(batch_out)
 
-        # Crossfade all pre-rendered batch blocks together so that inter-batch boundaries also have 100% seamless transitions!
-        current_merged = batch_outputs[0]
+        # Pairwise Binary Tree Merge: merges neighboring batch blocks in O(log N) layers,
+        # completely eliminating the quadratic O(N^2) progressive re-encoding bottleneck!
+        current_layer: List[Path] = list(batch_outputs)
+        layer_idx = 0
         xfade_name = "fade"
         if transition_type in ["crossfade", "fade"]:
             xfade_name = "fade"
         elif transition_type in ["wipeleft", "wiperight", "slideup", "slidedown", "smoothleft", "circleopen"]:
             xfade_name = transition_type
 
-        for i in range(1, len(batch_outputs)):
-            next_seg = batch_outputs[i]
-            probe_cur = await self.probe_file(current_merged)
-            cur_dur = probe_cur.get("duration", 0.0)
-            offset = max(0.1, cur_dur - transition_duration)
+        while len(current_layer) > 1:
+            next_layer: List[Path] = []
+            layer_idx += 1
 
-            next_merged = job_dir / f"merged_stage_{i:03d}.mp4" if i < len(batch_outputs) - 1 else output_path
-            merge_filter = f"[0:v][1:v]xfade=transition={xfade_name}:duration={transition_duration}:offset={offset:.3f}[outv]"
+            for pair_idx in range(0, len(current_layer), 2):
+                if pair_idx + 1 < len(current_layer):
+                    seg_a = current_layer[pair_idx]
+                    seg_b = current_layer[pair_idx + 1]
 
-            cmd = [
-                "ffmpeg", "-y",
-                "-i", str(current_merged),
-                "-i", str(next_seg),
-                "-filter_complex", merge_filter,
-                "-map", "[outv]",
-                "-c:v", "libx264",
-                "-preset", "veryfast",
-                "-crf", "18",
-                "-pix_fmt", "yuv420p",
-                "-an",
-                str(next_merged)
-            ]
+                    is_final = (len(current_layer) == 2 and pair_idx == 0)
+                    pair_out = output_path if is_final else job_dir / f"tree_l{layer_idx}_p{pair_idx // 2:03d}.mp4"
 
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await proc.communicate()
-            if proc.returncode != 0 or not next_merged.exists():
-                logger.error(f"Inter-batch xfade failed between batch {i-1} and {i}: {stderr.decode('utf-8', errors='ignore')}")
-                return False
-            current_merged = next_merged
+                    probe_a = await self.probe_file(seg_a)
+                    dur_a = probe_a.get("duration", 0.0)
+                    offset = max(0.1, dur_a - transition_duration)
+
+                    merge_filter = f"[0:v][1:v]xfade=transition={xfade_name}:duration={transition_duration}:offset={offset:.3f}[outv]"
+                    cmd = [
+                        "ffmpeg", "-y",
+                        "-i", str(seg_a),
+                        "-i", str(seg_b),
+                        "-filter_complex", merge_filter,
+                        "-map", "[outv]",
+                        "-c:v", "libx264",
+                        "-preset", "veryfast",
+                        "-crf", "18",
+                        "-pix_fmt", "yuv420p",
+                        "-an",
+                        str(pair_out)
+                    ]
+
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    stdout, stderr = await proc.communicate()
+                    if proc.returncode != 0 or not pair_out.exists():
+                        logger.error(f"Binary tree xfade merge failed at layer {layer_idx} pair {pair_idx // 2}: {stderr.decode('utf-8', errors='ignore')}")
+                        return False
+
+                    next_layer.append(pair_out)
+                else:
+                    # Unpaired odd segment carries forward to next tree level
+                    next_layer.append(current_layer[pair_idx])
+
+            current_layer = next_layer
 
         return output_path.exists()
 

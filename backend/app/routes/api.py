@@ -646,6 +646,16 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             )
             target_dur_sec = sequence_data["actual_duration_seconds"]
         else:
+            # For meditation/nature loops: compute natural, soothing clip duration based on target length
+            if req.minimum_clip_duration and req.minimum_clip_duration > 0:
+                effective_clip_cap = float(req.minimum_clip_duration)
+            elif target_dur_sec >= 900:  # 15+ minutes
+                effective_clip_cap = 30.0
+            elif target_dur_sec >= 300:  # 5-15 minutes
+                effective_clip_cap = 20.0
+            else:
+                effective_clip_cap = 15.0
+
             sequence_data = selection_service.plan_sequence(
                 approved_candidates=approved_pool,
                 target_duration_seconds=target_dur_sec,
@@ -654,7 +664,7 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                 studio_mode=active_mode,
                 allow_looping=(active_mode == "meditation"),
                 playback_speed=req.playback_speed or 0.5,
-                clip_duration_cap=min(15.0, req.minimum_clip_duration or 15.0)
+                clip_duration_cap=effective_clip_cap
             )
 
         job_dir = settings.JOBS_DIR / job_id
