@@ -716,8 +716,8 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return Number(bestSilence.mid.toFixed(2));
   };
 
-  // Precision Nudge: shift the start timestamp of a phrase card (and previous card's end boundary)
-  const nudgeStartTime = (segIndex: number, deltaSeconds: number) => {
+  // Precision Timestamp Adjusters (+ / - 0.5s increments)
+  const adjustStartTime = (segIndex: number, deltaSeconds: number) => {
     const seg = segments[segIndex];
     if (!seg) return;
 
@@ -755,6 +755,54 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     } else {
       const newStart = Math.max(0, Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10));
       const updated = segments.map((s, idx) => (idx === 0 ? { ...s, start_time: newStart } : s));
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    }
+  };
+
+  const adjustEndTime = (segIndex: number, deltaSeconds: number) => {
+    const seg = segments[segIndex];
+    if (!seg) return;
+
+    const totalDur = analysisData?.duration || activeProject?.duration || 9999;
+
+    if (segIndex < segments.length - 1) {
+      const nextSeg = segments[segIndex + 1];
+      const newBoundary = Math.round((seg.end_time + deltaSeconds) * 10) / 10;
+
+      // Keep at least 0.2s minimum duration for each card
+      if (newBoundary <= seg.start_time + 0.2 || newBoundary >= nextSeg.end_time - 0.2) {
+        return;
+      }
+
+      const updatedCurrent = {
+        ...seg,
+        end_time: newBoundary,
+        split_time: newBoundary,
+      };
+      const updatedNext = {
+        ...nextSeg,
+        start_time: newBoundary,
+      };
+
+      const updated = [
+        ...segments.slice(0, segIndex),
+        updatedCurrent,
+        updatedNext,
+        ...segments.slice(segIndex + 2),
+      ];
+
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    } else {
+      const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, Math.round((seg.end_time + deltaSeconds) * 10) / 10));
+      const updated = segments.map((s, idx) => (idx === segIndex ? { ...s, end_time: newEnd, split_time: newEnd } : s));
       setSegments(updated);
       setIsMasterOutdated(true);
       if (activeProject?.id) {
@@ -1790,9 +1838,57 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           >
                             <Play className="w-3 h-3 fill-current ml-0.5" />
                           </button>
-                          <span className="font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
-                            {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
-                          </span>
+                          <div className="flex items-center gap-1 font-mono text-[11px] font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
+                            {/* Start Time & +/- buttons */}
+                            <span className="tabular-nums">{formatTime(seg.start_time)}</span>
+                            <div
+                              className="flex items-center rounded-md bg-stone-200/90 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 p-0.5 shadow-2xs"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => adjustStartTime(seg.index, -0.5)}
+                                className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
+                                title="Decrease start time by 0.5s"
+                              >
+                                -
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => adjustStartTime(seg.index, 0.5)}
+                                className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
+                                title="Increase start time by 0.5s"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <span className="text-stone-400 dark:text-stone-500 mx-0.5">–</span>
+
+                            {/* End Time & +/- buttons */}
+                            <span className="tabular-nums">{formatTime(seg.end_time)}</span>
+                            <div
+                              className="flex items-center rounded-md bg-stone-200/90 dark:bg-stone-800 border border-stone-300 dark:border-stone-700 p-0.5 shadow-2xs"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => adjustEndTime(seg.index, -0.5)}
+                                className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
+                                title="Decrease end time by 0.5s"
+                              >
+                                -
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => adjustEndTime(seg.index, 0.5)}
+                                className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
+                                title="Increase end time by 0.5s"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
