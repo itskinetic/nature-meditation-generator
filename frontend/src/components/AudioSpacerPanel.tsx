@@ -1995,11 +1995,11 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
                         <div className="flex items-center gap-1 flex-nowrap shrink-0">
                           {[
-                            { label: '0s', val: 0.0, hideOnMobile: false },
-                            { label: '4s', val: 4.0, hideOnMobile: true },
                             { label: '6s', val: 6.0, hideOnMobile: false },
-                            { label: '10s', val: 10.0, hideOnMobile: true },
+                            { label: '8s', val: 8.0, hideOnMobile: false },
+                            { label: '10s', val: 10.0, hideOnMobile: false },
                             { label: '15s', val: 15.0, hideOnMobile: false },
+                            { label: '20s', val: 20.0, hideOnMobile: false },
                           ].map((p) => (
                             <button
                               key={p.label}
