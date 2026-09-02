@@ -22,7 +22,25 @@ import {
 
 export function App() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history' | 'audio'>('generator');
+  const [activeTab, setActiveTab] = useState<'generator' | 'library' | 'history' | 'audio'>(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'audio' || hash === 'generator' || hash === 'library' || hash === 'history') {
+      return hash as 'generator' | 'library' | 'history' | 'audio';
+    }
+    const saved = localStorage.getItem('zenhub_active_tab');
+    if (saved === 'audio' || saved === 'generator' || saved === 'library' || saved === 'history') {
+      return saved as 'generator' | 'library' | 'history' | 'audio';
+    }
+    return 'generator';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('zenhub_active_tab', activeTab);
+    if (window.location.hash !== `#${activeTab}`) {
+      window.history.replaceState(null, '', `#${activeTab}`);
+    }
+  }, [activeTab]);
+
   const [previewCandidate, setPreviewCandidate] = useState<CandidateItem | null>(null);
 
   // Theme state (default light theme, saved to localStorage)
