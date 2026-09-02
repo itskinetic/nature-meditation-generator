@@ -50,7 +50,10 @@ GLOBAL_PROHIBITED_TERMS = [
     "caterpillar", "worm", "fly", "flies", "mosquito", "beetle", "beetles",
 
     # Macro & Close-up shots (Pure wide vistas required)
-    "macro", "close up", "closeup", "extreme close up", "detail shot", "micro lens", "macro shot"
+    "macro", "close up", "closeup", "extreme close up", "detail shot", "micro lens", "macro shot",
+
+    # Dark, Backlit & Silhouette Footage (Pure Bright Daytime Required)
+    "silhouette", "silhouettes", "backlit", "backlight", "sunset", "sunsets", "golden hour", "dusk", "twilight", "underexposed"
 ]
 
 

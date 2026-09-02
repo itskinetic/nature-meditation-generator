@@ -39,18 +39,17 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Sunlit Forest",
         icon="",
         category="Forest",
-        description="Bright sunbeams through vibrant green canopy and peaceful woodland paths",
+        description="Vibrant green woodland canopy, mossy forest paths, and bright daylight woodland",
         queries=[
-            "sunlight through forest trees",
+            "lush green woodland canopy daylight",
+            "peaceful green forest path daylight",
+            "vibrant mossy forest daylight",
             "bright green woodland canopy",
-            "sunlit quiet forest path",
-            "mossy sunlit forest",
-            "peaceful sunlit woodland",
-            "soft sunlight trees calm",
-            "lush green trees daylight"
+            "peaceful woodland daylight",
+            "lush green trees daylight calm"
         ],
-        subthemes=["sunbeams in trees", "green canopy", "sunlit forest path", "moss and ferns"],
-        preferred_colors=["vibrant green", "warm gold", "emerald", "soft amber"]
+        subthemes=["green canopy", "bright woodland path", "moss and ferns", "daylight forest"],
+        preferred_colors=["vibrant green", "emerald", "leaf jade", "soft white"]
     ),
     "calm_ocean": EnvironmentTheme(
         id="calm_ocean",
@@ -74,17 +73,17 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Wildflower Meadow",
         icon="",
         category="Meadow",
-        description="Colorful blooming wildflowers swaying gently under warm sunshine",
+        description="Colorful blooming wildflowers swaying gently under bright blue skies",
         queries=[
-            "sunlit wildflower meadow",
-            "blooming wildflower field",
-            "gentle breeze colorful meadow",
-            "sunlit pastoral meadow grass",
-            "lavender hills sunshine",
-            "bright wildflowers countryside"
+            "bright wildflower meadow daylight",
+            "blooming wildflower field sunny day",
+            "gentle breeze colorful meadow daylight",
+            "vibrant green pasture daylight",
+            "lavender hills daylight",
+            "bright wildflowers countryside sunny day"
         ],
-        subthemes=["blooming wildflowers", "swaying golden grass", "sunlit pasture", "lavender breeze"],
-        preferred_colors=["golden yellow", "lavender", "soft pink", "fresh green"]
+        subthemes=["blooming wildflowers", "vibrant green grass", "bright meadow pasture", "lavender breeze"],
+        preferred_colors=["vibrant yellow", "lavender", "soft pink", "fresh green"]
     ),
     "mountain_lake": EnvironmentTheme(
         id="mountain_lake",
@@ -93,11 +92,11 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         category="Water",
         description="Placid mirror-like alpine lakes reflecting clear skies and pine ridges",
         queries=[
-            "still alpine lake reflection",
-            "crystal clear mountain lake",
-            "peaceful mountain lake shore",
+            "still alpine lake reflection daylight",
+            "crystal clear mountain lake sunny day",
+            "peaceful mountain lake shore daylight",
             "calm lake water daylight",
-            "placid mountain lake reflection"
+            "placid mountain lake blue sky"
         ],
         subthemes=["mirror lake reflection", "crystal alpine shore", "still water surface", "pine lake border"],
         preferred_colors=["sapphire blue", "pine green", "clear crystal", "soft white"]
@@ -107,16 +106,16 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Golden Sunrise",
         icon="",
         category="Sky",
-        description="Warm golden morning light illuminating peaceful rolling hills and valleys",
+        description="Bright morning daylight illuminating peaceful rolling hills and valleys",
         queries=[
-            "warm golden sunrise valley",
-            "soft sunrise glow nature hills",
-            "peaceful morning dawn light landscape",
-            "golden morning light pasture",
-            "gentle sunrise hill illumination"
+            "bright morning daylight valley",
+            "clear morning light nature hills",
+            "peaceful morning daylight landscape",
+            "vibrant morning light pasture",
+            "bright daylight hill panorama"
         ],
-        subthemes=["golden morning mist", "warm sunrise glow", "gentle rolling hills dawn", "sunlit valley horizon"],
-        preferred_colors=["warm gold", "soft amber", "rose peach", "honey yellow"]
+        subthemes=["morning daylight mist", "clear morning light", "gentle rolling hills dawn", "bright valley horizon"],
+        preferred_colors=["fresh gold", "soft amber", "morning blue", "honey yellow"]
     ),
     "lush_rainforest": EnvironmentTheme(
         id="lush_rainforest",
@@ -125,14 +124,14 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         category="Forest",
         description="Rich emerald tropical foliage, dew drops, and peaceful green canopies",
         queries=[
-            "lush rainforest green canopy",
+            "lush rainforest green canopy daylight",
             "dew drops tropical green leaves",
-            "peaceful green jungle foliage",
-            "sunlit tropical rainforest calm",
+            "peaceful green jungle foliage daylight",
+            "vibrant tropical rainforest daylight",
             "vibrant moss and tropical plants"
         ],
-        subthemes=["tropical canopy", "dew on leaves", "vibrant moss and palms", "gentle jungle light"],
-        preferred_colors=["deep emerald", "vibrant moss", "sunlit jade", "leaf green"]
+        subthemes=["tropical canopy", "dew on leaves", "vibrant moss and palms", "bright jungle light"],
+        preferred_colors=["deep emerald", "vibrant moss", "vibrant jade", "leaf green"]
     ),
     "cascading_waterfalls": EnvironmentTheme(
         id="cascading_waterfalls",
@@ -155,16 +154,16 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Grasslands",
         icon="",
         category="Meadow",
-        description="Endless fields of sunlit tall grass gently swaying in the breeze",
+        description="Endless fields of vibrant green and golden tall grass swaying in the breeze",
         queries=[
-            "sunlit tall grass swaying breeze",
-            "golden grass rolling hills",
+            "lush green grassland swaying breeze daylight",
+            "green grass rolling hills daylight",
             "peaceful pastoral grassland daylight",
-            "sun-drenched golden wheat field calm",
-            "open green rolling hills daylight"
+            "open green rolling hills daylight",
+            "pastoral meadow breeze sunny day"
         ],
-        subthemes=["swaying golden grass", "sunlit rolling hills", "pastoral breeze", "golden field horizon"],
-        preferred_colors=["warm gold", "wheat amber", "soft green", "warm bronze"]
+        subthemes=["swaying tall grass", "green rolling hills", "pastoral breeze", "open field horizon"],
+        preferred_colors=["fresh green", "wheat amber", "soft green", "golden pasture"]
     ),
     "bamboo_groves": EnvironmentTheme(
         id="bamboo_groves",
@@ -173,11 +172,11 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         category="Zen",
         description="Tall green bamboo stalks swaying gracefully with zen stone gardens",
         queries=[
-            "sunlit tall bamboo forest",
+            "bright green bamboo forest daylight",
             "gentle swaying bamboo stalks",
-            "peaceful zen bamboo grove",
-            "tranquil moss stone garden",
-            "bright green bamboo nature"
+            "peaceful zen bamboo grove daylight",
+            "tranquil moss stone garden daylight",
+            "bright green bamboo nature daylight"
         ],
         subthemes=["swaying bamboo stalks", "zen stone garden", "sunlit bamboo canopy", "moss and bamboo"],
         preferred_colors=["bamboo green", "warm gold", "soft jade", "river stone grey"]
@@ -283,15 +282,15 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Alpine Valleys",
         icon="",
         category="Mountain",
-        description="Sun-drenched alpine meadows framed by majestic pine ridges",
+        description="Bright alpine meadows framed by majestic pine ridges and open skies",
         queries=[
-            "sunlit alpine valley green meadow",
+            "bright alpine valley green meadow daylight",
             "peaceful mountain valley pines daylight",
-            "green alpine meadow mountain view",
-            "sunlit pine ridge valley landscape",
-            "alpine countryside sunshine"
+            "green alpine meadow mountain view daylight",
+            "green pine ridge valley landscape daylight",
+            "alpine countryside bright sunny day"
         ],
-        subthemes=["alpine green valley", "pine mountain ridge", "sunlit mountain pasture", "highland meadow"],
+        subthemes=["alpine green valley", "pine mountain ridge", "mountain pasture daylight", "highland meadow"],
         preferred_colors=["alpine green", "pine emerald", "sky blue", "snow white"]
     ),
     "tropical_lagoons": EnvironmentTheme(
@@ -299,31 +298,31 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Tropical Lagoons",
         icon="",
         category="Water",
-        description="Swaying palm fronds and crystal clear emerald lagoons under warm sunshine",
+        description="Swaying palm fronds and crystal clear emerald lagoons under bright blue skies",
         queries=[
             "crystal clear shallow tropical water ripples",
-            "sunlit turquoise lagoon water close up calm",
+            "crystal clear turquoise lagoon water daylight",
             "pure tropical nature shore turquoise water",
-            "empty tropical beach clear turquoise water",
-            "gentle shallow sea ripples turquoise sunlit"
+            "empty tropical beach clear turquoise water daylight",
+            "gentle shallow sea ripples turquoise daylight"
         ],
         subthemes=["swaying palm fronds", "crystal lagoon", "turquoise shallows", "tropical island shore"],
-        preferred_colors=["lagoon turquoise", "palm green", "sunlit coral", "warm gold"]
+        preferred_colors=["lagoon turquoise", "palm green", "bright coral", "clear water"]
     ),
     "riverbed_pebbles": EnvironmentTheme(
         id="riverbed_pebbles",
         name="Riverbed",
         icon="",
         category="Water",
-        description="Shallow crystal clear water gliding over smooth colorful river stones",
+        description="Shallow crystal clear water gliding over smooth colorful river stones in daylight",
         queries=[
-            "clear water smooth river stones",
-            "sunlit riverbed colorful pebbles",
-            "gentle shallow river clear water",
+            "clear water smooth river stones daylight",
+            "crystal clear riverbed pebbles daylight",
+            "gentle shallow river clear water daylight",
             "peaceful stream smooth rocks daylight",
-            "crystal water flowing riverbed"
+            "crystal water flowing riverbed daylight"
         ],
-        subthemes=["smooth river stones", "crystal shallow stream", "sunlit pebble ripples", "calm riverbed"],
+        subthemes=["smooth river stones", "crystal shallow stream", "clear pebble ripples", "calm riverbed"],
         preferred_colors=["clear water", "river stone amber", "slate blue", "golden pebble"]
     ),
     "sunset_twilight": EnvironmentTheme(

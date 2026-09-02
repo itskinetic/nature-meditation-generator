@@ -120,53 +120,59 @@ Target Total Video Clips Needed: {target_clips or 10}
 {cooldown_str}
 EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
 - Do NOT generate generic geographical stock filler that ignores the emotional core of the title/script.
-- DECODE the emotional feeling and metaphor into concrete lighting, temperature, and visual nature phenomena that stock video engines index:
-  * LOVE / HEART-OPENING / BEAMING / WARMTH / RECEIVING:
-    - Radiating crepuscular rays & God-rays bursting through clouds or treetop canopies (e.g. "radiant golden sunbeams breaking through clouds 4k", "sun rays beaming through mountain mist 4k").
-    - Landscapes bathed in warm golden morning light or glowing sunset illumination (e.g. "expansive valley bathed in warm golden sunrise light 4k", "golden hour light illuminating calm ocean horizon 4k").
-    - Luminous reflective waters glowing with golden sunlight.
-    - STRICTLY AVOID cold grey mist, dark moody mountains, or generic green foliage with no warm light.
+- DECODE the emotional feeling and metaphor into clean, bright, daytime visual nature phenomena that stock video engines index:
+  * LOVE / HEART-OPENING / EXPANSION / WARMTH / RECEIVING:
+    - Lush, vibrant green mountain valleys in full bright daylight with open clear skies (e.g. "bright daylight lush green valley forward aerial glide 4k", "vibrant mountain meadows sunny day 4k").
+    - Crystal clear turquoise waters gently rippling in bright daytime light.
+    - Blooming vibrant meadows bathed in clear sunny daylight.
   * STILLNESS / DEEP PEACE / REST / GROUNDING:
-    - Mirror-like alpine lake reflections at twilight, ancient quiet redwoods with gentle filtered sunbeams, peaceful glowing dusk horizons.
+    - Pristine mirror-like alpine lakes reflecting clear blue sky in bright daylight, ancient quiet green mossy woodlands under soft bright daylight canopy.
   * CLARITY / VITALITY / AWAKENING:
-    - Pristine crystal turquoise waters, crisp golden dawn mountain summits, luminous sparkling waters in morning sunlight.
+    - Crystal clear turquoise ocean vistas, pristine mountain ridges under vast clear blue sky, sparkling clean water in morning daylight.
 
 DIRECTOR INSTRUCTIONS:
-- Plan exactly 5 distinct visual scenes (e.g. scene_1 to scene_5) with 2 clips each (10 clips total).
-- CAMERA MOTION & LIGHTING REQUIREMENT:
-  * Prioritize smooth, cinematic forward push-in drone shots, slow-gliding aerials, and gentle tracking vistas through sunlit nature.
-  * Ensure lighting is VIVID, bright, golden, sun-drenched, and crystal-clear (e.g. golden hour sunrise, warm sunbeams, luminous turquoise waters).
+- Plan exactly 5 distinct visual scenes (scene_1 to scene_5) with 2 diverse, high-performing keywords each (10 keywords total).
+- LIGHTING & VISIBILITY REQUIREMENT (STRICT):
+  * Mandate CLEAN, BRIGHT NATURAL DAYLIGHT, high-key open sky lighting, and vivid natural colors (emerald green, azure blue, clear turquoise).
+  * STRICTLY FORBIDDEN keywords that cause dark/silhouette/backlit stock footage:
+    Do NOT use: "sunbeams", "god rays", "golden hour", "sunset", "dusk", "twilight", "backlit", "silhouette", "shadows", "warm light", "sunlit", "dark".
+  * ALWAYS prioritize terms that yield bright, crystal-clear, evenly illuminated daytime footage:
+    "bright daylight", "clear sunny day", "vibrant green daylight", "crystal clear water", "open blue sky daylight".
+- CAMERA MOTION REQUIREMENT:
+  * Prioritize smooth, cinematic forward push-in drone shots, slow-gliding aerials, and gentle tracking vistas through bright nature.
 - ALL search queries MUST combine:
-  [Lighting/Metaphor] + [Forward Glide/Drone/Tracking Motion] + [Vivid Landscape] + [4k]
-  Example: "vivid golden sunbeams push in drone shot misty forest 4k"
-  Example: "cinematic sunrise drone glide over calm ocean horizon 4k"
-  Example: "bright sunlit mountain valley forward aerial tracking 4k"
-- STRICTLY EXCLUDE: dark/gloomy/foggy grey weather, macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse.
+  [Daylight Lighting] + [Lush Landscape/Water Element] + [Forward Drone/Aerial Tracking] + [4k]
+  Example: "bright daylight lush green forest forward drone glide 4k"
+  Example: "clear sunny day mountain valley forward aerial tracking 4k"
+  Example: "crystal clear turquoise ocean calm waves aerial glide 4k"
+  Example: "vibrant alpine green meadow sunny day aerial 4k"
+  Example: "lush mossy woodland bright daylight slow forward tracking 4k"
+- STRICTLY EXCLUDE: dark/gloomy/foggy grey weather, sunset, golden hour, dusk, silhouette, backlit, macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse.
 
 Return ONLY valid JSON matching this schema:
 {{
   "intent": "gentle calming of the nervous system and deep presence",
   "mood": ["peaceful", "calm", "serene", "soothing", "grounding"],
   "energy_level": "very low",
-  "visual_style": "vivid bright sunlit nature vistas with smooth cinematic forward drone glides",
-  "preferred_colors": ["emerald green", "warm gold", "turquoise blue", "radiant amber"],
-  "visual_motifs": ["sunbeams through trees", "gentle water ripples", "golden sunrise horizons"],
-  "avoid_visuals": ["dark", "gloomy", "grey overcast", "murky", "underexposed", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
-  "generated_queries": ["query 1", "query 2", "query 3"],
+  "visual_style": "bright vibrant natural daylight nature vistas with smooth cinematic forward drone glides",
+  "preferred_colors": ["emerald green", "azure sky blue", "crystal turquoise", "fresh spring jade"],
+  "visual_motifs": ["lush green tree canopy", "crystal clear turquoise water", "open sunny mountain valleys"],
+  "avoid_visuals": ["dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "generated_queries": ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6", "query 7", "query 8", "query 9", "query 10"],
   "planned_environments": [
     {{
       "id": "scene_1",
-      "name": "Radiant Golden Drone Glide",
-      "icon": "✨",
-      "keywords": ["vivid golden sunbeams push in drone shot misty forest 4k", "cinematic sunrise aerial glide over calm ocean 4k"],
+      "name": "Bright Daylight Forest Canopy",
+      "icon": "🌲",
+      "keywords": ["bright daylight lush green forest forward drone glide 4k", "vibrant mossy woodland bright daylight slow tracking 4k"],
       "suggested_clips": 2,
       "enabled": true
     }},
     {{
       "id": "scene_2",
-      "name": "Sunlit Valley Push-In",
-      "icon": "🌅",
-      "keywords": ["bright sunlit mountain valley forward aerial tracking 4k", "golden hour drone glide calm lake reflection 4k"],
+      "name": "Sunny Mountain Valley",
+      "icon": "🏔️",
+      "keywords": ["clear sunny day mountain valley forward aerial tracking 4k", "vibrant alpine green meadow sunny day aerial 4k"],
       "suggested_clips": 2,
       "enabled": true
     }}

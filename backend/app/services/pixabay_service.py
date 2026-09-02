@@ -45,7 +45,7 @@ class PixabayService:
             "video_type": "film",
             "category": "nature",
             "safesearch": "true",
-            "per_page": min(per_page, 50),
+            "per_page": max(3, min(per_page, 50)),
             "page": page
         }
 

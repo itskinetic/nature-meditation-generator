@@ -143,12 +143,12 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
             target_clips = env_spec.clip_count or 4
 
-            # Fetch candidates for this environment
-            per_page = min(15, max(8, int(target_clips * 2)))
+            # Fetch candidates for this environment (5 clips per keyword per provider)
+            per_page = 5
             # Prefer explicit queries passed from request, otherwise use environment queries
             queries_to_run = []
             if req.queries and len(req.queries) > 0:
-                queries_to_run = list(req.queries[:2])
+                queries_to_run = list(req.queries[:10])
             else:
                 queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
 
@@ -169,25 +169,42 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             env_raw: List[CandidateItem] = []
             for q in queries_to_run:
                 search_page = max(1, req.page or 1)
-                # 1. Fetch videos: PRIORITIZE PEXELS FIRST FOR VIVID CINEMATIC DRONE FOOTAGE
+                # 1. Fetch videos: Call BOTH Pexels and Pixabay concurrently
                 if req.media_type in ("video", "both", None):
-                    px_items: List[CandidateItem] = []
+                    tasks = []
                     if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=search_page, per_page=per_page, db=db)
+                        tasks.append(pexels_service.search(query=q, page=search_page, per_page=per_page, db=db))
+                    if req.enable_pixabay:
+                        tasks.append(pixabay_service.search(query=q, page=search_page, per_page=per_page, db=db))
+
+                    if tasks:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        px_items: List[CandidateItem] = []
+                        pb_items: List[CandidateItem] = []
+
+                        if req.enable_pexels and len(results) > 0 and isinstance(results[0], list):
+                            px_items = results[0]
+                        if req.enable_pixabay:
+                            pb_idx = 1 if req.enable_pexels else 0
+                            if len(results) > pb_idx and isinstance(results[pb_idx], list):
+                                pb_items = results[pb_idx]
+
                         for item in px_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
                             item.media_type = "video"
-                        env_raw.extend(px_items)
-
-                    # Only call Pixabay if Pexels is disabled, returned 0 results, or yielded insufficient clips
-                    if req.enable_pixabay and len(px_items) < max(2, per_page // 2):
-                        pb_items = await pixabay_service.search(query=q, page=search_page, per_page=per_page, db=db)
                         for item in pb_items:
                             item.environment_id = env_spec.id
                             item.subtheme = env_spec.name
                             item.media_type = "video"
-                        env_raw.extend(pb_items)
+
+                        # Interleave Pexels and Pixabay candidates for balanced variety (~5 per provider)
+                        max_len = max(len(px_items), len(pb_items))
+                        for i in range(max_len):
+                            if i < len(px_items):
+                                env_raw.append(px_items[i])
+                            if i < len(pb_items):
+                                env_raw.append(pb_items[i])
 
                 # 2. Fetch photos if media_type is "image" or "both"
                 if req.media_type in ("image", "both"):
@@ -327,17 +344,27 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                 else:
                     rejected.append(c)
     else:
-        # Fallback to query search
-        queries_to_run = list(req.queries[:4]) if req.queries else ["peaceful nature landscape"]
+        # Fallback to query search (up to 10 queries, 5 per provider = ~50-100 candidates)
+        queries_to_run = list(req.queries[:10]) if req.queries else [
+            "peaceful nature landscape daylight",
+            "lush green forest daylight",
+            "crystal clear turquoise ocean calm waves",
+            "still alpine lake reflection daylight",
+            "bright wildflower meadow sunny day"
+        ]
         preset = NATURE_PRESETS.get(req.preset_name) if req.preset_name else None
 
         for q in queries_to_run:
+            tasks = []
             if req.enable_pexels:
-                res = await pexels_service.search(query=q, page=1, per_page=20, db=db)
-                all_raw.extend(res)
+                tasks.append(pexels_service.search(query=q, page=1, per_page=5, db=db))
             if req.enable_pixabay:
-                res = await pixabay_service.search(query=q, page=1, per_page=20, db=db)
-                all_raw.extend(res)
+                tasks.append(pixabay_service.search(query=q, page=1, per_page=5, db=db))
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for res in results:
+                    if isinstance(res, list):
+                        all_raw.extend(res)
 
         filtered = candidate_service.filter_candidates(
             candidates=all_raw,
@@ -522,21 +549,20 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
 
             if len(collected_candidates) < req.maximum_unique_videos:
                 update_job("searching", 20, f"Searching footage for {active_mode} preset")
-                per_page_count = min(15, max(6, int(req.maximum_unique_videos / max(1, len(queries)))))
-                for q in queries[:4]:
+                per_page_count = min(15, max(5, int(req.maximum_unique_videos / max(1, len(queries)))))
+                for q in queries[:10]:
                     if len(collected_candidates) >= req.maximum_unique_videos:
                         break
-                    # 1. Query Pexels first for vivid, high-quality footage
-                    px_count = 0
+                    tasks = []
                     if req.enable_pexels:
-                        px_items = await pexels_service.search(query=q, page=1, per_page=per_page_count, db=db)
-                        collected_candidates.extend(px_items)
-                        px_count = len(px_items)
-
-                    # 2. Only query Pixabay if Pexels yielded insufficient clips or is disabled
-                    if req.enable_pixabay and (px_count < 2 or len(collected_candidates) < req.maximum_unique_videos):
-                        pb_items = await pixabay_service.search(query=q, page=1, per_page=per_page_count, db=db)
-                        collected_candidates.extend(pb_items)
+                        tasks.append(pexels_service.search(query=q, page=1, per_page=per_page_count, db=db))
+                    if req.enable_pixabay:
+                        tasks.append(pixabay_service.search(query=q, page=1, per_page=per_page_count, db=db))
+                    if tasks:
+                        results = await asyncio.gather(*tasks, return_exceptions=True)
+                        for res in results:
+                            if isinstance(res, list):
+                                collected_candidates.extend(res)
 
             # 4. Filter Candidate Pool
             update_job("scoring", 25, "Filtering and deduplicating candidates")
