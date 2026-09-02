@@ -1941,9 +1941,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       {/* Mini Phrase Waveform Visualizer & Interactive Scrubber */}
                       <PhraseWaveformScrubber
                         segment={seg}
-                        peaks={currentPeaks}
-                        totalDuration={activeDuration || duration}
-                        currentTime={currentTime}
+                        peaks={analysisData?.waveform_peaks || activeProject?.waveform_peaks || []}
+                        totalDuration={analysisData?.duration || activeProject?.duration || duration || 1}
+                        currentTime={
+                          activeAudioSource === 'original'
+                            ? currentTime
+                            : seg.start_time + Math.max(0, currentTime - (spacedSegments.find((s) => s.id === seg.id)?.spaced_start_time || 0))
+                        }
                         isActive={isActive}
                         isPlaying={isPlaying}
                         isDark={isDark}
@@ -1951,6 +1955,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         onSeek={(seekTime) => {
                           const audio = audioRef.current;
                           if (audio) {
+                            if (activeAudioSource !== 'original') {
+                              setActiveAudioSource('original');
+                            }
                             audio.currentTime = seekTime;
                             setCurrentTime(seekTime);
                             setActiveSegmentId(seg.id);
