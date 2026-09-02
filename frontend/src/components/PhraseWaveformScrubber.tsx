@@ -31,18 +31,44 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
 
   const segDuration = Math.max(0.1, segment.end_time - segment.start_time);
 
-  // Sliced peaks for this phrase
-  const slicedPeaks = useMemo(() => {
+  // Sliced & high-resolution resampled peaks for this phrase
+  const displayPeaks = useMemo(() => {
     if (!peaks || peaks.length === 0 || totalDuration <= 0) return [];
+
     const startRatio = Math.max(0, Math.min(1, segment.start_time / totalDuration));
     const endRatio = Math.max(0, Math.min(1, segment.end_time / totalDuration));
     const startIdx = Math.floor(startRatio * peaks.length);
     const endIdx = Math.ceil(endRatio * peaks.length);
-    const slice = peaks.slice(startIdx, Math.max(startIdx + 12, endIdx));
-    return slice;
-  }, [peaks, segment.start_time, segment.end_time, totalDuration]);
+    
+    // Slice raw peaks belonging to this phrase
+    const rawSlice = peaks.slice(startIdx, Math.max(startIdx + 4, endIdx));
+    if (rawSlice.length === 0) return [];
 
-  // Draw waveform on canvas
+    // Target between 60 and 90 bars for studio-grade density matching waveform UI
+    const targetBars = Math.min(90, Math.max(48, Math.round(segDuration * 12)));
+
+    // Smooth interpolation across peaks
+    const resampled: number[] = [];
+    for (let i = 0; i < targetBars; i++) {
+      const t = (i / (targetBars - 1)) * (rawSlice.length - 1);
+      const low = Math.floor(t);
+      const high = Math.min(rawSlice.length - 1, Math.ceil(t));
+      const frac = t - low;
+      const val = (rawSlice[low] || 0) * (1 - frac) + (rawSlice[high] || 0) * frac;
+      resampled.push(val);
+    }
+
+    // Local Auto-Gain Normalization:
+    // Ensures speech bursts pop as tall spikes while background silence stays at baseline
+    const maxVal = Math.max(0.02, ...resampled);
+    return resampled.map((v) => {
+      const norm = Math.min(1, Math.max(0, v / maxVal));
+      // Dynamic power curve: lifts speech volume while keeping silent pauses flat
+      return Math.pow(norm, 0.75);
+    });
+  }, [peaks, segment.start_time, segment.end_time, segDuration, totalDuration]);
+
+  // Draw waveform on canvas (Matching Image 2 style: centered symmetrical bars & dashed playhead)
   const drawWaveform = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -53,7 +79,7 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const width = container.clientWidth;
-    const height = 24;
+    const height = 36; // Increased from 24 to 36 for dramatic vertical amplitude
 
     if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
       canvas.width = width * dpr;
@@ -64,10 +90,17 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    if (slicedPeaks.length === 0) {
-      // Fallback empty line
-      ctx.fillStyle = isDark ? '#334155' : '#cbd5e1';
-      ctx.fillRect(0, height / 2 - 1, width, 2);
+    const centerY = height / 2;
+
+    // Draw subtle horizontal center baseline
+    ctx.strokeStyle = isDark ? 'rgba(120, 113, 108, 0.25)' : 'rgba(214, 211, 209, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, centerY);
+    ctx.lineTo(width, centerY);
+    ctx.stroke();
+
+    if (displayPeaks.length === 0) {
       ctx.restore();
       return;
     }
@@ -77,59 +110,63 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
     if (currentTime >= segment.start_time) {
       progressRatio = Math.min(1, (currentTime - segment.start_time) / segDuration);
     }
+    const currentPixel = progressRatio * width;
 
-    const numBars = Math.min(slicedPeaks.length, Math.floor(width / 3.5));
-    const barWidth = Math.max(1.5, (width / numBars) - 1.2);
-    const centerY = height / 2;
+    const numBars = displayPeaks.length;
+    const step = width / numBars;
+    const barWidth = Math.max(1.8, step - 1.2);
 
-    // Resample sliced peaks to match available visual width
     for (let i = 0; i < numBars; i++) {
-      const peakIdx = Math.floor((i / numBars) * slicedPeaks.length);
-      const peakVal = slicedPeaks[peakIdx] || 0.05;
-      const barHeight = Math.max(3, peakVal * (height - 4));
-      const x = i * (width / numBars);
+      const x = i * step + (step - barWidth) / 2;
+      const peakVal = displayPeaks[i];
+      // Max height up to 88% of canvas height for clear speech spikes
+      const barHeight = Math.max(2.5, peakVal * (height * 0.88));
+      const top = centerY - barHeight / 2;
 
-      const barProgress = i / numBars;
-      const hasPlayed = isActive && barProgress <= progressRatio;
+      const hasPlayed = isActive && x <= currentPixel;
 
       if (hasPlayed) {
-        ctx.fillStyle = '#f59e0b'; // Amber 500 played
+        ctx.fillStyle = isDark ? '#f59e0b' : '#d97706'; // Amber played audio
       } else if (isActive) {
-        ctx.fillStyle = isDark ? '#78716c' : '#a8a29e'; // Neutral active unplayed
+        ctx.fillStyle = isDark ? '#a8a29e' : '#78716c'; // Active phrase unplayed speech
       } else {
-        ctx.fillStyle = isDark ? '#44403c' : '#d6d3d1'; // Inactive card bars
+        ctx.fillStyle = isDark ? '#57534e' : '#a8a29e'; // Inactive card speech
       }
 
-      const top = centerY - barHeight / 2;
       ctx.beginPath();
-      ctx.roundRect(x, top, barWidth, barHeight, 1);
+      if (ctx.roundRect) {
+        ctx.roundRect(x, top, barWidth, barHeight, 1.2);
+      } else {
+        ctx.rect(x, top, barWidth, barHeight);
+      }
       ctx.fill();
     }
 
-    // Draw playhead vertical line if active & within this card
+    // Draw dashed playhead line (Matching Image 2 dashed vertical line)
     if (isActive && progressRatio > 0 && progressRatio < 1) {
-      const playheadX = progressRatio * width;
-      ctx.strokeStyle = '#d97706'; // Amber 600
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isDark ? '#fbbf24' : '#d97706'; // Amber dashed playhead
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 2.5]);
       ctx.beginPath();
-      ctx.moveTo(playheadX, 0);
-      ctx.lineTo(playheadX, height);
+      ctx.moveTo(currentPixel, 0);
+      ctx.lineTo(currentPixel, height);
       ctx.stroke();
+      ctx.setLineDash([]);
 
-      // Playhead top dot
+      // Top playhead marker dot
       ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
-      ctx.arc(playheadX, 3, 2.5, 0, Math.PI * 2);
+      ctx.arc(currentPixel, 3.5, 3, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // Draw hover scrub preview line
+    // Draw dashed hover preview line
     if (hoverTime !== null && hoverTime >= segment.start_time && hoverTime <= segment.end_time) {
       const hoverRatio = (hoverTime - segment.start_time) / segDuration;
       const hoverX = hoverRatio * width;
       ctx.strokeStyle = isDark ? '#38bdf8' : '#0284c7';
       ctx.lineWidth = 1.5;
-      ctx.setLineDash([2, 2]);
+      ctx.setLineDash([3, 2]);
       ctx.beginPath();
       ctx.moveTo(hoverX, 0);
       ctx.lineTo(hoverX, height);
@@ -138,20 +175,19 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
     }
 
     ctx.restore();
-  }, [slicedPeaks, currentTime, segment.start_time, segment.end_time, segDuration, isActive, isDark, hoverTime]);
+  }, [displayPeaks, currentTime, segment.start_time, segment.end_time, segDuration, isActive, isDark, hoverTime]);
 
   useEffect(() => {
     drawWaveform();
   }, [drawWaveform]);
 
-  // Handle Resize
   useEffect(() => {
     const handleResize = () => drawWaveform();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [drawWaveform]);
 
-  // Click / Drag to scrub within phrase
+  // Click to scrub audio within phrase
   const handleScrub = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     const container = containerRef.current;
@@ -190,24 +226,24 @@ export const PhraseWaveformScrubber: React.FC<PhraseWaveformScrubberProps> = ({
         setIsHovered(false);
         setHoverTime(null);
       }}
-      className={`relative w-full h-6 rounded-lg px-1.5 py-0.5 flex items-center transition-all cursor-crosshair select-none ${
+      className={`relative w-full h-9 rounded-xl px-2 py-1 flex items-center transition-all cursor-crosshair select-none ${
         isActive
-          ? 'bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/30'
-          : 'bg-stone-100 dark:bg-stone-900/60 border border-stone-200/60 dark:border-stone-800/60 hover:border-amber-400/50'
+          ? 'bg-amber-500/10 dark:bg-amber-950/40 border border-amber-500/40 shadow-2xs'
+          : 'bg-stone-100/90 dark:bg-stone-900/80 border border-stone-200/80 dark:border-stone-800 hover:border-amber-400/60'
       }`}
       title={
         hoverTime !== null
           ? `Click to scrub to ${formatSecs(hoverTime)}`
-          : 'Mini Waveform: Click anywhere to scrub audio'
+          : 'Speech Waveform: Click anywhere to scrub audio'
       }
     >
       <canvas
         ref={canvasRef}
         className="w-full h-full block"
-        style={{ height: '20px' }}
+        style={{ height: '36px' }}
       />
 
-      {/* Hover timestamp tooltip */}
+      {/* Live hover timecode tooltip */}
       {isHovered && hoverTime !== null && (
         <div
           className="absolute -top-6 px-1.5 py-0.5 rounded bg-stone-900 text-stone-100 text-[10px] font-mono font-bold pointer-events-none shadow-md whitespace-nowrap z-20"
