@@ -148,6 +148,29 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const teleprompterRef = useRef<HTMLDivElement | null>(null);
   const activeCardRef = useRef<HTMLDivElement | null>(null);
 
+  // Focus ref tracking for Enter (split) and Backspace (merge) navigation
+  const pendingFocusRef = useRef<{ segId?: string; cursorPosition: number } | null>(null);
+  const textareaRefs = useRef<{ [id: string]: HTMLTextAreaElement | null }>({});
+
+  // Auto-focus target phrase card and set cursor position after Enter or Backspace
+  useEffect(() => {
+    if (pendingFocusRef.current) {
+      const { segId, cursorPosition } = pendingFocusRef.current;
+      pendingFocusRef.current = null;
+      if (segId && textareaRefs.current[segId]) {
+        const el = textareaRefs.current[segId];
+        if (el) {
+          el.focus();
+          try {
+            el.setSelectionRange(cursorPosition, cursorPosition);
+          } catch {
+            // Ignore if unsupported
+          }
+        }
+      }
+    }
+  }, [segments]);
+
   // Format seconds to mm:ss
   const formatTime = (secs: number) => {
     if (isNaN(secs) || secs < 0) return '00:00';
@@ -642,6 +665,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       ...segments.slice(segIndex + 2),
     ].map((s, idx) => ({ ...s, index: idx }));
 
+    pendingFocusRef.current = { segId: currentSeg.id, cursorPosition: currentSeg.text.length };
     setSegments(updated);
     if (activeProject?.id) {
       api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
@@ -693,9 +717,142 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       ...segments.slice(segIndex + 1),
     ].map((s, idx) => ({ ...s, index: idx }));
 
+    pendingFocusRef.current = { segId: seg2.id, cursorPosition: 0 };
     setSegments(updated);
     if (activeProject?.id) {
       api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
+    }
+  };
+
+  // Keyboard navigation & editing: Enter splits phrase; Backspace at offset 0 merges with previous; Delete at end merges with next
+  const handlePhraseKeyDown = (
+    e: React.KeyboardEvent<HTMLTextAreaElement>,
+    segIndex: number
+  ) => {
+    const seg = segments[segIndex];
+    if (!seg) return;
+    const textarea = e.currentTarget;
+    const { selectionStart, selectionEnd } = textarea;
+    const fullText = seg.text;
+
+    // 1. ENTER (without Shift) -> Split into 2 phrase cards at cursor position
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+
+      const cursorPos = selectionStart ?? fullText.length;
+      const textBefore = fullText.slice(0, cursorPos).trim();
+      const textAfter = fullText.slice(cursorPos).trim();
+
+      // Proportional timing calculation based on cursor character position
+      const totalDuration = Math.max(0.2, seg.end_time - seg.start_time);
+      const ratio = fullText.length > 0 ? cursorPos / fullText.length : 0.5;
+      const clampedRatio = Math.max(0.1, Math.min(0.9, ratio));
+      const splitTime = Number((seg.start_time + totalDuration * clampedRatio).toFixed(2));
+
+      const newId = `seg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+      const seg1: AudioSegment = {
+        ...seg,
+        text: textBefore,
+        end_time: splitTime,
+        split_time: splitTime,
+        pause_duration: 6.0,
+      };
+
+      const seg2: AudioSegment = {
+        ...seg,
+        id: newId,
+        text: textAfter,
+        start_time: splitTime,
+        pause_duration: seg.pause_duration,
+      };
+
+      const updated = [
+        ...segments.slice(0, segIndex),
+        seg1,
+        seg2,
+        ...segments.slice(segIndex + 1),
+      ].map((s, idx) => ({ ...s, index: idx }));
+
+      // Immediately focus the second (newly created) card with cursor at start
+      pendingFocusRef.current = { segId: newId, cursorPosition: 0 };
+      setSegments(updated);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((err) => console.warn('Autosave segments error:', err));
+      }
+      return;
+    }
+
+    // 2. BACKSPACE at offset 0 (cursor at start of text) -> Merge with PREVIOUS card
+    if (e.key === 'Backspace' && selectionStart === 0 && selectionEnd === 0) {
+      if (segIndex > 0) {
+        e.preventDefault();
+        const prevSeg = segments[segIndex - 1];
+        const prevTextLen = prevSeg.text.length;
+        const joinPos = prevTextLen + (prevSeg.text.length > 0 && fullText.length > 0 ? 1 : 0);
+
+        const mergedText = prevSeg.text.trim()
+          ? `${prevSeg.text.trim()}${fullText.trim() ? ' ' + fullText.trim() : ''}`
+          : fullText.trim();
+
+        const mergedSeg: AudioSegment = {
+          ...prevSeg,
+          text: mergedText,
+          start_time: prevSeg.start_time,
+          end_time: seg.end_time,
+          split_time: seg.split_time,
+          pause_duration: seg.pause_duration,
+        };
+
+        const updated = [
+          ...segments.slice(0, segIndex - 1),
+          mergedSeg,
+          ...segments.slice(segIndex + 1),
+        ].map((s, idx) => ({ ...s, index: idx }));
+
+        // Focus the merged segment at the joint cursor position
+        pendingFocusRef.current = { segId: prevSeg.id, cursorPosition: joinPos };
+        setSegments(updated);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((err) => console.warn('Autosave segments error:', err));
+        }
+        return;
+      }
+    }
+
+    // 3. DELETE at very end of text -> Merge NEXT card into this card
+    if (e.key === 'Delete' && selectionStart === fullText.length && selectionEnd === fullText.length) {
+      if (segIndex < segments.length - 1) {
+        e.preventDefault();
+        const nextSeg = segments[segIndex + 1];
+        const currentPos = fullText.length;
+
+        const mergedText = fullText.trim()
+          ? `${fullText.trim()}${nextSeg.text.trim() ? ' ' + nextSeg.text.trim() : ''}`
+          : nextSeg.text.trim();
+
+        const mergedSeg: AudioSegment = {
+          ...seg,
+          text: mergedText,
+          start_time: seg.start_time,
+          end_time: nextSeg.end_time,
+          split_time: nextSeg.split_time,
+          pause_duration: nextSeg.pause_duration,
+        };
+
+        const updated = [
+          ...segments.slice(0, segIndex),
+          mergedSeg,
+          ...segments.slice(segIndex + 2),
+        ].map((s, idx) => ({ ...s, index: idx }));
+
+        pendingFocusRef.current = { segId: seg.id, cursorPosition: currentPos };
+        setSegments(updated);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((err) => console.warn('Autosave segments error:', err));
+        }
+        return;
+      }
     }
   };
 
@@ -1369,65 +1526,72 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
             {/* RIGHT 50%: SPOKEN PHRASE TELEPROMPTER & PAUSE EDITOR */}
             <div className={`flex flex-col gap-3 p-3 md:p-4 rounded-3xl bg-white dark:bg-[#12151c] border border-stone-200 dark:border-stone-800 shadow-sm ${mobileTab === 'phrases' ? 'flex' : 'hidden lg:flex'}`}>
-              {/* Sticky Top Toolbar for Phrases & Search */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-stone-200 dark:border-stone-800">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="w-4 h-4 text-amber-500" />
-                    <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
-                      Spoken Phrases
-                    </span>
-                  </div>
-
-                  {segments.length > 0 && !segments.some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section')) ? (
-                    <div className="flex items-center gap-1">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-0.5">
-                        <CheckCheck className="w-3 h-3" /> Saved
+              {/* Sticky Top Toolbar for Phrases & Search (2-Row Clean Responsive Layout) */}
+              <div className="flex flex-col gap-2 pb-2.5 border-b border-stone-200 dark:border-stone-800">
+                {/* Row 1: Title, Status Badge, Re-transcribe & Card Count */}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <Eye className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span className="text-xs font-bold text-stone-900 dark:text-white uppercase tracking-wider">
+                        Spoken Phrases
                       </span>
+                    </div>
+
+                    {segments.length > 0 && !segments.some((s) => s.text.startsWith('Spoken Phrase') || s.text.startsWith('Spoken Section')) ? (
+                      <div className="flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-0.5">
+                          <CheckCheck className="w-3 h-3" /> Saved
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleTranscribeAudio}
+                          disabled={isTranscribing}
+                          className="h-6 px-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer"
+                          title="Re-run AI speech transcription"
+                        >
+                          <RefreshCw className={`w-2.5 h-2.5 ${isTranscribing ? 'animate-spin' : ''}`} />
+                          <span>Re-Transcribe</span>
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={handleTranscribeAudio}
                         disabled={isTranscribing}
-                        className="h-6 px-1.5 rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-1 transition-all cursor-pointer"
-                        title="Re-run AI speech transcription"
+                        className="h-7 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                        title="Transcribe speech audio into exact spoken phrases with Gemini AI"
                       >
-                        {isTranscribing ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
-                        <span>Re-Transcribe</span>
+                        {isTranscribing ? (
+                          <>
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            <span>Transcribing...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3 h-3 fill-current" />
+                            <span>AI Transcribe</span>
+                          </>
+                        )}
                       </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleTranscribeAudio}
-                      disabled={isTranscribing}
-                      className="h-7 px-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs"
-                      title="Transcribe speech audio into exact spoken phrases with Gemini AI"
-                    >
-                      {isTranscribing ? (
-                        <>
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                          <span>Transcribing...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3 h-3 fill-current" />
-                          <span>AI Transcribe</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                    )}
+                  </div>
+
+                  <span className="text-[10px] font-mono font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full shrink-0">
+                    {filteredSegments.length} {filteredSegments.length === 1 ? 'card' : 'cards'}
+                  </span>
                 </div>
 
-                {/* Search / Filter box & Auto-scroll Toggle */}
-                <div className="flex items-center gap-1.5 flex-nowrap">
-                  <div className="relative flex-1 sm:w-44">
-                    <Search className="w-3 h-3 absolute left-2.5 top-2.5 text-stone-400" />
+                {/* Row 2: Search input + Auto-scroll toggle (Never overflowing or squashed!) */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-stone-400 pointer-events-none" />
                     <input
                       type="text"
                       value={searchFilter}
                       onChange={(e) => setSearchFilter(e.target.value)}
                       placeholder="Search words..."
-                      className="w-full h-7 pl-7 pr-2 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      className="w-full h-7.5 pl-8 pr-2 text-xs rounded-xl bg-stone-50 dark:bg-[#0a0c10] border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-1 focus:ring-amber-500"
                     />
                   </div>
 
@@ -1435,7 +1599,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setAutoScrollEnabled(!autoScrollEnabled)}
-                    className={`h-7 px-2 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer border shrink-0 ${
+                    className={`h-7.5 px-2.5 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 transition-all cursor-pointer border shrink-0 ${
                       autoScrollEnabled
                         ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 shadow-2xs'
                         : 'bg-stone-100 dark:bg-stone-800/80 border-stone-200 dark:border-stone-700 text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'
@@ -1445,10 +1609,6 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     <span>Scroll</span>
                     <span className={`w-1.5 h-1.5 rounded-full ${autoScrollEnabled ? 'bg-amber-500 animate-pulse' : 'bg-stone-400'}`} />
                   </button>
-
-                  <span className="text-[10px] font-mono text-stone-400 shrink-0">
-                    {filteredSegments.length}
-                  </span>
                 </div>
               </div>
 
@@ -1564,17 +1724,21 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         </div>
                       </div>
 
-                      {/* Phrase Text (Editable & Clickable to Play) */}
+                      {/* Phrase Text (Editable & Keyboard Split/Merge Enabled) */}
                       <textarea
+                        ref={(el) => {
+                          textareaRefs.current[seg.id] = el;
+                        }}
                         rows={1}
                         value={seg.text}
                         onChange={(e) => updateSegmentText(seg.id, e.target.value)}
+                        onKeyDown={(e) => handlePhraseKeyDown(e, seg.index)}
                         className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1 transition-colors ${
                           isActive
                             ? 'text-amber-950 dark:text-amber-100 font-bold bg-amber-500/10'
                             : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-900/60'
                         }`}
-                        title="Click to edit phrase text directly"
+                        title="Click to edit. Press Enter to split into 2 phrases; Backspace at start to merge with previous."
                       />
 
                       {/* Pause Duration Controls on a Clean Single Non-wrapping Row */}
