@@ -145,7 +145,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [mobileTab, setMobileTab] = useState<'phrases' | 'script'>('phrases');
   const [isMasterOutdated, setIsMasterOutdated] = useState<boolean>(false);
   const [editingTime, setEditingTime] = useState<{
-    segIndex: number;
+    segId: string;
     field: 'start' | 'end';
     value: string;
   } | null>(null);
@@ -259,11 +259,33 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   };
 
+  // Ensure strict continuity across all phrase cards: Card N End === Card N+1 Start
+  const reconcileSegmentsContinuity = (segs: AudioSegment[]): AudioSegment[] => {
+    if (segs.length <= 1) return segs;
+    let prevEnd = segs[0].end_time;
+    return segs.map((s, idx) => {
+      if (idx === 0) {
+        return { ...s, index: 0 };
+      }
+      const updated = {
+        ...s,
+        index: idx,
+        start_time: prevEnd,
+        end_time: Math.max(prevEnd + 0.2, s.end_time),
+        split_time: Math.max(prevEnd + 0.2, s.end_time),
+      };
+      prevEnd = updated.end_time;
+      return updated;
+    });
+  };
+
   // Open a project from the Inbox into the editor
   const handleOpenProject = (project: AudioProjectItem) => {
     setActiveProject(project);
     setSelectedProjectId(project.id);
     localStorage.setItem('zenhub_active_audio_project_id', String(project.id));
+
+    const reconciled = reconcileSegmentsContinuity(project.segments || []);
 
     setAnalysisData({
       file_id: project.file_id,
@@ -271,10 +293,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       duration: project.duration,
       waveform_peaks: project.waveform_peaks,
       silence_intervals: project.silence_intervals,
-      segments: project.segments,
+      segments: reconciled,
       audio_url: project.audio_url,
     });
-    setSegments(project.segments || []);
+    setSegments(reconciled);
     setScriptText(project.script_text || '');
     setSaveStatusText('saved');
     setDuration(project.duration);
@@ -722,13 +744,14 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return Number(bestSilence.mid.toFixed(2));
   };
 
-  // Precision Timestamp Adjusters: Linked Continuous Cut Points
-  const adjustStartTime = (segIndex: number, deltaSeconds: number) => {
-    const seg = segments[segIndex];
-    if (!seg) return;
+  // Precision Timestamp Adjusters: Linked Continuous Cut Points (ID-based, strict lockstep)
+  const adjustStartTime = (segId: string, deltaSeconds: number) => {
+    const segIdx = segments.findIndex((s) => s.id === segId);
+    if (segIdx < 0) return;
+    const seg = segments[segIdx];
 
-    if (segIndex > 0) {
-      const prevSeg = segments[segIndex - 1];
+    if (segIdx > 0) {
+      const prevSeg = segments[segIdx - 1];
       const newBoundary = Math.round((seg.start_time + deltaSeconds) * 10) / 10;
 
       // Keep at least 0.2s minimum duration for each card
@@ -736,22 +759,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         return;
       }
 
-      const updatedPrev = {
-        ...prevSeg,
-        end_time: newBoundary,
-        split_time: newBoundary,
-      };
-      const updatedCurrent = {
-        ...seg,
-        start_time: newBoundary,
-      };
-
-      const updated = [
-        ...segments.slice(0, segIndex - 1),
-        updatedPrev,
-        updatedCurrent,
-        ...segments.slice(segIndex + 1),
-      ];
+      const updated = segments.map((s, idx) => {
+        if (idx === segIdx - 1) {
+          return { ...s, end_time: newBoundary, split_time: newBoundary };
+        }
+        if (idx === segIdx) {
+          return { ...s, start_time: newBoundary };
+        }
+        return s;
+      });
 
       setSegments(updated);
       setIsMasterOutdated(true);
@@ -769,14 +785,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   };
 
-  const adjustEndTime = (segIndex: number, deltaSeconds: number) => {
-    const seg = segments[segIndex];
-    if (!seg) return;
+  const adjustEndTime = (segId: string, deltaSeconds: number) => {
+    const segIdx = segments.findIndex((s) => s.id === segId);
+    if (segIdx < 0) return;
+    const seg = segments[segIdx];
 
     const totalDur = analysisData?.duration || activeProject?.duration || 9999;
 
-    if (segIndex < segments.length - 1) {
-      const nextSeg = segments[segIndex + 1];
+    if (segIdx < segments.length - 1) {
+      const nextSeg = segments[segIdx + 1];
       const newBoundary = Math.round((seg.end_time + deltaSeconds) * 10) / 10;
 
       // Keep at least 0.2s minimum duration for each card
@@ -784,22 +801,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         return;
       }
 
-      const updatedCurrent = {
-        ...seg,
-        end_time: newBoundary,
-        split_time: newBoundary,
-      };
-      const updatedNext = {
-        ...nextSeg,
-        start_time: newBoundary,
-      };
-
-      const updated = [
-        ...segments.slice(0, segIndex),
-        updatedCurrent,
-        updatedNext,
-        ...segments.slice(segIndex + 2),
-      ];
+      const updated = segments.map((s, idx) => {
+        if (idx === segIdx) {
+          return { ...s, end_time: newBoundary, split_time: newBoundary };
+        }
+        if (idx === segIdx + 1) {
+          return { ...s, start_time: newBoundary };
+        }
+        return s;
+      });
 
       setSegments(updated);
       setIsMasterOutdated(true);
@@ -808,7 +818,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       }
     } else {
       const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, Math.round((seg.end_time + deltaSeconds) * 10) / 10));
-      const updated = segments.map((s, idx) => (idx === segIndex ? { ...s, end_time: newEnd, split_time: newEnd } : s));
+      const updated = segments.map((s, idx) => (idx === segIdx ? { ...s, end_time: newEnd, split_time: newEnd } : s));
       setSegments(updated);
       setIsMasterOutdated(true);
       if (activeProject?.id) {
@@ -835,24 +845,66 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return !isNaN(num) ? Math.round(num * 10) / 10 : null;
   };
 
-  // Commit typed timestamp value
+  // Commit typed timestamp value (ID-based, strict lockstep sync)
   const saveEditedTime = () => {
     if (!editingTime) return;
-    const { segIndex, field, value } = editingTime;
+    const { segId, field, value } = editingTime;
     setEditingTime(null);
 
     const parsed = parseTimeInput(value);
     if (parsed === null) return;
 
-    const seg = segments[segIndex];
-    if (!seg) return;
+    const segIdx = segments.findIndex((s) => s.id === segId);
+    if (segIdx < 0) return;
+    const seg = segments[segIdx];
+    const totalDur = analysisData?.duration || activeProject?.duration || 9999;
 
     if (field === 'start') {
-      const delta = parsed - seg.start_time;
-      adjustStartTime(segIndex, delta);
+      if (segIdx > 0) {
+        const prevSeg = segments[segIdx - 1];
+        const newBoundary = Math.max(prevSeg.start_time + 0.2, Math.min(seg.end_time - 0.2, parsed));
+        const updated = segments.map((s, idx) => {
+          if (idx === segIdx - 1) return { ...s, end_time: newBoundary, split_time: newBoundary };
+          if (idx === segIdx) return { ...s, start_time: newBoundary };
+          return s;
+        });
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
+      } else {
+        const newStart = Math.max(0, Math.min(seg.end_time - 0.2, parsed));
+        const updated = segments.map((s, idx) => (idx === 0 ? { ...s, start_time: newStart } : s));
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
+      }
     } else {
-      const delta = parsed - seg.end_time;
-      adjustEndTime(segIndex, delta);
+      if (segIdx < segments.length - 1) {
+        const nextSeg = segments[segIdx + 1];
+        const newBoundary = Math.max(seg.start_time + 0.2, Math.min(nextSeg.end_time - 0.2, parsed));
+        const updated = segments.map((s, idx) => {
+          if (idx === segIdx) return { ...s, end_time: newBoundary, split_time: newBoundary };
+          if (idx === segIdx + 1) return { ...s, start_time: newBoundary };
+          return s;
+        });
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
+      } else {
+        const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, parsed));
+        const updated = segments.map((s, idx) => (idx === segIdx ? { ...s, end_time: newEnd, split_time: newEnd } : s));
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
+      }
     }
   };
 
@@ -1885,7 +1937,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           </button>
                           <div className="flex items-center gap-1 font-mono text-[11px] font-bold text-stone-700 dark:text-stone-300 whitespace-nowrap">
                             {/* Start Time (Editable Input or Clickable Text) */}
-                            {editingTime?.segIndex === seg.index && editingTime?.field === 'start' ? (
+                            {editingTime?.segId === seg.id && editingTime?.field === 'start' ? (
                               <input
                                 type="text"
                                 autoFocus
@@ -1905,7 +1957,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingTime({ segIndex: seg.index, field: 'start', value: formatTime(seg.start_time) });
+                                  setEditingTime({ segId: seg.id, field: 'start', value: formatTime(seg.start_time) });
                                 }}
                                 className="tabular-nums px-1 py-0.5 rounded hover:bg-stone-200/70 dark:hover:bg-stone-800 hover:text-amber-600 dark:hover:text-amber-400 cursor-text transition-colors"
                                 title="Click to type exact timestamp (e.g. 02:28 or 148)"
@@ -1921,7 +1973,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             >
                               <button
                                 type="button"
-                                onClick={() => adjustStartTime(seg.index, -0.5)}
+                                onClick={() => adjustStartTime(seg.id, -0.5)}
                                 className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
                                 title="Decrease start time by 0.5s"
                               >
@@ -1929,7 +1981,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => adjustStartTime(seg.index, 0.5)}
+                                onClick={() => adjustStartTime(seg.id, 0.5)}
                                 className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
                                 title="Increase start time by 0.5s"
                               >
@@ -1940,7 +1992,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             <span className="text-stone-400 dark:text-stone-500 mx-0.5">–</span>
 
                             {/* End Time (Editable Input or Clickable Text) */}
-                            {editingTime?.segIndex === seg.index && editingTime?.field === 'end' ? (
+                            {editingTime?.segId === seg.id && editingTime?.field === 'end' ? (
                               <input
                                 type="text"
                                 autoFocus
@@ -1960,7 +2012,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setEditingTime({ segIndex: seg.index, field: 'end', value: formatTime(seg.end_time) });
+                                  setEditingTime({ segId: seg.id, field: 'end', value: formatTime(seg.end_time) });
                                 }}
                                 className="tabular-nums px-1 py-0.5 rounded hover:bg-stone-200/70 dark:hover:bg-stone-800 hover:text-amber-600 dark:hover:text-amber-400 cursor-text transition-colors"
                                 title="Click to type exact timestamp (e.g. 02:34 or 154)"
@@ -1976,7 +2028,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             >
                               <button
                                 type="button"
-                                onClick={() => adjustEndTime(seg.index, -0.5)}
+                                onClick={() => adjustEndTime(seg.id, -0.5)}
                                 className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
                                 title="Decrease end time by 0.5s"
                               >
@@ -1984,7 +2036,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => adjustEndTime(seg.index, 0.5)}
+                                onClick={() => adjustEndTime(seg.id, 0.5)}
                                 className="w-4 h-4 rounded flex items-center justify-center text-[11px] font-bold text-stone-600 dark:text-stone-300 hover:bg-white dark:hover:bg-stone-700 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
                                 title="Increase end time by 0.5s"
                               >
