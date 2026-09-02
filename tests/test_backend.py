@@ -342,3 +342,56 @@ def test_candidate_ban_and_unban_pipeline(db_session):
     passed_after = candidate_service.filter_candidates([ban_cand], db=db_session)
     assert len(passed_after) == 0
 
+
+def test_library_batch_delete_and_download_endpoints(db_session, tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    from backend.app.database import get_db
+
+    app.dependency_overrides[get_db] = lambda: db_session
+    client = TestClient(app)
+
+    # 1. Create dummy local video file
+    dummy_file = tmp_path / "dummy_vid.mp4"
+    dummy_file.write_bytes(b"\x00\x00\x00\x20ftypisom")
+
+    item1 = VideoLibraryItem(
+        source="pexels",
+        source_video_id="batch_vid_1",
+        subtheme="Sunny Forest",
+        local_file_path=str(dummy_file),
+        duration=15.0,
+        is_approved=True
+    )
+    item2 = VideoLibraryItem(
+        source="pexels",
+        source_video_id="batch_vid_2",
+        subtheme="Mountain Stream",
+        source_url="https://example.com/stream2.mp4",
+        duration=20.0,
+        is_approved=True
+    )
+    db_session.add(item1)
+    db_session.add(item2)
+    db_session.commit()
+
+    # 2. Test download endpoint
+    dl_res = client.get(f"/api/library/download/{item1.id}")
+    assert dl_res.status_code == 200
+    assert "attachment" in dl_res.headers.get("content-disposition", "")
+    assert "Sunny_Forest_batch_vid_1.mp4" in dl_res.headers.get("content-disposition", "")
+
+    # 3. Test batch delete endpoint
+    del_res = client.post("/api/library/batch-delete", json={"item_ids": [item1.id, item2.id]})
+    assert del_res.status_code == 200
+    assert del_res.json()["deleted_count"] == 2
+
+    # Verify removed from database
+    remaining = db_session.query(VideoLibraryItem).filter(VideoLibraryItem.id.in_([item1.id, item2.id])).all()
+    assert len(remaining) == 0
+    # Verify local file unlinked
+    assert not dummy_file.exists()
+
+    app.dependency_overrides.clear()
+
+

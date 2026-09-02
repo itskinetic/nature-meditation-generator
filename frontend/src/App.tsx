@@ -432,6 +432,13 @@ export function App() {
     },
   });
 
+  const batchDeleteLibraryMutation = useMutation({
+    mutationFn: (ids: number[]) => api.batchDeleteLibraryItems(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+    },
+  });
+
   // Get selected candidate objects in exact user sequence order
   const selectedCandidatesList = selectedCandidateIds
     .map((id) => candidates.find((c) => c.source_video_id === id))
@@ -634,8 +641,9 @@ export function App() {
             isLoading={isLibraryLoading}
             onRefresh={() => refetchLibrary()}
             onDeleteItem={(id) => deleteLibraryMutation.mutate(id)}
+            onBatchDelete={(ids) => batchDeleteLibraryMutation.mutate(ids)}
             onClearLibrary={() => clearLibraryMutation.mutate()}
-            isDeleting={deleteLibraryMutation.isPending || clearLibraryMutation.isPending}
+            isDeleting={deleteLibraryMutation.isPending || clearLibraryMutation.isPending || batchDeleteLibraryMutation.isPending}
           />
         )}
 

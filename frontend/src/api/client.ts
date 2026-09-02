@@ -211,6 +211,16 @@ export const api = {
     return res.json();
   },
 
+  async batchDeleteLibraryItems(itemIds: number[]): Promise<{ status: string; deleted_count: number }> {
+    const res = await fetch(`${API_BASE}/library/batch-delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_ids: itemIds }),
+    });
+    if (!res.ok) throw new Error('Failed to batch delete library items');
+    return res.json();
+  },
+
   async clearLibrary(): Promise<{ status: string; count: number }> {
     const res = await fetch(`${API_BASE}/library`, {
       method: 'DELETE',

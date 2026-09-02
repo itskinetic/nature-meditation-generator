@@ -1058,6 +1058,51 @@ async def stream_library_video(item_id: int, db: Session = Depends(get_db)):
     raise HTTPException(status_code=404, detail="Video stream unavailable")
 
 
+@router.get("/library/download/{item_id}")
+async def download_library_video(item_id: int, db: Session = Depends(get_db)):
+    """Direct file download endpoint for a library video."""
+    item = db.query(VideoLibraryItem).filter(VideoLibraryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Library video item not found")
+
+    safe_subtheme = "".join(c for c in (item.subtheme or "video") if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+    download_filename = f"{safe_subtheme}_{item.source_video_id}.mp4"
+
+    # 1. If local downloaded video file exists on disk, serve as attachment
+    if item.local_file_path:
+        lp = Path(item.local_file_path)
+        if lp.exists():
+            return FileResponse(
+                path=str(lp),
+                media_type="video/mp4",
+                filename=download_filename,
+                headers={"Content-Disposition": f'attachment; filename="{download_filename}"'}
+            )
+
+    # 2. Dynamic resolution via API for Pexels or Pixabay
+    if item.source == "pexels":
+        try:
+            vid_url = await pexels_service.get_video_play_url(item.source_video_id)
+            if vid_url:
+                return RedirectResponse(url=vid_url, status_code=307)
+        except Exception as pex_err:
+            logger.warning(f"Error resolving Pexels download for {item.source_video_id}: {pex_err}")
+
+    if item.source == "pixabay":
+        try:
+            vid_url = await pixabay_service.get_video_play_url(item.source_video_id)
+            if vid_url:
+                return RedirectResponse(url=vid_url, status_code=307)
+        except Exception as pix_err:
+            logger.warning(f"Error resolving Pixabay download for {item.source_video_id}: {pix_err}")
+
+    # 3. Fallback to source_url
+    if item.source_url and item.source_url.startswith("http"):
+        return RedirectResponse(url=item.source_url, status_code=307)
+
+    raise HTTPException(status_code=404, detail="Video download URL unavailable")
+
+
 @router.post("/library/save-candidate")
 def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(get_db)):
     """Save any discovered candidate clip with its theme and tags directly into SQLite Video Library."""
@@ -1164,6 +1209,31 @@ def delete_library_item(item_id: int, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     return {"status": "deleted", "id": item_id}
+
+
+@router.post("/library/batch-delete")
+def batch_delete_library_items(payload: Dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """Batch delete multiple library items and their local video files."""
+    item_ids = payload.get("item_ids", [])
+    if not item_ids:
+        return {"status": "noop", "deleted_count": 0}
+
+    deleted_count = 0
+    for item_id in item_ids:
+        item = db.query(VideoLibraryItem).filter(VideoLibraryItem.id == item_id).first()
+        if item:
+            if item.local_file_path:
+                p = Path(item.local_file_path)
+                if p.exists():
+                    try:
+                        p.unlink()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete local video file {p}: {e}")
+            db.delete(item)
+            deleted_count += 1
+
+    db.commit()
+    return {"status": "batch_deleted", "deleted_count": deleted_count}
 
 
 @router.delete("/library")
