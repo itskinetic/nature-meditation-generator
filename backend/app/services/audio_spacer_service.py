@@ -602,15 +602,27 @@ Do not wrap in markdown, return pure JSON."""
         total_inserted_silence += 1.5
 
         for seg in sorted_segs:
-            split_t = float(seg.get("split_time", 0.0))
+            # Support independent In and Out points per phrase segment
+            if "start_time" in seg:
+                start_t = float(seg["start_time"])
+            else:
+                start_t = prev_pos
+
+            if "end_time" in seg:
+                end_t = float(seg["end_time"])
+            else:
+                end_t = float(seg.get("split_time", start_t))
+
             pause_dur = float(seg.get("pause_duration", 0.0))
 
-            t = max(0.0, min(total_dur, split_t))
-            if t <= prev_pos:
+            start_t = max(0.0, min(total_dur, start_t))
+            end_t = max(start_t, min(total_dur, end_t))
+
+            if end_t <= start_t:
                 continue
 
-            start_frame = int(prev_pos * framerate)
-            end_frame = int(t * framerate)
+            start_frame = int(start_t * framerate)
+            end_frame = int(end_t * framerate)
 
             chunk = raw_audio[start_frame * bytes_per_frame : end_frame * bytes_per_frame]
             
@@ -641,7 +653,7 @@ Do not wrap in markdown, return pure JSON."""
                 total_inserted_silence += pause_dur
                 active_pauses_count += 1
 
-            prev_pos = t
+            prev_pos = end_t
 
         # Append remaining audio after last split
         remaining_start_frame = int(prev_pos * framerate)
