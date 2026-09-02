@@ -219,6 +219,8 @@ export interface ActiveJobItem {
   progress: number;
   current_stage: string;
   target_duration_seconds: number;
+  type?: 'video' | 'audio' | string;
+  audio_project_id?: number;
   created_at?: string;
   updated_at?: string;
 }

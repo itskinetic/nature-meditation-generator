@@ -42,6 +42,18 @@ class QueueService:
 
         db = SessionLocal()
         try:
+            if job_id.startswith("audio_"):
+                try:
+                    p_id = int(job_id.replace("audio_", ""))
+                    from backend.app.models import AudioProject
+                    p = db.query(AudioProject).filter(AudioProject.id == p_id).first()
+                    if p:
+                        p.status = "unprocessed"
+                        db.commit()
+                        return True
+                except Exception:
+                    pass
+
             job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
             if job and job.status not in ["completed", "failed"]:
                 job.status = "cancelled"
@@ -53,7 +65,7 @@ class QueueService:
         return False
 
     def get_active_jobs(self, db: Session) -> List[dict]:
-        """Returns all currently queued, downloading, or rendering jobs."""
+        """Returns all currently queued, downloading, or rendering video & audio jobs."""
         active_statuses = ["pending", "queued", "analyzing", "searching", "scoring", "downloading", "evaluating", "rendering", "stitching"]
         jobs = db.query(GenerationJob).filter(GenerationJob.status.in_(active_statuses)).order_by(GenerationJob.created_at.desc()).all()
         
@@ -66,9 +78,33 @@ class QueueService:
                 "progress": j.progress or 0,
                 "current_stage": j.current_stage or "In Queue",
                 "target_duration_seconds": j.target_duration_seconds or 0,
+                "type": "video",
                 "created_at": j.created_at.isoformat() if j.created_at else None,
                 "updated_at": j.updated_at.isoformat() if j.updated_at else None,
             })
+
+        # Include active Audio AI jobs (transcribing / spacing)
+        try:
+            from backend.app.models import AudioProject
+            active_audio = db.query(AudioProject).filter(AudioProject.status.in_(["transcribing", "processing"])).order_by(AudioProject.updated_at.desc()).all()
+            for p in active_audio:
+                is_transcribing = p.status == "transcribing"
+                stage_text = "🎙️ AI Speech Transcription (Gemini)" if is_transcribing else "🎵 Spacing & Mastering Audio Track"
+                result.append({
+                    "id": f"audio_{p.id}",
+                    "title": p.title or p.original_name or "Voiceover Audio",
+                    "status": "rendering",
+                    "progress": 65 if is_transcribing else 85,
+                    "current_stage": stage_text,
+                    "target_duration_seconds": int(p.duration or 0),
+                    "type": "audio",
+                    "audio_project_id": p.id,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                })
+        except Exception as e:
+            logger.warning(f"Error fetching active audio projects for queue: {e}")
+
         return result
 
     async def _process_job_pipeline(self, job_id: str, req: GenerationRequest) -> None:

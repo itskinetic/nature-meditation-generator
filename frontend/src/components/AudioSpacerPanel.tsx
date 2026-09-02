@@ -442,17 +442,46 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   };
 
   // Playback control
-  const handleTogglePlay = () => {
+  const handleTogglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (isPlaying) {
+    if (!audio.paused && !audio.ended) {
       audio.pause();
       setIsPlaying(false);
     } else {
       audio.play().then(() => setIsPlaying(true)).catch((e) => console.warn('Play interrupted:', e));
     }
-  };
+  }, []);
+
+  // Global Keyboard Shortcuts (Space bar to toggle Play/Pause when not editing text)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only active if an audio file is loaded and in editor view
+      if (!analysisData) return;
+
+      // Do not intercept if user is typing in an input, textarea, or contentEditable element
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+         target.tagName === 'TEXTAREA' ||
+         target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault(); // Prevent accidental page scrolling
+        handleTogglePlay();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [analysisData, handleTogglePlay]);
 
   // Pre-calculate cumulative spaced time ranges for each segment when listening to spaced audio
   const spacedSegments = useMemo(() => {

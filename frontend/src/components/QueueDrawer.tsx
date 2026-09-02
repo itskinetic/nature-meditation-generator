@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import {
   Zap, X, Loader2, Download, Trash2, Clock, CheckCircle2,
-  Film, AlertCircle
+  Film, AlertCircle, Mic, Sparkles, Sliders
 } from 'lucide-react';
 import { ActiveJobItem, HistoryItem } from '../types';
 
@@ -52,14 +52,14 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                 Background Queue
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400">
-                {activeJobs.length} active/queued • 2 rendering slots
+                {activeJobs.length} active/queued
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
+            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -72,49 +72,68 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
             <div className="space-y-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Actively Processing ({renderingJobs.length}/2 slots)</span>
+                <span>Actively Processing ({renderingJobs.length})</span>
               </h3>
 
               <div className="space-y-3">
-                {renderingJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/60 space-y-2.5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">
-                          {job.title || 'Meditation Video'}
-                        </h4>
-                        <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium block truncate">
-                          {job.current_stage}
+                {renderingJobs.map((job) => {
+                  const isAudio = job.type === 'audio' || job.id.startsWith('audio_');
+
+                  return (
+                    <div
+                      key={job.id}
+                      className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-300/80 dark:border-amber-800/60 space-y-2.5 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            {isAudio ? (
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-900 dark:text-amber-200 text-[10px] font-bold flex items-center gap-1">
+                                <Mic className="w-2.5 h-2.5" /> Audio AI
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-[10px] font-bold flex items-center gap-1">
+                                <Film className="w-2.5 h-2.5" /> Video Render
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-bold text-stone-900 dark:text-white truncate">
+                            {job.title || 'Processing Item'}
+                          </h4>
+                          <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium block truncate mt-0.5">
+                            {job.current_stage}
+                          </span>
+                        </div>
+                        <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                          {job.progress}%
                         </span>
                       </div>
-                      <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                        {job.progress}%
-                      </span>
-                    </div>
 
-                    {/* Progress Bar */}
-                    <div className="w-full bg-stone-200 dark:bg-stone-800 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-amber-500 h-full rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${Math.max(5, job.progress)}%` }}
-                      />
-                    </div>
+                      {/* Progress Bar */}
+                      <div className="w-full bg-stone-200 dark:bg-stone-800 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="bg-amber-500 h-full rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${Math.max(5, job.progress)}%` }}
+                        />
+                      </div>
 
-                    <div className="flex items-center justify-between pt-1 text-[11px] text-stone-500 dark:text-stone-400">
-                      <span>Target: {Math.round(job.target_duration_seconds / 60)} mins</span>
-                      <button
-                        type="button"
-                        onClick={() => onCancelJob(job.id)}
-                        className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex items-center justify-between pt-1 text-[11px] text-stone-500 dark:text-stone-400">
+                        <span>
+                          {job.target_duration_seconds > 60
+                            ? `Target: ${Math.round(job.target_duration_seconds / 60)} mins`
+                            : `Duration: ${job.target_duration_seconds}s`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onCancelJob(job.id)}
+                          className="text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -139,10 +158,10 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       </span>
                       <div className="min-w-0 flex-1">
                         <h4 className="text-xs font-bold text-stone-900 dark:text-white truncate">
-                          {job.title || 'Queued Video'}
+                          {job.title || 'Queued Item'}
                         </h4>
                         <span className="text-[10px] text-stone-400 truncate block">
-                          Waiting for free render slot
+                          Waiting for free processing slot
                         </span>
                       </div>
                     </div>
@@ -151,7 +170,7 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
                       type="button"
                       onClick={() => onCancelJob(job.id)}
                       title="Cancel queued job"
-                      className="p-1.5 text-stone-400 hover:text-rose-600 transition-colors"
+                      className="p-1.5 text-stone-400 hover:text-rose-600 transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -165,14 +184,14 @@ export const QueueDrawer: React.FC<QueueDrawerProps> = ({
           {activeJobs.length === 0 && (
             <div className="text-center py-10 space-y-3">
               <div className="w-12 h-12 rounded-2xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center mx-auto text-stone-400">
-                <Film className="w-6 h-6" />
+                <Zap className="w-6 h-6" />
               </div>
               <div>
                 <p className="text-sm font-bold text-stone-800 dark:text-stone-200">
-                  No active render jobs
+                  No active background jobs
                 </p>
                 <p className="text-xs text-stone-500 dark:text-stone-400 max-w-xs mx-auto mt-1">
-                  Queue videos from the Studio and they will render quietly in the background!
+                  Queue videos from Studio or start Audio transcriptions and they will process quietly in the background!
                 </p>
               </div>
             </div>
