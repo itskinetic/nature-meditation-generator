@@ -575,10 +575,17 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     syncActiveSegment(seekTime);
   };
 
-  // Jump to specific segment start & play
+  // Jump to specific segment start & play (or toggle pause if already active and playing)
   const handleJumpToSegment = (seg: AudioSegment) => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    // If clicking on the currently playing card, toggle pause
+    if (activeSegmentId === seg.id && isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+      return;
+    }
 
     let targetTime = seg.start_time;
     if (activeAudioSource === 'spaced') {
@@ -1757,18 +1764,23 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       key={seg.id}
                       data-segment-id={seg.id}
                       ref={isActive ? activeCardRef : null}
-                      className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all ${
+                      onClick={() => handleJumpToSegment(seg)}
+                      className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all cursor-pointer group ${
                         isActive
                           ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-400 dark:border-amber-600 shadow-sm ring-2 ring-amber-500/30'
-                          : 'bg-stone-50 dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-700'
+                          : 'bg-stone-50 dark:bg-[#0a0c10] border-stone-200/80 dark:border-stone-800 hover:border-amber-300 dark:hover:border-amber-700 hover:shadow-xs'
                       }`}
+                      title={isActive && isPlaying ? 'Click card to pause audio' : 'Click card to play this section'}
                     >
                       {/* Phrase Header: Timecode & Jump Play */}
                       <div className="flex items-center justify-between gap-1.5 flex-nowrap">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <button
                             type="button"
-                            onClick={() => handleJumpToSegment(seg)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleJumpToSegment(seg);
+                            }}
                             className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all cursor-pointer shrink-0 ${
                               isActive && isPlaying
                                 ? 'bg-amber-500 text-stone-950 animate-pulse shadow-xs'
@@ -1799,7 +1811,13 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         value={seg.text}
                         onChange={(e) => updateSegmentText(seg.id, e.target.value)}
                         onKeyDown={(e) => handlePhraseKeyDown(e, seg.index)}
-                        className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1 transition-colors ${
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={() => {
+                          if (activeSegmentId !== seg.id) {
+                            handleJumpToSegment(seg);
+                          }
+                        }}
+                        className={`w-full text-xs leading-relaxed font-medium bg-transparent border-0 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 rounded-lg p-1 transition-colors cursor-text ${
                           isActive
                             ? 'text-amber-950 dark:text-amber-100 font-bold bg-amber-500/10'
                             : 'text-stone-800 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-stone-900/60'
@@ -1808,7 +1826,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                       />
 
                       {/* Pause Duration Controls on a Clean Single Non-wrapping Row */}
-                      <div className="flex items-center justify-between gap-1 pt-1.5 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-nowrap">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center justify-between gap-1 pt-1.5 mt-0.5 border-t border-stone-200/60 dark:border-stone-800/60 flex-nowrap"
+                      >
                         <span className="text-[11px] font-semibold text-stone-500 dark:text-stone-400 shrink-0">
                           Pause:
                         </span>
