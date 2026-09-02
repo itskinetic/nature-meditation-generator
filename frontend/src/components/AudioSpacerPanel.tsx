@@ -722,19 +722,50 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return Number(bestSilence.mid.toFixed(2));
   };
 
-  // Precision Timestamp Adjusters: Independent In and Out Points per Phrase Card
+  // Precision Timestamp Adjusters: Linked Continuous Cut Points
   const adjustStartTime = (segIndex: number, deltaSeconds: number) => {
     const seg = segments[segIndex];
     if (!seg) return;
 
-    // New start time is clamped between 0 and seg.end_time - 0.2s (isolated to this card)
-    const newStart = Math.max(0, Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10));
+    if (segIndex > 0) {
+      const prevSeg = segments[segIndex - 1];
+      const newBoundary = Math.round((seg.start_time + deltaSeconds) * 10) / 10;
 
-    const updated = segments.map((s, idx) => (idx === segIndex ? { ...s, start_time: newStart } : s));
-    setSegments(updated);
-    setIsMasterOutdated(true);
-    if (activeProject?.id) {
-      api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      // Keep at least 0.2s minimum duration for each card
+      if (newBoundary <= prevSeg.start_time + 0.2 || newBoundary >= seg.end_time - 0.2) {
+        return;
+      }
+
+      const updatedPrev = {
+        ...prevSeg,
+        end_time: newBoundary,
+        split_time: newBoundary,
+      };
+      const updatedCurrent = {
+        ...seg,
+        start_time: newBoundary,
+      };
+
+      const updated = [
+        ...segments.slice(0, segIndex - 1),
+        updatedPrev,
+        updatedCurrent,
+        ...segments.slice(segIndex + 1),
+      ];
+
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    } else {
+      const newStart = Math.max(0, Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10));
+      const updated = segments.map((s, idx) => (idx === 0 ? { ...s, start_time: newStart } : s));
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
     }
   };
 
@@ -743,14 +774,46 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     if (!seg) return;
 
     const totalDur = analysisData?.duration || activeProject?.duration || 9999;
-    // New end time is clamped between seg.start_time + 0.2s and total duration (isolated to this card)
-    const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, Math.round((seg.end_time + deltaSeconds) * 10) / 10));
 
-    const updated = segments.map((s, idx) => (idx === segIndex ? { ...s, end_time: newEnd, split_time: newEnd } : s));
-    setSegments(updated);
-    setIsMasterOutdated(true);
-    if (activeProject?.id) {
-      api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+    if (segIndex < segments.length - 1) {
+      const nextSeg = segments[segIndex + 1];
+      const newBoundary = Math.round((seg.end_time + deltaSeconds) * 10) / 10;
+
+      // Keep at least 0.2s minimum duration for each card
+      if (newBoundary <= seg.start_time + 0.2 || newBoundary >= nextSeg.end_time - 0.2) {
+        return;
+      }
+
+      const updatedCurrent = {
+        ...seg,
+        end_time: newBoundary,
+        split_time: newBoundary,
+      };
+      const updatedNext = {
+        ...nextSeg,
+        start_time: newBoundary,
+      };
+
+      const updated = [
+        ...segments.slice(0, segIndex),
+        updatedCurrent,
+        updatedNext,
+        ...segments.slice(segIndex + 2),
+      ];
+
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    } else {
+      const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, Math.round((seg.end_time + deltaSeconds) * 10) / 10));
+      const updated = segments.map((s, idx) => (idx === segIndex ? { ...s, end_time: newEnd, split_time: newEnd } : s));
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
     }
   };
 
