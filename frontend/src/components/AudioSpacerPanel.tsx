@@ -142,6 +142,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [autoScrollEnabled, setAutoScrollEnabled] = useState<boolean>(true);
   const [mobileTab, setMobileTab] = useState<'phrases' | 'script'>('phrases');
+  const [isMasterOutdated, setIsMasterOutdated] = useState<boolean>(false);
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -453,6 +454,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       const res = await api.processAudioSpacing(fileId, segments, 0.05);
       setProcessedResult(res);
       setActiveAudioSource('spaced');
+      setIsMasterOutdated(false);
       setCurrentTime(0);
       setIsPlaying(false);
       queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
@@ -667,12 +669,94 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     pendingFocusRef.current = { segId: currentSeg.id, cursorPosition: currentSeg.text.length };
     setSegments(updated);
+    setIsMasterOutdated(true);
     if (activeProject?.id) {
       api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
     }
   };
 
-  // 1-Click Split Phrase (Add Enter)
+  // Find the optimal split timestamp within [startTime, endTime], snapping to natural audio silences if available
+  const findOptimalSplitTime = (
+    startTime: number,
+    endTime: number,
+    preferredRatio: number = 0.5
+  ): number => {
+    const duration = Math.max(0.2, endTime - startTime);
+    const targetTime = startTime + duration * preferredRatio;
+    const fallbackTime = Number(targetTime.toFixed(2));
+
+    const silences = analysisData?.silence_intervals || activeProject?.silence_intervals || [];
+    if (!silences || silences.length === 0) {
+      return fallbackTime;
+    }
+
+    // Find silence intervals that fall inside this phrase with 0.15s margin from boundaries
+    const validSilences = silences.filter(
+      (s) => s.mid >= startTime + 0.15 && s.mid <= endTime - 0.15
+    );
+
+    if (validSilences.length === 0) {
+      return fallbackTime;
+    }
+
+    // Pick the silence midpoint closest to the target split point
+    const bestSilence = validSilences.reduce((closest, current) => {
+      return Math.abs(current.mid - targetTime) < Math.abs(closest.mid - targetTime)
+        ? current
+        : closest;
+    }, validSilences[0]);
+
+    return Number(bestSilence.mid.toFixed(2));
+  };
+
+  // Precision Nudge: shift the start timestamp of a phrase card (and previous card's end boundary)
+  const nudgeStartTime = (segIndex: number, deltaSeconds: number) => {
+    const seg = segments[segIndex];
+    if (!seg) return;
+
+    if (segIndex > 0) {
+      const prevSeg = segments[segIndex - 1];
+      const newBoundary = Math.round((seg.start_time + deltaSeconds) * 10) / 10;
+
+      // Keep at least 0.2s minimum duration for each card
+      if (newBoundary <= prevSeg.start_time + 0.2 || newBoundary >= seg.end_time - 0.2) {
+        return;
+      }
+
+      const updatedPrev = {
+        ...prevSeg,
+        end_time: newBoundary,
+        split_time: newBoundary,
+      };
+      const updatedCurrent = {
+        ...seg,
+        start_time: newBoundary,
+      };
+
+      const updated = [
+        ...segments.slice(0, segIndex - 1),
+        updatedPrev,
+        updatedCurrent,
+        ...segments.slice(segIndex + 1),
+      ];
+
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    } else {
+      const newStart = Math.max(0, Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10));
+      const updated = segments.map((s, idx) => (idx === 0 ? { ...s, start_time: newStart } : s));
+      setSegments(updated);
+      setIsMasterOutdated(true);
+      if (activeProject?.id) {
+        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+      }
+    }
+  };
+
+  // 1-Click Split Phrase (Add Enter) with Intelligent Silence Snapping
   const handleSplitSegment = (segIndex: number) => {
     const seg = segments[segIndex];
     if (!seg) return;
@@ -687,8 +771,8 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       text2 = words.slice(midWord).join(' ');
     }
 
-    const duration = Math.max(0.2, seg.end_time - seg.start_time);
-    const midTime = Math.round((seg.start_time + duration / 2) * 100) / 100;
+    // Snap to natural silence midpoint if available
+    const midTime = findOptimalSplitTime(seg.start_time, seg.end_time, 0.5);
 
     const seg1: AudioSegment = {
       ...seg,
@@ -719,6 +803,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     pendingFocusRef.current = { segId: seg2.id, cursorPosition: 0 };
     setSegments(updated);
+    setIsMasterOutdated(true);
     if (activeProject?.id) {
       api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave segments error:', e));
     }
@@ -735,7 +820,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     const { selectionStart, selectionEnd } = textarea;
     const fullText = seg.text;
 
-    // 1. ENTER (without Shift) -> Split into 2 phrase cards at cursor position
+    // 1. ENTER (without Shift) -> Split into 2 phrase cards at cursor position (with silence snapping!)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
 
@@ -743,11 +828,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       const textBefore = fullText.slice(0, cursorPos).trim();
       const textAfter = fullText.slice(cursorPos).trim();
 
-      // Proportional timing calculation based on cursor character position
-      const totalDuration = Math.max(0.2, seg.end_time - seg.start_time);
+      // Calculate ratio and snap split time to nearest natural silence between words
       const ratio = fullText.length > 0 ? cursorPos / fullText.length : 0.5;
       const clampedRatio = Math.max(0.1, Math.min(0.9, ratio));
-      const splitTime = Number((seg.start_time + totalDuration * clampedRatio).toFixed(2));
+      const splitTime = findOptimalSplitTime(seg.start_time, seg.end_time, clampedRatio);
 
       const newId = `seg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -777,6 +861,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       // Immediately focus the second (newly created) card with cursor at start
       pendingFocusRef.current = { segId: newId, cursorPosition: 0 };
       setSegments(updated);
+      setIsMasterOutdated(true);
       if (activeProject?.id) {
         api.updateProjectSegments(activeProject.id, updated).catch((err) => console.warn('Autosave segments error:', err));
       }
@@ -813,6 +898,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
         // Focus the merged segment at the joint cursor position
         pendingFocusRef.current = { segId: prevSeg.id, cursorPosition: joinPos };
         setSegments(updated);
+        setIsMasterOutdated(true);
         if (activeProject?.id) {
           api.updateProjectSegments(activeProject.id, updated).catch((err) => console.warn('Autosave segments error:', err));
         }
@@ -1338,12 +1424,22 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 type="button"
                 onClick={handleProcessSpacing}
                 disabled={isProcessing}
-                className="h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                className={`h-8 md:h-9 px-2.5 md:px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                  isMasterOutdated
+                    ? 'bg-amber-500 hover:bg-amber-600 text-stone-950 ring-2 ring-amber-500/40 shadow-sm'
+                    : 'bg-stone-900 dark:bg-stone-100 hover:bg-stone-800 dark:hover:bg-white text-white dark:text-stone-950'
+                }`}
+                title={isMasterOutdated ? 'Timings changed! Click to render new spaced audio file' : 'Render master spaced audio'}
               >
                 {isProcessing ? (
                   <>
                     <RefreshCw className="w-3 h-3 animate-spin" />
                     <span>Rendering...</span>
+                  </>
+                ) : isMasterOutdated ? (
+                  <>
+                    <Sparkles className="w-3 h-3 fill-current text-stone-950" />
+                    <span>Update Master ⚡</span>
                   </>
                 ) : (
                   <>
@@ -1682,9 +1778,33 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           >
                             <Play className="w-3 h-3 fill-current ml-0.5" />
                           </button>
-                          <span className="font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
-                            {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
-                          </span>
+                          <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
+                            <span>{formatTime(seg.start_time)} - {formatTime(seg.end_time)}</span>
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  nudgeStartTime(seg.index, -0.5);
+                                }}
+                                className="h-5 px-1 rounded text-[9px] font-bold bg-stone-200/80 dark:bg-stone-800 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
+                                title="Nudge start time 0.5s earlier (-0.5s)"
+                              >
+                                -0.5s
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  nudgeStartTime(seg.index, 0.5);
+                                }}
+                                className="h-5 px-1 rounded text-[9px] font-bold bg-stone-200/80 dark:bg-stone-800 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
+                                title="Nudge start time 0.5s later (+0.5s)"
+                              >
+                                +0.5s
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
