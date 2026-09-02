@@ -1,0 +1,289 @@
+async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
+    all_raw: List[CandidateItem] = []
+    approved: List[CandidateItem] = []
+    rejected: List[CandidateItem] = []
+
+    active_presets = get_presets_for_mode(req.studio_mode or "meditation")
+
+    # Determine scene specs to search
+    specs_to_run = req.environments_spec
+    if not specs_to_run and ((req.title and req.title.strip()) or (req.script and req.script.strip())):
+        try:
+            auto_plan = await intent_service.analyze(
+                title=req.title,
+                script=req.script,
+                studio_mode=req.studio_mode or "meditation"
+            )
+            if auto_plan and auto_plan.planned_environments:
+                specs_to_run = [
+                    EnvironmentSearchSpec(
+                        id=pe.id,
+                        name=pe.name,
+                        queries=pe.keywords,
+                        clip_count=pe.suggested_clips
+                    ) for pe in auto_plan.planned_environments
+                ]
+        except Exception as plan_err:
+            logger.warning(f"Auto-plan in search_candidates failed: {plan_err}")
+
+    # If environment specs are provided or derived, search per environment
+    if specs_to_run and len(specs_to_run) > 0:
+        for env_spec in specs_to_run:
+            env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
+            target_clips = env_spec.clip_count or 4
+
+            # Fetch candidates for this environment
+            per_page = min(15, max(8, int(target_clips * 2)))
+            queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+            if req.prioritize_slow_motion and req.studio_mode != "documentary":
+                enriched = []
+                for q in queries_to_run:
+                    words = q.split()
+                    if len(words) <= 4 and not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
+                        enriched.append(f"slow motion {q}")
+                    else:
+                        enriched.append(q)
+                queries_to_run = enriched
+
+            env_raw: List[CandidateItem] = []
+            for q in queries_to_run:
+                search_page = max(1, req.page or 1)
+                # 1. Fetch videos: PRIORITIZE PEXELS FIRST FOR VIVID CINEMATIC DRONE FOOTAGE
+                if req.media_type in ("video", "both", None):
+                    px_items: List[CandidateItem] = []
+                    if req.enable_pexels:
+                        px_items = await pexels_service.search(query=q, page=search_page, per_page=per_page, db=db)
+                        for item in px_items:
+                            item.environment_id = env_spec.id
+                            item.subtheme = env_spec.name
+                            item.media_type = "video"
+                        env_raw.extend(px_items)
+
+                    # Only call Pixabay if Pexels is disabled, returned 0 results, or yielded insufficient clips
+                    if req.enable_pixabay and len(px_items) < max(2, per_page // 2):
+                        pb_items = await pixabay_service.search(query=q, page=search_page, per_page=per_page, db=db)
+                        for item in pb_items:
+                            item.environment_id = env_spec.id
+                            item.subtheme = env_spec.name
+                            item.media_type = "video"
+                        env_raw.extend(pb_items)
+
+                # 2. Fetch photos if media_type is "image" or "both"
+                if req.media_type in ("image", "both"):
+                    img_items = await image_fetch_service.search(query=q, page=search_page, per_page=per_page, db=db)
+                    for item in img_items:
+                        item.environment_id = env_spec.id
+                        item.subtheme = env_spec.name
+                    env_raw.extend(img_items)
+
+            # Calculate effective minimum duration accounting for slow-motion playback speed
+            speed_mult = float(req.playback_speed or 0.5)
+            effective_min_dur = max(4.0, (req.min_duration or 15.0) * speed_mult) if req.media_type != "image" else 5.0
+
+            # Filter for this environment
+            env_filtered = candidate_service.filter_candidates(
+                candidates=env_raw,
+                preset=env_preset,
+                min_duration=effective_min_dur,
+                max_duration=req.max_duration,
+                aspect_ratio=req.aspect_ratio,
+                resolution=req.resolution,
+                exclude_all_history=req.exclude_all_history,
+                db=db
+            )
+            all_raw.extend(env_raw)
+
+            # Fast local intent descriptor for candidate scoring
+            active_mode = req.studio_mode or "meditation"
+            env_dummy_analysis = IntentAnalysisResult(
+                intent=env_spec.name,
+                mood=["peaceful", "calm", "serene"],
+                energy_level="low",
+                visual_style="pure expansive nature landscape",
+                preferred_colors=["green", "gold", "blue"],
+                visual_motifs=[env_spec.name],
+                avoid_visuals=["macro", "close up", "flower", "people", "boats", "buildings"]
+            )
+
+            async def score_single(c: CandidateItem):
+                score_res = scoring_service._score_heuristic(c, env_dummy_analysis, env_preset, studio_mode=active_mode)
+                score_res = scoring_service._apply_scoring_thresholds(score_res, env_preset, studio_mode=active_mode, shot_preference=req.shot_preference or "wide")
+
+                c.intent_match = score_res.intent_match
+                c.theme_match = score_res.theme_match
+                c.calmness = score_res.calmness
+                c.motion_intensity = score_res.motion_intensity
+                c.visual_quality = score_res.visual_quality
+                c.shot_type = score_res.shot_type or "wide_vista"
+                c.subtheme = env_spec.name
+                c.environment_id = env_spec.id
+                c.is_approved = score_res.keep
+                c.rejection_reason = score_res.reason if not score_res.keep else None
+                return c
+
+            scored = await asyncio.gather(*[score_single(c) for c in env_filtered])
+            for c in scored:
+                if c.is_approved:
+                    approved.append(c)
+                else:
+                    rejected.append(c)
+
+    elif req.storyboard_beats and len(req.storyboard_beats) > 0:
+        for beat in req.storyboard_beats:
+            beat_raw: List[CandidateItem] = []
+            queries_to_run = list(beat.keywords[:2]) if beat.keywords else [beat.visual_subject]
+
+            for q in queries_to_run:
+                if req.media_type in ("video", "both", None):
+                    if req.enable_pexels:
+                        px_items = await pexels_service.search(query=q, page=1, per_page=8, db=db)
+                        for item in px_items:
+                            item.beat_index = beat.beat_index
+                            item.subtheme = beat.visual_subject
+                            item.media_type = "video"
+                        beat_raw.extend(px_items)
+                    if req.enable_pixabay:
+                        pb_items = await pixabay_service.search(query=q, page=1, per_page=8, db=db)
+                        for item in pb_items:
+                            item.beat_index = beat.beat_index
+                            item.subtheme = beat.visual_subject
+                            item.media_type = "video"
+                        beat_raw.extend(pb_items)
+
+                if req.media_type in ("image", "both"):
+                    img_items = await image_fetch_service.search(query=q, page=1, per_page=8, db=db)
+                    for item in img_items:
+                        item.beat_index = beat.beat_index
+                        item.subtheme = beat.visual_subject
+                    beat_raw.extend(img_items)
+
+            # Filter for this beat
+            beat_filtered = candidate_service.filter_candidates(
+                candidates=beat_raw,
+                preset=None,
+                min_duration=req.min_duration if req.media_type != "image" else 5.0,
+                max_duration=req.max_duration,
+                aspect_ratio=req.aspect_ratio,
+                resolution=req.resolution,
+                exclude_all_history=req.exclude_all_history,
+                db=db
+            )
+            all_raw.extend(beat_raw)
+
+            # Score candidates
+            beat_dummy_analysis = await intent_service.analyze(
+                title=beat.visual_subject,
+                studio_mode="documentary"
+            )
+            for c in beat_filtered:
+                score_res = scoring_service._score_heuristic(c, beat_dummy_analysis, None)
+                c.intent_match = score_res.intent_match
+                c.theme_match = score_res.theme_match
+                c.calmness = score_res.calmness
+                c.motion_intensity = score_res.motion_intensity
+                c.visual_quality = score_res.visual_quality
+                c.shot_type = score_res.shot_type or beat.camera_shot or "wide_vista"
+                c.is_approved = score_res.keep
+                c.rejection_reason = score_res.reason if not score_res.keep else None
+                if score_res.keep:
+                    approved.append(c)
+                else:
+                    rejected.append(c)
+    else:
+        # Fallback to query search
+        queries_to_run = list(req.queries[:4]) if req.queries else ["peaceful nature landscape"]
+        preset = NATURE_PRESETS.get(req.preset_name) if req.preset_name else None
+
+        for q in queries_to_run:
+            if req.enable_pexels:
+                res = await pexels_service.search(query=q, page=1, per_page=20, db=db)
+                all_raw.extend(res)
+            if req.enable_pixabay:
+                res = await pixabay_service.search(query=q, page=1, per_page=20, db=db)
+                all_raw.extend(res)
+
+        filtered = candidate_service.filter_candidates(
+            candidates=all_raw,
+            preset=preset,
+            min_duration=req.min_duration,
+            max_duration=req.max_duration,
+            aspect_ratio=req.aspect_ratio,
+            resolution=req.resolution,
+            exclude_all_history=req.exclude_all_history,
+            db=db
+        )
+
+        dummy_analysis = IntentAnalysisResult(
+            intent=" ".join(queries_to_run),
+            mood=["peaceful", "calm"],
+            visual_style="pure nature landscape"
+        )
+
+        async def score_single_generic(c: CandidateItem):
+            score_res = scoring_service._score_heuristic(c, dummy_analysis, preset, studio_mode=req.studio_mode or "meditation")
+            score_res = scoring_service._apply_scoring_thresholds(score_res, preset, studio_mode=req.studio_mode or "meditation", shot_preference=req.shot_preference or "wide")
+
+            c.intent_match = score_res.intent_match
+            c.theme_match = score_res.theme_match
+            c.calmness = score_res.calmness
+            c.motion_intensity = score_res.motion_intensity
+            c.visual_quality = score_res.visual_quality
+            c.shot_type = score_res.shot_type or "wide_vista"
+            c.subtheme = score_res.subtheme
+            c.is_approved = score_res.keep
+            c.rejection_reason = score_res.reason if not score_res.keep else None
+            return c
+            return c
+
+        scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:30]])
+        for c in scored_generic:
+            if c.is_approved:
+                approved.append(c)
+            else:
+                rejected.append(c)
+
+    # Strictly deduplicate approved and rejected lists by ID and URL
+    unique_approved: List[CandidateItem] = []
+    unique_rejected: List[CandidateItem] = []
+    seen_ids: Set[str] = set()
+    seen_urls: Set[str] = set()
+
+    for c in approved:
+        cid = c.source_video_id
+        curl = (c.source_url or "").strip().rstrip("/")
+        if cid and cid not in seen_ids and (not curl or curl not in seen_urls):
+            seen_ids.add(cid)
+            if curl:
+                seen_urls.add(curl)
+            unique_approved.append(c)
+
+    for c in rejected:
+        cid = c.source_video_id
+        curl = (c.source_url or "").strip().rstrip("/")
+        if cid and cid not in seen_ids and (not curl or curl not in seen_urls):
+            seen_ids.add(cid)
+            if curl:
+                seen_urls.add(curl)
+            unique_rejected.append(c)
+
+    # Record searched queries into KeywordBankItem for usage tracking & cooldown rotation
+    if req.environments_spec:
+        for spec in req.environments_spec:
+            for q in spec.queries or []:
+                clean_q = q.strip()
+                if clean_q:
+                    try:
+                        k_item = db.query(KeywordBankItem).filter(KeywordBankItem.keyword == clean_q).first()
+                        if k_item:
+                            k_item.times_used = (k_item.times_used or 0) + 1
+                            k_item.last_used_at = datetime.datetime.utcnow()
+                        else:
+                            k_item = KeywordBankItem(
+                                keyword=clean_q,
+                                category=spec.name or "General",
+                                is_favorite=False,
+                                times_used=1,
+                                last_used_at=datetime.datetime.utcnow()
+                            )
+                            db.add(k_item)
+                        db.commit()
