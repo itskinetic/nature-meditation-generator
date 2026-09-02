@@ -1959,9 +1959,14 @@ async def stream_audio_file(filename: str):
 
 
 @router.get("/audio/download/{filename}")
-async def download_audio_file(filename: str):
+async def download_audio_file(
+    filename: str,
+    title: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     Direct file download endpoint for processed MP3 audio.
+    Sets the download filename to <title>_spaced.mp3.
     """
     clean_name = os.path.basename(filename)
     file_path = settings.AUDIO_DIR / clean_name
@@ -1969,8 +1974,26 @@ async def download_audio_file(filename: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
+    # Determine user-friendly download filename: <title>_spaced.mp3
+    download_title = title
+    if not download_title:
+        # Look up by spaced_filename or filename in db
+        proj = db.query(AudioProject).filter(
+            (AudioProject.spaced_filename == clean_name) | (AudioProject.filename == clean_name)
+        ).first()
+        if proj:
+            download_title = proj.title or proj.original_name
+
+    if download_title:
+        base_name = Path(download_title).stem
+        download_filename = f"{base_name}_spaced.mp3"
+    else:
+        base_name = Path(clean_name).stem
+        if not base_name.endswith("_spaced"):
+            base_name = f"{base_name}_spaced"
+        download_filename = f"{base_name}.mp3"
+
     media_type = "audio/mpeg" if clean_name.lower().endswith(".mp3") else "audio/wav"
-    download_filename = f"zenhub_spaced_{clean_name}"
     return FileResponse(
         path=str(file_path),
         media_type=media_type,

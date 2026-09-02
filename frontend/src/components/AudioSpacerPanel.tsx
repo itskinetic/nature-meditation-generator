@@ -87,6 +87,12 @@ Now, like a dial that can turn in either direction, imagine the intensity you ar
 You do not need to turn it to zero. You could not if you tried, and you do not need to. (long pause)
 Just imagine it turning down one notch. That is enough for now. (15s pause)`;
 
+const getSpacedDownloadFilename = (title?: string, originalName?: string): string => {
+  const raw = title || originalName || 'spaced_voiceover';
+  const base = raw.replace(/\.[^/.]+$/, '');
+  return `${base}_spaced.mp3`;
+};
+
 export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   onUseInStudio,
   isDark = false,
@@ -1581,9 +1587,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         <div className="flex items-center gap-1">
                           <a
                             href={proj.download_url}
-                            download={proj.spaced_filename || 'spaced_voiceover.mp3'}
+                            download={getSpacedDownloadFilename(proj.title, proj.original_name)}
                             className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
-                            title="Download Paced MP3"
+                            title={`Download ${getSpacedDownloadFilename(proj.title, proj.original_name)}`}
                           >
                             <Download className="w-3.5 h-3.5" />
                           </a>
@@ -1710,7 +1716,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               {/* Download MP3 */}
               <a
                 href={processedResult ? processedResult.download_url : activeProject?.download_url || '#'}
-                download={processedResult?.spaced_filename || activeProject?.spaced_filename || 'paced_voiceover.mp3'}
+                download={getSpacedDownloadFilename(activeProject?.title, activeProject?.original_name)}
                 onClick={(e) => {
                   if (!processedResult && !activeProject?.spaced_filename) {
                     e.preventDefault();
@@ -1722,6 +1728,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 hover:bg-amber-100'
                     : 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-400'
                 }`}
+                title={`Download ${getSpacedDownloadFilename(activeProject?.title, activeProject?.original_name)}`}
               >
                 <Download className="w-3 h-3" />
                 <span>Download MP3</span>
