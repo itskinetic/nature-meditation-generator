@@ -30,6 +30,8 @@ import {
   Search,
   CheckCheck,
   Scissors,
+  Link2,
+  Unlink2,
   ArrowDownToLine,
   X
 } from 'lucide-react';
@@ -149,6 +151,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     field: 'start' | 'end';
     value: string;
   } | null>(null);
+  const [unlockedBoundaries, setUnlockedBoundaries] = useState<Set<string>>(new Set());
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -259,24 +262,61 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     }
   };
 
-  // Ensure strict continuity across all phrase cards: Card N End === Card N+1 Start
-  const reconcileSegmentsContinuity = (segs: AudioSegment[]): AudioSegment[] => {
-    if (segs.length <= 1) return segs;
-    let prevEnd = segs[0].end_time;
-    return segs.map((s, idx) => {
-      if (idx === 0) {
-        return { ...s, index: 0 };
+  // Check if boundary between seg and nextSeg is unlocked (in Cut Mode)
+  const isBoundaryUnlocked = useCallback(
+    (segId: string, nextSegStart?: number, segEnd?: number): boolean => {
+      if (unlockedBoundaries.has(segId)) return true;
+      if (nextSegStart !== undefined && segEnd !== undefined) {
+        if (Math.abs(nextSegStart - segEnd) > 0.05) return true;
       }
-      const updated = {
-        ...s,
-        index: idx,
-        start_time: prevEnd,
-        end_time: Math.max(prevEnd + 0.2, s.end_time),
-        split_time: Math.max(prevEnd + 0.2, s.end_time),
-      };
-      prevEnd = updated.end_time;
-      return updated;
+      return false;
+    },
+    [unlockedBoundaries]
+  );
+
+  // Toggle link/cut status of boundary
+  const toggleBoundaryLock = (segId: string) => {
+    setUnlockedBoundaries((prev) => {
+      const next = new Set(prev);
+      if (next.has(segId)) {
+        next.delete(segId);
+      } else {
+        next.add(segId);
+      }
+      return next;
     });
+  };
+
+  // 1-Click Snap & Re-link
+  const snapAndRelink = (segId: string) => {
+    const segIdx = segments.findIndex((s) => s.id === segId);
+    if (segIdx < 0 || segIdx >= segments.length - 1) return;
+    const seg = segments[segIdx];
+
+    const snapTime = seg.end_time;
+    const updated = segments.map((s, idx) => {
+      if (idx === segIdx + 1) {
+        return {
+          ...s,
+          start_time: snapTime,
+          end_time: Math.max(snapTime + 0.2, s.end_time),
+          split_time: Math.max(snapTime + 0.2, s.split_time || s.end_time),
+        };
+      }
+      return s;
+    });
+
+    setUnlockedBoundaries((prev) => {
+      const next = new Set(prev);
+      next.delete(segId);
+      return next;
+    });
+
+    setSegments(updated);
+    setIsMasterOutdated(true);
+    if (activeProject?.id) {
+      api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+    }
   };
 
   // Open a project from the Inbox into the editor
@@ -285,7 +325,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     setSelectedProjectId(project.id);
     localStorage.setItem('zenhub_active_audio_project_id', String(project.id));
 
-    const reconciled = reconcileSegmentsContinuity(project.segments || []);
+    const rawSegs = project.segments || [];
+    // Automatically detect any existing cut gaps and initialize them as unlocked
+    const initialUnlocked = new Set<string>();
+    for (let i = 0; i < rawSegs.length - 1; i++) {
+      if (Math.abs(rawSegs[i].end_time - rawSegs[i + 1].start_time) > 0.05) {
+        initialUnlocked.add(rawSegs[i].id);
+      }
+    }
+    setUnlockedBoundaries(initialUnlocked);
 
     setAnalysisData({
       file_id: project.file_id,
@@ -293,10 +341,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
       duration: project.duration,
       waveform_peaks: project.waveform_peaks,
       silence_intervals: project.silence_intervals,
-      segments: reconciled,
+      segments: rawSegs,
       audio_url: project.audio_url,
     });
-    setSegments(reconciled);
+    setSegments(rawSegs);
     setScriptText(project.script_text || '');
     setSaveStatusText('saved');
     setDuration(project.duration);
@@ -744,7 +792,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return Number(bestSilence.mid.toFixed(2));
   };
 
-  // Precision Timestamp Adjusters: Linked Continuous Cut Points (ID-based, strict lockstep)
+  // Precision Timestamp Adjusters: Linked or Unlocked Cut Points (ID-based)
   const adjustStartTime = (segId: string, deltaSeconds: number) => {
     const segIdx = segments.findIndex((s) => s.id === segId);
     if (segIdx < 0) return;
@@ -752,27 +800,42 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     if (segIdx > 0) {
       const prevSeg = segments[segIdx - 1];
-      const newBoundary = Math.round((seg.start_time + deltaSeconds) * 10) / 10;
+      const unlocked = isBoundaryUnlocked(prevSeg.id, seg.start_time, prevSeg.end_time);
 
-      // Keep at least 0.2s minimum duration for each card
-      if (newBoundary <= prevSeg.start_time + 0.2 || newBoundary >= seg.end_time - 0.2) {
-        return;
-      }
-
-      const updated = segments.map((s, idx) => {
-        if (idx === segIdx - 1) {
-          return { ...s, end_time: newBoundary, split_time: newBoundary };
+      if (unlocked) {
+        // Cut mode: Only adjust this card's start time (cannot cross before prevSeg.end_time or past seg.end_time - 0.2)
+        const newStart = Math.max(
+          prevSeg.end_time,
+          Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10)
+        );
+        const updated = segments.map((s, idx) => (idx === segIdx ? { ...s, start_time: newStart } : s));
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
         }
-        if (idx === segIdx) {
-          return { ...s, start_time: newBoundary };
+      } else {
+        // Linked mode: Adjust both cards in lockstep
+        const newBoundary = Math.round((seg.start_time + deltaSeconds) * 10) / 10;
+        if (newBoundary <= prevSeg.start_time + 0.2 || newBoundary >= seg.end_time - 0.2) {
+          return;
         }
-        return s;
-      });
 
-      setSegments(updated);
-      setIsMasterOutdated(true);
-      if (activeProject?.id) {
-        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        const updated = segments.map((s, idx) => {
+          if (idx === segIdx - 1) {
+            return { ...s, end_time: newBoundary, split_time: newBoundary };
+          }
+          if (idx === segIdx) {
+            return { ...s, start_time: newBoundary };
+          }
+          return s;
+        });
+
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
       }
     } else {
       const newStart = Math.max(0, Math.min(seg.end_time - 0.2, Math.round((seg.start_time + deltaSeconds) * 10) / 10));
@@ -794,27 +857,44 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     if (segIdx < segments.length - 1) {
       const nextSeg = segments[segIdx + 1];
-      const newBoundary = Math.round((seg.end_time + deltaSeconds) * 10) / 10;
+      const unlocked = isBoundaryUnlocked(seg.id, nextSeg.start_time, seg.end_time);
 
-      // Keep at least 0.2s minimum duration for each card
-      if (newBoundary <= seg.start_time + 0.2 || newBoundary >= nextSeg.end_time - 0.2) {
-        return;
-      }
-
-      const updated = segments.map((s, idx) => {
-        if (idx === segIdx) {
-          return { ...s, end_time: newBoundary, split_time: newBoundary };
+      if (unlocked) {
+        // Cut mode: Only adjust this card's end time (cannot cross before seg.start_time + 0.2 or past nextSeg.start_time)
+        const newEnd = Math.max(
+          seg.start_time + 0.2,
+          Math.min(nextSeg.start_time, Math.round((seg.end_time + deltaSeconds) * 10) / 10)
+        );
+        const updated = segments.map((s, idx) =>
+          idx === segIdx ? { ...s, end_time: newEnd, split_time: newEnd } : s
+        );
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
         }
-        if (idx === segIdx + 1) {
-          return { ...s, start_time: newBoundary };
+      } else {
+        // Linked mode: Adjust both cards in lockstep
+        const newBoundary = Math.round((seg.end_time + deltaSeconds) * 10) / 10;
+        if (newBoundary <= seg.start_time + 0.2 || newBoundary >= nextSeg.end_time - 0.2) {
+          return;
         }
-        return s;
-      });
 
-      setSegments(updated);
-      setIsMasterOutdated(true);
-      if (activeProject?.id) {
-        api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        const updated = segments.map((s, idx) => {
+          if (idx === segIdx) {
+            return { ...s, end_time: newBoundary, split_time: newBoundary };
+          }
+          if (idx === segIdx + 1) {
+            return { ...s, start_time: newBoundary };
+          }
+          return s;
+        });
+
+        setSegments(updated);
+        setIsMasterOutdated(true);
+        if (activeProject?.id) {
+          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        }
       }
     } else {
       const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, Math.round((seg.end_time + deltaSeconds) * 10) / 10));
@@ -845,7 +925,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     return !isNaN(num) ? Math.round(num * 10) / 10 : null;
   };
 
-  // Commit typed timestamp value (ID-based, strict lockstep sync)
+  // Commit typed timestamp value (ID-based, supporting linked or unlocked cut modes)
   const saveEditedTime = () => {
     if (!editingTime) return;
     const { segId, field, value } = editingTime;
@@ -862,16 +942,28 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     if (field === 'start') {
       if (segIdx > 0) {
         const prevSeg = segments[segIdx - 1];
-        const newBoundary = Math.max(prevSeg.start_time + 0.2, Math.min(seg.end_time - 0.2, parsed));
-        const updated = segments.map((s, idx) => {
-          if (idx === segIdx - 1) return { ...s, end_time: newBoundary, split_time: newBoundary };
-          if (idx === segIdx) return { ...s, start_time: newBoundary };
-          return s;
-        });
-        setSegments(updated);
-        setIsMasterOutdated(true);
-        if (activeProject?.id) {
-          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        const unlocked = isBoundaryUnlocked(prevSeg.id, seg.start_time, prevSeg.end_time);
+
+        if (unlocked) {
+          const newStart = Math.max(prevSeg.end_time, Math.min(seg.end_time - 0.2, parsed));
+          const updated = segments.map((s, idx) => (idx === segIdx ? { ...s, start_time: newStart } : s));
+          setSegments(updated);
+          setIsMasterOutdated(true);
+          if (activeProject?.id) {
+            api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+          }
+        } else {
+          const newBoundary = Math.max(prevSeg.start_time + 0.2, Math.min(seg.end_time - 0.2, parsed));
+          const updated = segments.map((s, idx) => {
+            if (idx === segIdx - 1) return { ...s, end_time: newBoundary, split_time: newBoundary };
+            if (idx === segIdx) return { ...s, start_time: newBoundary };
+            return s;
+          });
+          setSegments(updated);
+          setIsMasterOutdated(true);
+          if (activeProject?.id) {
+            api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+          }
         }
       } else {
         const newStart = Math.max(0, Math.min(seg.end_time - 0.2, parsed));
@@ -885,16 +977,30 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     } else {
       if (segIdx < segments.length - 1) {
         const nextSeg = segments[segIdx + 1];
-        const newBoundary = Math.max(seg.start_time + 0.2, Math.min(nextSeg.end_time - 0.2, parsed));
-        const updated = segments.map((s, idx) => {
-          if (idx === segIdx) return { ...s, end_time: newBoundary, split_time: newBoundary };
-          if (idx === segIdx + 1) return { ...s, start_time: newBoundary };
-          return s;
-        });
-        setSegments(updated);
-        setIsMasterOutdated(true);
-        if (activeProject?.id) {
-          api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+        const unlocked = isBoundaryUnlocked(seg.id, nextSeg.start_time, seg.end_time);
+
+        if (unlocked) {
+          const newEnd = Math.max(seg.start_time + 0.2, Math.min(nextSeg.start_time, parsed));
+          const updated = segments.map((s, idx) =>
+            idx === segIdx ? { ...s, end_time: newEnd, split_time: newEnd } : s
+          );
+          setSegments(updated);
+          setIsMasterOutdated(true);
+          if (activeProject?.id) {
+            api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+          }
+        } else {
+          const newBoundary = Math.max(seg.start_time + 0.2, Math.min(nextSeg.end_time - 0.2, parsed));
+          const updated = segments.map((s, idx) => {
+            if (idx === segIdx) return { ...s, end_time: newBoundary, split_time: newBoundary };
+            if (idx === segIdx + 1) return { ...s, start_time: newBoundary };
+            return s;
+          });
+          setSegments(updated);
+          setIsMasterOutdated(true);
+          if (activeProject?.id) {
+            api.updateProjectSegments(activeProject.id, updated).catch((e) => console.warn('Autosave error:', e));
+          }
         }
       } else {
         const newEnd = Math.max(seg.start_time + 0.2, Math.min(totalDur, parsed));
@@ -1901,13 +2007,16 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 ref={teleprompterRef}
                 className="flex flex-col gap-2.5 max-h-[640px] overflow-y-auto p-0.5 pr-1.5 relative"
               >
-                {filteredSegments.map((seg) => {
+                {filteredSegments.map((seg, segIdx) => {
                   const isActive = seg.id === activeSegmentId;
+                  const nextSeg = segIdx < filteredSegments.length - 1 ? filteredSegments[segIdx + 1] : undefined;
+                  const unlocked = isBoundaryUnlocked(seg.id, nextSeg?.start_time, seg.end_time);
+                  const cutGap = nextSeg ? Math.round((nextSeg.start_time - seg.end_time) * 10) / 10 : 0;
 
                   return (
-                    <div
-                      key={seg.id}
-                      data-segment-id={seg.id}
+                    <React.Fragment key={seg.id}>
+                      <div
+                        data-segment-id={seg.id}
                       ref={isActive ? activeCardRef : null}
                       onClick={() => handleJumpToSegment(seg)}
                       className={`flex flex-col gap-1.5 p-3 rounded-2xl border transition-all cursor-pointer group ${
@@ -2043,6 +2152,33 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                                 +
                               </button>
                             </div>
+
+                            {/* Link / Cut Toggle Button */}
+                            {nextSeg && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleBoundaryLock(seg.id);
+                                }}
+                                className={`p-1 rounded-md transition-colors cursor-pointer ml-0.5 ${
+                                  unlocked
+                                    ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/60 bg-amber-500/15 ring-1 ring-amber-500/40'
+                                    : 'text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-800'
+                                }`}
+                                title={
+                                  unlocked
+                                    ? 'Boundary is UNLOCKED (Cut Mode): Adjust timestamps independently to cut out dead audio. Click to lock.'
+                                    : 'Boundary is LINKED: Adjusting boundary moves both phrases together. Click to unlock and cut out audio.'
+                                }
+                              >
+                                {unlocked ? (
+                                  <Scissors className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Link2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
 
@@ -2174,7 +2310,30 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         </div>
                       </div>
                     </div>
-                  );
+
+                    {/* Visual Cut Gap Badge between phrases */}
+                    {cutGap > 0.05 && (
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-amber-500/10 border border-dashed border-amber-500/40 text-stone-700 dark:text-stone-300 text-xs font-mono my-0.5"
+                      >
+                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
+                          <Scissors className="w-3.5 h-3.5 shrink-0" />
+                          <span>{cutGap}s cut / removed from raw recording</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => snapAndRelink(seg.id)}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950/80 hover:text-amber-800 dark:hover:text-amber-200 border border-stone-300 dark:border-stone-700 text-[11px] font-sans font-medium text-stone-700 dark:text-stone-300 cursor-pointer shadow-2xs transition-colors"
+                          title="Snap boundary and re-link phrases"
+                        >
+                          <Link2 className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          <span>Snap & Re-link</span>
+                        </button>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
                 })}
               </div>
             </div>
