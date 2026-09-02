@@ -170,11 +170,11 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                     </div>
                   </div>
 
-                  <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[11px] font-semibold uppercase tracking-wider bg-black/70 backdrop-blur-md text-white border border-white/10">
+                  <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-black/50 backdrop-blur-md text-white/90 border border-white/20 shadow-sm">
                     {item.source}
                   </div>
 
-                  <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-md text-[11px] font-mono bg-black/70 backdrop-blur-md text-white border border-white/10">
+                  <div className="absolute bottom-2.5 right-2.5 px-2 py-1 rounded-full text-[10px] font-medium bg-black/50 backdrop-blur-md text-white/90 border border-white/20 shadow-sm">
                     {item.duration ? `${item.duration.toFixed(0)}s` : '--'}
                   </div>
 
@@ -218,13 +218,13 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                   )}
                 </div>
 
-                <div className="p-4.5 space-y-3">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-semibold text-stone-900 dark:text-white capitalize truncate">
+                      <h3 className="text-base font-bold text-stone-900 dark:text-stone-100 capitalize leading-snug truncate">
                         {item.subtheme || 'Nature Scene'}
                       </h3>
-                      <p className="text-xs text-stone-500 dark:text-stone-400 truncate mt-0.5">
+                      <p className="text-[13px] text-stone-500 dark:text-stone-400 truncate mt-1">
                         By {item.creator_name || 'Public Creator'}
                       </p>
                     </div>
@@ -234,42 +234,45 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                       type="button"
                       onClick={() => setActivePreviewVideo(item)}
                       title="Watch full video preview"
-                      className="w-8 h-8 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-stone-700 dark:text-stone-300 hover:text-amber-900 dark:hover:text-amber-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-stone-100/80 dark:bg-stone-800/80 hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 flex items-center justify-center transition-all shrink-0 cursor-pointer shadow-sm hover:shadow"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                   </div>
 
                   {/* Score breakdown */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-stone-200 dark:border-stone-800/80 text-center">
-                    <div className="bg-stone-50 dark:bg-stone-950/70 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800/60">
-                      <span className="text-[9px] uppercase text-stone-500 dark:text-stone-400 block font-medium">Intent</span>
-                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{item.intent_score?.toFixed(1) || '8.0'}</span>
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-semibold mb-0.5">Intent</span>
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-500">{item.intent_score?.toFixed(1) || '8.0'}</span>
                     </div>
-                    <div className="bg-stone-50 dark:bg-stone-950/70 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800/60">
-                      <span className="text-[9px] uppercase text-stone-500 dark:text-stone-400 block font-medium">Theme</span>
-                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{item.theme_score?.toFixed(1) || '8.0'}</span>
+                    <div className="w-px h-6 bg-stone-200 dark:bg-stone-800"></div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-semibold mb-0.5">Theme</span>
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-500">{item.theme_score?.toFixed(1) || '8.0'}</span>
                     </div>
-                    <div className="bg-stone-50 dark:bg-stone-950/70 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800/60">
-                      <span className="text-[9px] uppercase text-stone-500 dark:text-stone-400 block font-medium">Calm</span>
-                      <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">{item.calmness_score?.toFixed(1) || '8.0'}</span>
+                    <div className="w-px h-6 bg-stone-200 dark:bg-stone-800"></div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-semibold mb-0.5">Calm</span>
+                      <span className="text-sm font-bold text-amber-600 dark:text-amber-500">{item.calmness_score?.toFixed(1) || '8.0'}</span>
                     </div>
-                    <div className="bg-stone-50 dark:bg-stone-950/70 p-1.5 rounded-lg border border-stone-200 dark:border-stone-800/60">
-                      <span className="text-[9px] uppercase text-stone-500 dark:text-stone-400 block font-medium">Quality</span>
-                      <span className="text-xs font-semibold text-stone-700 dark:text-stone-300">{item.visual_quality_score?.toFixed(1) || '8.0'}</span>
+                    <div className="w-px h-6 bg-stone-200 dark:bg-stone-800"></div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase tracking-wider text-stone-400 dark:text-stone-500 font-semibold mb-0.5">Quality</span>
+                      <span className="text-sm font-bold text-stone-700 dark:text-stone-300">{item.visual_quality_score?.toFixed(1) || '8.0'}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Usage & Date Footer */}
-              <div className="p-4.5 pt-0 text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between border-t border-stone-100 dark:border-stone-800/60 mt-3 pt-3">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              <div className="px-5 pb-5 pt-0 text-[11px] text-stone-500 dark:text-stone-400 flex items-center justify-between mt-auto">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500/80"></span>
                   Used {item.times_used} {item.times_used === 1 ? 'time' : 'times'}
                 </span>
 
-                <span className="text-stone-400 dark:text-stone-500">
+                <span className="text-stone-400/80 dark:text-stone-500/80">
                   {item.last_used_at
                     ? `Last used: ${new Date(item.last_used_at).toLocaleDateString()}`
                     : 'Unused'}
