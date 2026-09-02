@@ -1778,66 +1778,12 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           >
                             <Play className="w-3 h-3 fill-current ml-0.5" />
                           </button>
-                          <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
-                            <span>{formatTime(seg.start_time)} - {formatTime(seg.end_time)}</span>
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  nudgeStartTime(seg.index, -0.5);
-                                }}
-                                className="h-5 px-1 rounded text-[9px] font-bold bg-stone-200/80 dark:bg-stone-800 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
-                                title="Nudge start time 0.5s earlier (-0.5s)"
-                              >
-                                -0.5s
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  nudgeStartTime(seg.index, 0.5);
-                                }}
-                                className="h-5 px-1 rounded text-[9px] font-bold bg-stone-200/80 dark:bg-stone-800 hover:bg-amber-200 dark:hover:bg-amber-900/60 text-stone-600 dark:text-stone-300 transition-colors cursor-pointer"
-                                title="Nudge start time 0.5s later (+0.5s)"
-                              >
-                                +0.5s
-                              </button>
-                            </div>
-                          </div>
+                          <span className="font-mono text-[11px] font-bold text-stone-600 dark:text-stone-300 whitespace-nowrap">
+                            {formatTime(seg.start_time)} - {formatTime(seg.end_time)}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1 shrink-0">
-                          {/* Split Phrase Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSplitSegment(seg.index);
-                            }}
-                            className="h-5 px-1.5 rounded-md bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-0.5 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80"
-                            title="Split phrase (Add Enter)"
-                          >
-                            <Scissors className="w-2.5 h-2.5" />
-                            <span className="hidden sm:inline">Split</span>
-                          </button>
-
-                          {/* Merge with Next Button */}
-                          {seg.index < segments.length - 1 && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMergeWithNext(seg.index);
-                              }}
-                              className="h-5 px-1.5 rounded-md bg-stone-100 hover:bg-stone-200 dark:bg-stone-800 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 text-[10px] font-medium flex items-center gap-0.5 transition-all cursor-pointer border border-stone-200/80 dark:border-stone-700/80"
-                              title="Merge with next (Delete Enter)"
-                            >
-                              <ArrowDownToLine className="w-2.5 h-2.5" />
-                              <span className="hidden sm:inline">Merge</span>
-                            </button>
-                          )}
-
                           <span className="text-[9px] font-mono font-bold text-stone-400 bg-stone-200/60 dark:bg-stone-800 px-1.5 py-0.5 rounded-full">
                             #{seg.index + 1}
                           </span>
