@@ -53,7 +53,25 @@ GLOBAL_PROHIBITED_TERMS = [
     "macro", "close up", "closeup", "extreme close up", "detail shot", "micro lens", "macro shot",
 
     # Dark, Backlit & Silhouette Footage (Pure Bright Daytime Required)
-    "silhouette", "silhouettes", "backlit", "backlight", "sunset", "sunsets", "golden hour", "dusk", "twilight", "underexposed"
+    "silhouette", "silhouettes", "backlit", "backlight", "sunset", "sunsets", "golden hour", "dusk", "twilight", "underexposed",
+
+    # Ski Resorts, Winter Sports & Chairlifts (Never in calming nature meditation)
+    "ski", "skier", "skiers", "skiing", "snowboard", "snowboarder", "snowboarding",
+    "chairlift", "ski lift", "gondola", "cable car", "piste", "snowpark", "ski resort",
+    "ski slope", "snowcat", "snowmobile", "slalom", "halfpipe", "jump ramp", "ski park",
+
+    # Top-Down, Straight-Down, High-Altitude Survey & Overhead Textures
+    "top down", "top-down", "straight down", "directly above", "bird's eye view", "birds eye view",
+    "bird eye view", "looking down", "overhead", "vertically down", "aerial survey", "satellite",
+    "topdown", "overhead view", "straight-down",
+
+    # Clutter, Dense Bumpy Treetops & Choppy Water (No chaotic textures)
+    "canopy", "treetops", "dense canopy", "overgrown", "tangle", "thicket", "shrubbery", "brushwood",
+    "choppy", "turbulent", "rough sea", "rough waves", "heavy surf", "stormy sea", "bumpy",
+
+    # Wires, Poles, Pylons & Man-made Infrastructure
+    "pylon", "pylons", "power line", "power lines", "electric pole", "telephone pole",
+    "cable lines", "wires", "fence line"
 ]
 
 

@@ -11,6 +11,7 @@ class EnvironmentTheme(BaseModel):
     queries: List[str]
     subthemes: List[str]
     negative_terms: List[str] = [
+        "canopy", "treetops", "dense canopy", "ski", "skier", "skiing", "chairlift", "ski resort", "snow slope", "choppy", "turbulent", "cluttered",
         "boat", "boats", "ship", "ships", "yacht", "vessel", "canoe", "kayak", "speedboat", "motorboat", "jetski", "sailing", "ferry",
         "dock", "docks", "pier", "piers", "marina", "harbor", "harbour", "port", "wharf", "jetty",
         "drone", "aerial", "overhead", "bird eye", "birds eye", "top down", "top-down", "satellite",
@@ -39,16 +40,16 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Sunlit Forest",
         icon="",
         category="Forest",
-        description="Vibrant green woodland canopy, mossy forest paths, and bright daylight woodland",
+        description="Peaceful sun-dappled woodland clearings, tranquil forest trails, and bright daylight nature",
         queries=[
-            "lush green woodland canopy daylight",
+            "peaceful green forest clearing daylight",
             "peaceful green forest path daylight",
-            "vibrant mossy forest daylight",
-            "bright green woodland canopy",
-            "peaceful woodland daylight",
-            "lush green trees daylight calm"
+            "vibrant mossy woodland trail daylight",
+            "tranquil green trees sunlight landscape",
+            "peaceful woodland glade daylight",
+            "lush green forest nature landscape"
         ],
-        subthemes=["green canopy", "bright woodland path", "moss and ferns", "daylight forest"],
+        subthemes=["peaceful forest clearing", "bright woodland path", "moss and ferns", "daylight forest"],
         preferred_colors=["vibrant green", "emerald", "leaf jade", "soft white"]
     ),
     "calm_ocean": EnvironmentTheme(
@@ -56,16 +57,16 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Calm Ocean",
         icon="",
         category="Water",
-        description="Crystal clear turquoise shallow water and gentle soothing ripples",
+        description="Crystal clear turquoise shallow water and gentle soothing shoreline horizon",
         queries=[
-            "crystal clear calm sea",
-            "calm turquoise shoreline",
-            "gentle shallow sea ripples",
-            "placid blue ocean surface",
-            "soft waves sand shore daylight",
-            "peaceful turquoise ocean horizon"
+            "calm turquoise shoreline horizon",
+            "peaceful ocean beach gentle waves horizon",
+            "gentle waves sand shore blue sky daylight",
+            "crystal clear calm sea beach blue sky",
+            "peaceful turquoise ocean horizon sunny day",
+            "gentle ocean waves shore blue sky daylight"
         ],
-        subthemes=["gentle shore waves", "turquoise horizon", "shallow crystal water", "calm sea ripples"],
+        subthemes=["gentle shore waves", "turquoise horizon", "shallow crystal water", "peaceful beach shoreline"],
         preferred_colors=["turquoise", "pale blue", "seafoam", "soft white"]
     ),
     "wildflower_meadow": EnvironmentTheme(
@@ -92,11 +93,11 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         category="Water",
         description="Placid mirror-like alpine lakes reflecting clear skies and pine ridges",
         queries=[
-            "still alpine lake reflection daylight",
-            "crystal clear mountain lake sunny day",
+            "placid alpine lake reflection blue sky",
+            "crystal clear mountain lake sunny day horizon",
             "peaceful mountain lake shore daylight",
-            "calm lake water daylight",
-            "placid mountain lake blue sky"
+            "tranquil lake reflection mountains sunny day",
+            "serene alpine lake clear blue sky"
         ],
         subthemes=["mirror lake reflection", "crystal alpine shore", "still water surface", "pine lake border"],
         preferred_colors=["sapphire blue", "pine green", "clear crystal", "soft white"]
@@ -122,15 +123,15 @@ NATURE_ENVIRONMENTS: Dict[str, EnvironmentTheme] = {
         name="Rainforest",
         icon="",
         category="Forest",
-        description="Rich emerald tropical foliage, dew drops, and peaceful green canopies",
+        description="Rich emerald tropical foliage, dew drops, and peaceful green trails",
         queries=[
-            "lush rainforest green canopy daylight",
-            "dew drops tropical green leaves",
-            "peaceful green jungle foliage daylight",
-            "vibrant tropical rainforest daylight",
-            "vibrant moss and tropical plants"
+            "peaceful rainforest clearing daylight",
+            "dew drops tropical green foliage",
+            "serene tropical nature trail daylight",
+            "vibrant green rainforest stream daylight",
+            "tranquil tropical landscape daylight"
         ],
-        subthemes=["tropical canopy", "dew on leaves", "vibrant moss and palms", "bright jungle light"],
+        subthemes=["tropical clearing", "dew on leaves", "vibrant moss and palms", "bright jungle light"],
         preferred_colors=["deep emerald", "vibrant moss", "vibrant jade", "leaf green"]
     ),
     "cascading_waterfalls": EnvironmentTheme(

@@ -120,17 +120,20 @@ Shot Type Classification (Classify accurately based on the framing):
 - "close_up": Intimate close-up or macro shot (e.g. leaf detail, water ripple, rock texture, single plant).
 
 STRICT REJECTION CRITERIA (Mark "keep": false if ANY of these are present):
+- REJECT ANY top-down or straight-down bird's-eye camera angles looking down at ground or water.
+- REJECT ANY cluttered or chaotic textures (e.g. dense bumpy tree canopies filling 100% of the frame with no sky or ground, choppy water textures filling the frame with no shoreline).
+- REJECT ANY ski resorts, ski lifts, chairlifts, pistes, snow tracks, ski ramps, winter sports equipment, or man-made terrain marks.
 - REJECT dark, underexposed, gloomy, overcast-grey, muddy, foggy dark, or lifeless desaturated visuals. ONLY bright, vivid, sun-drenched, luminous landscapes allowed.
-- REJECT ANY close-up, macro, extreme close-up, or detail shots focusing on individual small objects (flowers, petals, leaves, tree bark, rocks, pebbles). ONLY wide expansive vistas allowed.
+- REJECT ANY close-up, macro, extreme close-up, or detail shots focusing on individual small objects (flowers, petals, leaves, tree bark, rocks, pebbles).
 - REJECT ANY flower close-ups, macro flowers, individual flower blossoms, petals, lotus flowers, or waterlilies.
 - REJECT ANY bees, wasps, bugs, insects, spiders, or crawling creatures on plants or flowers.
 - REJECT ANY boats, ships, yachts, speedboats, motorboats, canoes, kayaks, watercraft, or sailing vessels.
 - REJECT ANY docks, piers, marinas, harbors, ports, jetties, or boat slips.
-- REJECT ANY top-down satellite maps or high survey maps. (Cinematic push-in and gliding drone vistas ARE encouraged).
 - REJECT ANY buildings, houses, resorts, hotels, pools, cabins, roads, cars, vehicles, bridges, fences, or man-made structures.
 - REJECT ANY people, tourists, swimmers, divers, crowds, or visible human activity.
 - REJECT ANY murky, muddy, stagnant water, algae scum, sludge, or brownish swamp water.
 - REJECT RAW camera footage, unedited LOG profiles, flat color profiles, or washed-out ungraded video.
+- REQUIRE A VISIBLE HORIZON, OPEN SKY, OR PEACEFUL GROUND-LEVEL FOCAL POINT (e.g. lake shore, calm beach, open meadow, peaceful woodland path).
 
 Return ONLY valid JSON matching this schema:
 {{
@@ -277,19 +280,45 @@ Return ONLY valid JSON matching this schema:
                 reason="Rejected: Footage is too fast or turbulent for calm meditation."
             )
 
-        # Baseline scores for nature meditation
-        if has_slow_motion:
+        # Check clutter vs serenity cues
+        clutter_indicators = {"cluttered", "dense", "canopy", "treetop", "treetops", "choppy", "rough", "ski", "skier", "resort", "slope", "overhead", "topdown", "bumpy"}
+        serene_indicators = {"peaceful", "calm", "lake", "reflection", "horizon", "shore", "meadow", "gentle", "tranquil", "serene", "soft", "sunny", "path", "clearing"}
+
+        has_clutter = any(w in corpus_words for w in clutter_indicators)
+        has_serenity = any(w in corpus_words for w in serene_indicators)
+
+        if has_clutter and not is_doc:
+            return ScoringResult(
+                intent_match=4.0,
+                theme_match=4.0,
+                calmness=4.0,
+                motion_intensity=7.0,
+                visual_quality=6.0,
+                shot_type=detected_shot_type,
+                unwanted_elements=["visual clutter / overhead canopy / choppy texture"],
+                subtheme=assigned_subtheme,
+                keep=False,
+                reason="Rejected: High visual clutter, overhead canopy, or choppy texture not suitable for calm meditation."
+            )
+
+        if has_serenity:
             intent_match = 9.8
             theme_match = 9.8
             calmness = 9.8
             motion_intensity = 1.2
             visual_quality = 9.5
-        else:
+        elif has_slow_motion:
             intent_match = 9.0
             theme_match = 9.0
             calmness = 9.0
             motion_intensity = 2.0
             visual_quality = 9.0
+        else:
+            intent_match = 8.5
+            theme_match = 8.5
+            calmness = 8.5
+            motion_intensity = 2.5
+            visual_quality = 8.5
 
         # Adjust for resolution
         if candidate.width >= 1920:

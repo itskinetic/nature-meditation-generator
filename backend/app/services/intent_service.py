@@ -143,61 +143,72 @@ EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
   * CLARITY / VITALITY / AWAKENING:
     - Crystal clear turquoise ocean vistas, pristine mountain ridges under vast clear blue sky, sparkling clean water in morning daylight.
 
-DIRECTOR INSTRUCTIONS:
+DIRECTOR INSTRUCTIONS (CALM, SPACIOUS, UNCLUTTERED VISUALS):
 - Plan 4 to 6 distinct visual scenes (scene_1, scene_2, etc.).
-- KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search keywords (minimum 5 keywords per scene) to provide abundant footage selection.
-- LIGHTING & VISIBILITY REQUIREMENT (STRICT):
-  * Mandate CLEAN, BRIGHT NATURAL DAYLIGHT, high-key open sky lighting, and vivid natural colors (emerald green, azure blue, clear turquoise).
-  * STRICTLY FORBIDDEN keywords that cause dark/silhouette/backlit stock footage:
-    Do NOT use: "sunbeams", "god rays", "golden hour", "sunset", "dusk", "twilight", "backlit", "silhouette", "shadows", "warm light", "sunlit", "dark".
-  * ALWAYS prioritize terms that yield bright, crystal-clear, evenly illuminated daytime footage:
-    "bright daylight", "clear sunny day", "vibrant green daylight", "crystal clear water", "open blue sky daylight".
-- CAMERA MOTION REQUIREMENT:
-  * Prioritize smooth, cinematic forward push-in drone shots, slow-gliding aerials, and gentle tracking vistas through bright nature.
-- ALL search queries MUST combine:
-  [Daylight Lighting] + [Lush Landscape/Water Element] + [Forward Drone/Aerial Tracking] + [4k]
-  Example: "bright daylight lush green forest forward drone glide 4k"
-  Example: "clear sunny day mountain valley forward aerial tracking 4k"
-  Example: "crystal clear turquoise ocean calm waves aerial glide 4k"
-  Example: "vibrant alpine green meadow sunny day aerial 4k"
-  Example: "lush mossy woodland bright daylight slow forward tracking 4k"
-- STRICTLY EXCLUDE: dark/gloomy/foggy grey weather, sunset, golden hour, dusk, silhouette, backlit, macro shots, close-ups, flowers, petals, lotus, bees, insects, people, boats, buildings, cars, timelapse.
+- KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search keywords (minimum 5 keywords per scene).
+- VISUAL SPACIOUSNESS & COMPOSITION (CRITICAL):
+  * Footage MUST be peaceful, spacious, minimalist, and serene. NEVER cluttered or chaotic.
+  * ALWAYS mandate wide open landscape vistas with a VISIBLE HORIZON and CLEAR BLUE SKY (rule of thirds: tranquil sky above, calm landscape below).
+  * Preferred peaceful settings:
+    - Calm alpine lake reflecting clear blue sky with gentle distant mountains.
+    - Serene sandy beach where gentle clear waves slowly lap against the shore under an open horizon.
+    - Wide open sunlit green meadow or rolling hills with a peaceful blue sky.
+    - Ground-level woodland path between spaced-out trees with soft sunlight filtering through.
+- STRICTLY FORBIDDEN PERSPECTIVES & VISUAL CLUTTER:
+  * DO NOT use terms like "canopy", "treetops", "drone glide", "aerial tracking", "aerial", "flyover", "overhead", or "top down".
+    (These return dizzying high-altitude sweeps of bumpy "broccoli" treetops, top-down angles, or flat choppy water textures with no horizon).
+  * DO NOT search for dense jungle tangles, overgrown thickets, choppy turbulent water, or cluttered textures.
+  * DO NOT search for mountains without specifying "green" or "summer lake" (avoids ski resorts, snow lifts, and barren slopes).
+  * STRICTLY EXCLUDE: ski resorts, chairlifts, ski slopes, snow parks, winter sports, fences, power lines, roads, cars, boats, people, timelapse.
+- LIGHTING & VISIBILITY REQUIREMENT:
+  * Clean, bright natural daylight, high-key open sky lighting, vivid natural colors (emerald green, azure blue, clear turquoise).
+  * Strictly forbidden: "sunbeams", "god rays", "golden hour", "sunset", "dusk", "twilight", "backlit", "silhouette", "dark".
+- KEYWORD FORMULATION:
+  * Combine: [Serene Atmosphere] + [Spacious Nature Element] + [Horizon/Reflection/Sky] + [Daylight]
+  * Ideal Examples:
+    - "peaceful mountain lake reflection blue sky daylight 4k"
+    - "calm ocean beach gentle waves horizon sunny day 4k"
+    - "serene green hills landscape open horizon daylight 4k"
+    - "quiet forest path sunlight peaceful woodland 4k"
+    - "tranquil alpine lake shore clear water sunny day 4k"
+    - "peaceful wildflower meadow distant mountains daylight 4k"
+    - "calm turquoise water gentle shoreline sunny day 4k"
 
 Return ONLY valid JSON matching this schema:
 {{
   "intent": "gentle calming of the nervous system and deep presence",
   "mood": ["peaceful", "calm", "serene", "soothing", "grounding"],
   "energy_level": "very low",
-  "visual_style": "bright vibrant natural daylight nature vistas with smooth cinematic forward drone glides",
+  "visual_style": "spacious, tranquil, uncluttered bright natural daylight landscapes with clear horizons and calm skies",
   "preferred_colors": ["emerald green", "azure sky blue", "crystal turquoise", "fresh spring jade"],
-  "visual_motifs": ["lush green tree canopy", "crystal clear turquoise water", "open sunny mountain valleys"],
-  "avoid_visuals": ["dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "visual_motifs": ["calm lake reflection", "peaceful ocean horizon", "open sunny mountain meadows", "quiet woodland trail"],
+  "avoid_visuals": ["canopy", "treetops", "top down", "overhead", "broccoli forest", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
   "generated_queries": ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6", "query 7", "query 8", "query 9", "query 10"],
   "planned_environments": [
     {{
       "id": "scene_1",
-      "name": "Bright Daylight Forest Canopy",
+      "name": "Serene Sunlit Forest Path",
       "icon": "🌲",
       "keywords": [
-        "bright daylight lush green forest forward drone glide 4k",
-        "vibrant mossy woodland bright daylight slow tracking 4k",
-        "clear sunny day forest canopy aerial 4k",
-        "emerald green pine trees peaceful daylight glide 4k",
-        "lush woodland path sunny day slow tracking 4k"
+        "peaceful green forest path sunlight daylight 4k",
+        "serene woodland clearing sunny day blue sky 4k",
+        "quiet forest trail sunlight peaceful woodland 4k",
+        "tranquil green trees sun dappled nature landscape 4k",
+        "peaceful woodland glade daylight clear sky 4k"
       ],
       "suggested_clips": 8,
       "enabled": true
     }},
     {{
       "id": "scene_2",
-      "name": "Sunny Mountain Valley",
+      "name": "Calm Mountain Lake & Horizon",
       "icon": "🏔️",
       "keywords": [
-        "clear sunny day mountain valley forward aerial tracking 4k",
-        "vibrant alpine green meadow sunny day aerial 4k",
-        "sunny mountain lake reflection peaceful daylight 4k",
-        "bright daylight rolling alpine hills drone glide 4k",
-        "placid crystal mountain stream sunny day 4k"
+        "peaceful mountain lake reflection blue sky daylight 4k",
+        "calm alpine valley landscape horizon sunny day 4k",
+        "serene green hills distant mountains daylight 4k",
+        "tranquil mountain lake shore clear water sunny day 4k",
+        "placid crystal mountain lake sunny day horizon 4k"
       ],
       "suggested_clips": 8,
       "enabled": true
@@ -246,13 +257,13 @@ Return ONLY valid JSON matching this schema:
 
             clean_name = str(pe.get("name") or "Nature Scene").strip().lower()
             supplements = [
-                f"bright daylight {clean_name} forward drone glide 4k",
-                f"clear sunny day {clean_name} aerial tracking vista 4k",
-                f"peaceful {clean_name} calm daylight slow tracking 4k",
-                f"vibrant {clean_name} wide landscape sunny day 4k",
-                f"crystal clear {clean_name} peaceful daylight 4k",
-                f"lush {clean_name} sunny morning drone glide 4k",
-                f"placid {clean_name} open sky daylight 4k"
+                f"peaceful {clean_name} landscape horizon blue sky 4k",
+                f"calm {clean_name} reflection sunny day tranquil 4k",
+                f"serene {clean_name} open vista daylight 4k",
+                f"tranquil {clean_name} shore clear water daylight 4k",
+                f"peaceful {clean_name} meadow distant hills sunny day 4k",
+                f"quiet {clean_name} nature path sunlight daylight 4k",
+                f"calm {clean_name} gentle shoreline horizon sunny day 4k"
             ]
             for supp in supplements:
                 if len(unique_kws) >= 5:
@@ -441,11 +452,11 @@ Return ONLY valid JSON matching this schema:
                 if len(kw) < 5:
                     clean_name = env_def.name.lower()
                     kw.extend([
-                        f"bright daylight {clean_name} forward drone 4k",
-                        f"clear sunny day {clean_name} tracking vista 4k",
-                        f"peaceful {clean_name} calm daylight glide 4k",
-                        f"vibrant {clean_name} wide aerial sunny day 4k",
-                        f"crystal clear {clean_name} peaceful daylight 4k"
+                        f"peaceful {clean_name} landscape horizon blue sky 4k",
+                        f"calm {clean_name} reflection sunny day tranquil 4k",
+                        f"serene {clean_name} open vista daylight 4k",
+                        f"tranquil {clean_name} shore clear water daylight 4k",
+                        f"peaceful {clean_name} meadow distant hills sunny day 4k"
                     ])
                 selected_envs.append(PlannedEnvironment(
                     id=env_def.id,
@@ -465,6 +476,7 @@ Return ONLY valid JSON matching this schema:
             preferred_colors=pref_colors,
             visual_motifs=motifs,
             avoid_visuals=[
+                "canopy", "treetops", "dense canopy", "ski", "skier", "skiing", "chairlift", "ski resort", "snow slope", "choppy", "turbulent", "cluttered",
                 "boat", "boats", "ship", "ships", "yacht", "vessel", "canoe", "kayak", "speedboat", "motorboat", "jetski", "sailing", "ferry",
                 "dock", "docks", "pier", "piers", "marina", "harbor", "harbour", "port", "wharf", "jetty",
                 "drone", "aerial", "overhead", "bird eye", "birds eye", "top down", "top-down", "satellite",
