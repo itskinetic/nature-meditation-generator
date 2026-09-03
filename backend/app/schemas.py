@@ -325,6 +325,8 @@ class HistoryItemSchema(BaseModel):
     render_date: Optional[datetime] = None
     status: str
     download_url: Optional[str] = None
+    error_message: Optional[str] = None
+    current_stage: Optional[str] = None
 
 
 class WebhookGenerateRequest(BaseModel):

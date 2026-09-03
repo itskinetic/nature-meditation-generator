@@ -210,6 +210,8 @@ export interface HistoryItem {
   render_date?: string;
   status: string;
   download_url?: string;
+  error_message?: string;
+  current_stage?: string;
 }
 
 export interface ActiveJobItem {

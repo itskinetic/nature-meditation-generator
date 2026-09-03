@@ -672,14 +672,21 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             target_dur_sec = sequence_data["actual_duration_seconds"]
         else:
             # For meditation/nature loops: compute natural, soothing clip duration based on target length
-            if req.minimum_clip_duration and req.minimum_clip_duration > 0:
-                effective_clip_cap = float(req.minimum_clip_duration)
+            # Adaptively distribute time across the approved candidate pool to prevent excessive loop cycles
+            num_pool = max(1, len(approved_pool))
+            duration_per_clip = target_dur_sec / num_pool
+
+            if req.maximum_clip_duration and req.maximum_clip_duration > 0:
+                effective_clip_cap = float(req.maximum_clip_duration)
             elif target_dur_sec >= 900:  # 15+ minutes
-                effective_clip_cap = 30.0
+                effective_clip_cap = max(30.0, min(60.0, duration_per_clip))
             elif target_dur_sec >= 300:  # 5-15 minutes
-                effective_clip_cap = 20.0
+                effective_clip_cap = max(20.0, min(45.0, duration_per_clip))
             else:
-                effective_clip_cap = 15.0
+                effective_clip_cap = max(15.0, min(30.0, duration_per_clip))
+
+            if req.minimum_clip_duration and req.minimum_clip_duration > 0:
+                effective_clip_cap = max(effective_clip_cap, float(req.minimum_clip_duration))
 
             sequence_data = selection_service.plan_sequence(
                 approved_candidates=approved_pool,
@@ -1304,7 +1311,9 @@ def get_history(db: Session = Depends(get_db)):
             repeat_count=j.sequence_repeat_count,
             render_date=j.created_at,
             status=j.status,
-            download_url=f"/api/jobs/{j.id}/download" if j.status == "completed" else None
+            download_url=f"/api/jobs/{j.id}/download" if j.status == "completed" else None,
+            error_message=j.error_message,
+            current_stage=j.current_stage
         ))
     return res
 

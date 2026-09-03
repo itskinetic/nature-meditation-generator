@@ -85,6 +85,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({ history }) => {
                     </span>
                   )}
                 </div>
+
+                {job.status === 'failed' && (job.error_message || job.current_stage) && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5 shadow-xs">
+                    <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-semibold text-rose-900 dark:text-rose-200 block">Failure Reason</span>
+                      <p className="font-mono text-[11px] opacity-90 break-words">
+                        {job.error_message || job.current_stage}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {job.status === 'completed' && job.download_url && (

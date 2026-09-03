@@ -350,12 +350,21 @@ class FFmpegService:
         start_offset: float,
         duration: float
     ) -> Path:
-        """Instantly slices a 15-second cut from an already normalized master video file."""
+        """Instantly slices a cut from an already normalized master video file with EOF protection and 0-byte fallback."""
+        probe = await self.probe_file(master_file)
+        m_dur = float(probe.get("duration", 0.0))
+
+        safe_offset = max(0.0, start_offset)
+        if m_dur > 0 and safe_offset >= m_dur:
+            safe_offset = safe_offset % m_dur
+
+        safe_dur = max(3.0, duration)
+
         cmd = [
             "ffmpeg", "-y",
-            "-ss", f"{max(0.0, start_offset):.2f}",
+            "-ss", f"{safe_offset:.2f}",
             "-i", str(master_file),
-            "-t", f"{duration:.2f}",
+            "-t", f"{safe_dur:.2f}",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-crf", "18",
@@ -369,6 +378,23 @@ class FFmpegService:
             stderr=asyncio.subprocess.PIPE
         )
         await proc.communicate()
+
+        # If output file is missing or 0 bytes (e.g. seeking near exact end), slice from 0.0
+        if not output_file.exists() or output_file.stat().st_size < 1000:
+            fallback_cmd = [
+                "ffmpeg", "-y",
+                "-i", str(master_file),
+                "-t", f"{safe_dur:.2f}",
+                "-c:v", "libx264",
+                "-preset", "ultrafast",
+                "-crf", "18",
+                "-pix_fmt", "yuv420p",
+                "-an",
+                str(output_file)
+            ]
+            fproc = await asyncio.create_subprocess_exec(*fallback_cmd)
+            await fproc.communicate()
+
         return output_file
 
     async def render_video(
@@ -573,6 +599,13 @@ class FFmpegService:
 
         with open(render_log_path, "a", encoding="utf-8") as log_file:
             log_file.write(f"\nRender completed successfully.\nFinal video: {final_video_output}\nFinal verified duration: {actual_dur:.2f}s\n")
+
+        if not final_video_output.exists() or final_video_output.stat().st_size < 1000:
+            if video_only_output.exists() and video_only_output.stat().st_size > 1000:
+                logger.warning(f"Final audio mux failed for job {job_id}, falling back to video_only_output")
+                shutil.copy2(video_only_output, final_video_output)
+            else:
+                raise RuntimeError("FFmpeg rendering pipeline failed to produce a valid video file.")
 
         # Copy to renders folder
         public_render = settings.RENDERS_DIR / f"{job_id}.mp4"
