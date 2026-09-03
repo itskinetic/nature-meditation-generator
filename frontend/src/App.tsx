@@ -88,6 +88,7 @@ export function App() {
     transition_duration: 2.0,
     playback_speed: 0.5,
     prioritize_slow_motion: true,
+    loop_mode: 'single_pass',
     allow_reuse: false,
     avoid_recently_used: true,
     enable_pexels: true,
@@ -419,6 +420,24 @@ export function App() {
     },
   });
 
+  const batchSaveMutation = useMutation({
+    mutationFn: (selectedList: CandidateItem[]) => api.batchSaveCandidates(selectedList, title),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['library'] });
+      alert(data.message || `Saved ${data.saved_count} clips to Library!`);
+    },
+    onError: (err: any) => {
+      alert('Failed to save clips to library: ' + (err.message || 'Unknown error'));
+    },
+  });
+
+  const downloadZipMutation = useMutation({
+    mutationFn: (selectedList: CandidateItem[]) => api.downloadSelectedClipsZip(selectedList, title),
+    onError: (err: any) => {
+      alert('Failed to create ZIP download: ' + (err.message || 'Unknown error'));
+    },
+  });
+
   const deleteLibraryMutation = useMutation({
     mutationFn: (id: number) => api.deleteLibraryItem(id),
     onSuccess: () => {
@@ -559,6 +578,11 @@ export function App() {
                   onBanCandidate={handleBanCandidate}
                   onFetchMore={handleFetchMore}
                   isFetchingMore={searchMutation.isPending && searchPage > 1}
+                  projectTitle={title}
+                  onBatchSaveSelected={(list) => batchSaveMutation.mutate(list)}
+                  onDownloadSelectedZip={(list) => downloadZipMutation.mutate(list)}
+                  isBatchSaving={batchSaveMutation.isPending}
+                  isDownloadingZip={downloadZipMutation.isPending}
                 />
 
                 {selectedCandidatesList.length > 0 && (

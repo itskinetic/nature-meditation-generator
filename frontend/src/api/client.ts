@@ -203,6 +203,36 @@ export const api = {
     return res.json();
   },
 
+  async batchSaveCandidates(candidates: CandidateItem[], title?: string): Promise<{ status: string; saved_count: number; title?: string; message: string }> {
+    const res = await fetch(`${API_BASE}/library/batch-save-candidates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates, title }),
+    });
+    if (!res.ok) throw new Error('Failed to batch save candidates to library');
+    return res.json();
+  },
+
+  async downloadSelectedClipsZip(candidates: CandidateItem[], title?: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/candidates/download-zip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ candidates, title }),
+    });
+    if (!res.ok) throw new Error('Failed to create ZIP of selected clips');
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = (title || 'selected_clips').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `${safeTitle}_clips.zip`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
   async deleteLibraryItem(id: number): Promise<{ status: string; id: number }> {
     const res = await fetch(`${API_BASE}/library/${id}`, {
       method: 'DELETE',

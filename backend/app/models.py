@@ -24,6 +24,7 @@ class VideoLibraryItem(Base):
     mood_tags = Column(Text, default="[]")    # JSON string
     subtheme = Column(String(100), nullable=True)
     shot_type = Column(String(50), nullable=True)  # "wide_vista", "close_up", "low_angle", "still_ambient", "slow_glide"
+    used_in_titles = Column(Text, default="[]")    # JSON array of project titles this clip was used in
 
     # Visual scoring
     intent_score = Column(Float, default=0.0)

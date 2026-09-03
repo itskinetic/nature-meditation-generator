@@ -395,3 +395,109 @@ def test_library_batch_delete_and_download_endpoints(db_session, tmp_path):
     app.dependency_overrides.clear()
 
 
+def test_plan_sequence_single_pass_no_looping():
+    from backend.app.services.selection_service import selection_service
+    from backend.app.schemas import CandidateItem
+
+    clips = [
+        CandidateItem(
+            source="pexels",
+            source_video_id=f"clip_{i}",
+            duration=30.0,
+            width=1920,
+            height=1080,
+            subtheme="Mountain View",
+            is_approved=True
+        )
+        for i in range(5)
+    ]
+
+    # Test single pass (allow_looping=False)
+    seq_data = selection_service.plan_sequence(
+        approved_candidates=clips,
+        target_duration_seconds=1800.0,  # 30 mins
+        transition_duration=2.0,
+        allow_looping=False,
+        clip_duration_cap=30.0
+    )
+
+    assert seq_data["repeat_count"] == 0
+    assert seq_data["unique_clip_count"] == 5
+    assert len(seq_data["sequence"]) == 5  # Exactly 5 cuts, 0 repeating loops!
+
+
+def test_batch_save_and_download_zip_endpoints(db_session, tmp_path):
+    import io
+    import zipfile
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    from backend.app.database import get_db
+
+    app.dependency_overrides[get_db] = lambda: db_session
+    client = TestClient(app)
+
+    # Create dummy local files
+    dummy_file = tmp_path / "test_local.mp4"
+    dummy_file.write_bytes(b"dummy video content 12345")
+
+    payload = {
+        "title": "letting go of stress",
+        "candidates": [
+            {
+                "source": "pexels",
+                "source_video_id": "cand_101",
+                "subtheme": "Gentle Shore",
+                "duration": 25.0,
+                "width": 1920,
+                "height": 1080,
+                "local_file_path": str(dummy_file),
+                "is_approved": True
+            },
+            {
+                "source": "pixabay",
+                "source_video_id": "cand_102",
+                "subtheme": "Misty Lake",
+                "duration": 18.0,
+                "width": 1920,
+                "height": 1080,
+                "local_file_path": str(dummy_file),
+                "is_approved": True
+            }
+        ]
+    }
+
+    # 1. Test batch save with title tag
+    save_res = client.post("/api/library/batch-save-candidates", json=payload)
+    assert save_res.status_code == 200
+    data = save_res.json()
+    assert data["status"] == "success"
+    assert data["saved_count"] == 2
+    assert data["title"] == "letting go of stress"
+
+    # Verify title tag in library
+    lib_res = client.get("/api/library")
+    assert lib_res.status_code == 200
+    lib_items = lib_res.json()
+    matched = [item for item in lib_items if item["source_video_id"] in ["cand_101", "cand_102"]]
+    assert len(matched) == 2
+    for m in matched:
+        assert "letting go of stress" in m.get("used_in_titles", [])
+
+    # 2. Test download zip endpoint
+    zip_res = client.post("/api/candidates/download-zip", json=payload)
+    assert zip_res.status_code == 200
+    assert zip_res.headers.get("content-type") == "application/zip"
+    assert "letting_go_of_stress_clips.zip" in zip_res.headers.get("content-disposition", "")
+
+    # Verify valid zip file structure
+    zip_bytes = io.BytesIO(zip_res.content)
+    with zipfile.ZipFile(zip_bytes, "r") as zf:
+        namelist = zf.namelist()
+        assert len(namelist) == 2
+        assert any("Gentle_Shore_pexels_cand_101.mp4" in n for n in namelist)
+        assert any("Misty_Lake_pixabay_cand_102.mp4" in n for n in namelist)
+
+    app.dependency_overrides.clear()
+
+
+

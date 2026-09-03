@@ -6,10 +6,13 @@ import os
 import shutil
 import uuid
 import wave
+import io
+import zipfile
+import httpx
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -24,6 +27,7 @@ from backend.app.schemas import (
     LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
     StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
     KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest,
+    BatchSaveCandidatesRequest, DownloadCandidatesZipRequest,
     AudioSegmentSchema, AudioSilenceIntervalSchema, AudioAnalysisRequest, AudioAnalysisResponse,
     AudioProcessRequest, AudioProcessResponse, AudioProjectSchema, AudioProjectListResponse
 )
@@ -688,13 +692,14 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             if req.minimum_clip_duration and req.minimum_clip_duration > 0:
                 effective_clip_cap = max(effective_clip_cap, float(req.minimum_clip_duration))
 
+            should_loop = (req.loop_mode == "loop_to_target") if req.loop_mode else False
             sequence_data = selection_service.plan_sequence(
                 approved_candidates=approved_pool,
                 target_duration_seconds=target_dur_sec,
                 max_unique_videos=max(req.maximum_unique_videos, len(approved_pool)),
                 transition_duration=req.transition_duration,
                 studio_mode=active_mode,
-                allow_looping=(active_mode == "meditation"),
+                allow_looping=should_loop,
                 playback_speed=req.playback_speed or 0.5,
                 clip_duration_cap=effective_clip_cap
             )
@@ -1039,6 +1044,7 @@ def get_library(
             intent_tags=json.loads(item.intent_tags) if item.intent_tags else [],
             mood_tags=json.loads(item.mood_tags) if item.mood_tags else [],
             subtheme=item.subtheme,
+            used_in_titles=json.loads(item.used_in_titles) if getattr(item, "used_in_titles", None) else [],
             intent_score=item.intent_score,
             theme_score=item.theme_score,
             calmness_score=item.calmness_score,
@@ -1189,6 +1195,184 @@ def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(ge
     db.add(item)
     db.commit()
     return {"status": "saved", "id": item.id, "message": "Saved to Library with theme tags"}
+
+
+@router.post("/library/batch-save-candidates")
+async def batch_save_candidates(req: BatchSaveCandidatesRequest, db: Session = Depends(get_db)):
+    """Saves selected candidates to the video library in bulk and tags them as used in the project title."""
+    saved_count = 0
+    clean_title = (req.title or "").strip()
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        for candidate in req.candidates:
+            existing = db.query(VideoLibraryItem).filter(
+                VideoLibraryItem.source == candidate.source,
+                VideoLibraryItem.source_video_id == candidate.source_video_id
+            ).first()
+
+            local_path = candidate.local_file_path
+            if not local_path or not Path(local_path).exists():
+                lib_file = settings.LIBRARY_DIR / f"{candidate.source}_{candidate.source_video_id}.mp4"
+                if lib_file.exists():
+                    local_path = str(lib_file)
+                else:
+                    target_url = candidate.download_url
+                    if not target_url and candidate.video_files:
+                        target_url = candidate.video_files[0].link
+                    if not target_url and candidate.source == "pexels":
+                        try:
+                            target_url = await pexels_service.get_video_play_url(candidate.source_video_id)
+                        except Exception:
+                            pass
+                    if not target_url and candidate.source == "pixabay":
+                        try:
+                            target_url = await pixabay_service.get_video_play_url(candidate.source_video_id)
+                        except Exception:
+                            pass
+                    if not target_url:
+                        target_url = candidate.preview_url
+
+                    if target_url and target_url.startswith("http"):
+                        try:
+                            resp = await client.get(target_url)
+                            if resp.status_code == 200 and len(resp.content) > 1000:
+                                with open(lib_file, "wb") as f:
+                                    f.write(resp.content)
+                                local_path = str(lib_file)
+                        except Exception as dl_err:
+                            logger.warning(f"Could not download candidate {candidate.source_video_id} for library: {dl_err}")
+
+            if existing:
+                existing.subtheme = candidate.subtheme or existing.subtheme
+                existing.is_approved = True
+                if local_path:
+                    existing.local_file_path = local_path
+                if candidate.download_url:
+                    existing.source_url = candidate.download_url
+
+                if clean_title:
+                    try:
+                        titles = json.loads(existing.used_in_titles) if existing.used_in_titles else []
+                    except Exception:
+                        titles = []
+                    if clean_title not in titles:
+                        titles.append(clean_title)
+                        existing.used_in_titles = json.dumps(titles)
+                existing.times_used = (existing.times_used or 0) + 1
+                existing.last_used_at = datetime.datetime.utcnow()
+                saved_count += 1
+            else:
+                tags = getattr(candidate, 'tags', []) or ([candidate.search_query] if candidate.search_query else [])
+                title_list = [clean_title] if clean_title else []
+                item = VideoLibraryItem(
+                    source=candidate.source,
+                    source_video_id=candidate.source_video_id,
+                    source_url=candidate.download_url or candidate.source_url,
+                    preview_url=candidate.preview_url,
+                    local_file_path=local_path,
+                    creator_name=candidate.creator_name,
+                    creator_url=candidate.creator_url,
+                    duration=candidate.duration,
+                    width=candidate.width,
+                    height=candidate.height,
+                    subtheme=candidate.subtheme or candidate.environment_id or "Nature Scene",
+                    intent_tags=json.dumps(tags),
+                    mood_tags=json.dumps([candidate.subtheme] if candidate.subtheme else []),
+                    used_in_titles=json.dumps(title_list),
+                    intent_score=candidate.intent_match or 8.5,
+                    theme_score=candidate.theme_match or 8.5,
+                    calmness_score=candidate.calmness or 8.5,
+                    motion_score=candidate.motion_intensity or 2.0,
+                    visual_quality_score=candidate.visual_quality or 8.5,
+                    is_approved=True,
+                    times_used=1,
+                    last_used_at=datetime.datetime.utcnow()
+                )
+                db.add(item)
+                saved_count += 1
+
+    db.commit()
+    return {
+        "status": "success",
+        "saved_count": saved_count,
+        "title": clean_title,
+        "message": f"Successfully saved {saved_count} clips tagged as used in '{clean_title or 'project'}'."
+    }
+
+
+@router.post("/candidates/download-zip")
+async def download_candidates_zip(req: DownloadCandidatesZipRequest):
+    """Downloads all selected raw candidate clips and packages them into a ZIP archive without rendering."""
+    if not req.candidates:
+        raise HTTPException(status_code=400, detail="No candidates provided to download")
+
+    clean_title = (req.title or "selected_clips").strip()
+    safe_title = "".join(c for c in clean_title if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_") or "selected_clips"
+    zip_filename = f"{safe_title}_clips.zip"
+
+    zip_buffer = io.BytesIO()
+
+    async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for idx, cand in enumerate(req.candidates):
+                subtheme = "".join(c for c in (cand.subtheme or "clip") if c.isalnum() or c in (" ", "_", "-")).strip().replace(" ", "_")
+                ext = ".mp4"
+                if cand.preview_url and any(cand.preview_url.lower().endswith(e) for e in [".jpg", ".jpeg", ".png"]):
+                    ext = ".jpg"
+                filename = f"{idx+1:02d}_{subtheme}_{cand.source}_{cand.source_video_id}{ext}"
+
+                file_bytes = None
+                if cand.local_file_path and Path(cand.local_file_path).exists():
+                    try:
+                        file_bytes = Path(cand.local_file_path).read_bytes()
+                    except Exception:
+                        file_bytes = None
+
+                if not file_bytes:
+                    lib_file = settings.LIBRARY_DIR / f"{cand.source}_{cand.source_video_id}.mp4"
+                    if lib_file.exists():
+                        try:
+                            file_bytes = lib_file.read_bytes()
+                        except Exception:
+                            file_bytes = None
+
+                if not file_bytes:
+                    target_url = cand.download_url
+                    if not target_url and cand.video_files:
+                        target_url = cand.video_files[0].link
+                    if not target_url and cand.source == "pexels":
+                        try:
+                            target_url = await pexels_service.get_video_play_url(cand.source_video_id)
+                        except Exception:
+                            pass
+                    if not target_url and cand.source == "pixabay":
+                        try:
+                            target_url = await pixabay_service.get_video_play_url(cand.source_video_id)
+                        except Exception:
+                            pass
+                    if not target_url:
+                        target_url = cand.preview_url
+
+                    if target_url and target_url.startswith("http"):
+                        try:
+                            resp = await client.get(target_url)
+                            if resp.status_code == 200:
+                                file_bytes = resp.content
+                        except Exception as dl_err:
+                            logger.warning(f"Could not download candidate {cand.source_video_id} for zip: {dl_err}")
+
+                if file_bytes:
+                    zip_file.writestr(filename, file_bytes)
+
+    zip_buffer.seek(0)
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{zip_filename}"',
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )
 
 
 @router.post("/candidates/ban")

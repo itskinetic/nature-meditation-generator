@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Settings, Music, VolumeX, Sparkles, Upload } from 'lucide-react';
+import { Settings, Music, VolumeX, Sparkles, Upload, Repeat } from 'lucide-react';
 import { GenerationRequest, Preset } from '../types';
 
 interface VideoSettingsProps {
@@ -179,6 +179,60 @@ export const VideoSettings: React.FC<VideoSettingsProps> = ({
               className="w-1/3 bg-stone-50 dark:bg-stone-950/70 border border-stone-200 dark:border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Sequence Playback & Looping Mode */}
+      <div className="space-y-3 pt-4 border-t border-stone-200 dark:border-stone-800/80">
+        <label className="block text-xs font-semibold text-stone-600 dark:text-stone-300 uppercase tracking-wider flex items-center gap-2">
+          <Repeat className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          Sequence Looping Mode
+        </label>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => updateSetting('loop_mode', 'single_pass')}
+            className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between space-y-1.5 cursor-pointer ${
+              (settings.loop_mode || 'single_pass') === 'single_pass'
+                ? 'bg-amber-50/50 dark:bg-amber-950/40 border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                : 'bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800 hover:border-stone-300'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                1 Loop (Single Pass - No Looping)
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-semibold">
+                Default
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
+              Plays each selected clip once sequentially with no repeating loop cycles.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => updateSetting('loop_mode', 'loop_to_target')}
+            className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between space-y-1.5 cursor-pointer ${
+              settings.loop_mode === 'loop_to_target'
+                ? 'bg-amber-50/50 dark:bg-amber-950/40 border-amber-500 ring-1 ring-amber-500 shadow-sm'
+                : 'bg-stone-50 dark:bg-stone-950/40 border-stone-200 dark:border-stone-800 hover:border-stone-300'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-stone-900 dark:text-white flex items-center gap-1.5">
+                Loop Sequence to Duration
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold">
+                Repeating
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 dark:text-stone-400 leading-tight">
+              Repeats the selected sequence across multiple cycles to fill the full target duration.
+            </p>
+          </button>
         </div>
       </div>
 

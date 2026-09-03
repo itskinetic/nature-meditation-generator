@@ -44,6 +44,8 @@ def init_db():
                 conn.execute(text("ALTER TABLE video_library ADD COLUMN rejected_at DATETIME"))
             if "rejection_reason" not in existing_cols:
                 conn.execute(text("ALTER TABLE video_library ADD COLUMN rejection_reason VARCHAR(500)"))
+            if "used_in_titles" not in existing_cols:
+                conn.execute(text("ALTER TABLE video_library ADD COLUMN used_in_titles TEXT DEFAULT '[]'"))
 
             # generation_jobs table columns
             res_jobs = conn.execute(text("PRAGMA table_info(generation_jobs)")).fetchall()

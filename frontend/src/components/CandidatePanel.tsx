@@ -3,7 +3,8 @@ import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
   ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban,
-  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon, PlusCircle
+  Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon, PlusCircle,
+  Download, Loader2
 } from 'lucide-react';
 import { CandidateItem } from '../types';
 
@@ -17,6 +18,11 @@ interface CandidatePanelProps {
   onBanCandidate?: (candidate: CandidateItem) => void;
   onFetchMore?: () => void;
   isFetchingMore?: boolean;
+  projectTitle?: string;
+  onBatchSaveSelected?: (candidates: CandidateItem[]) => void;
+  onDownloadSelectedZip?: (candidates: CandidateItem[]) => void;
+  isBatchSaving?: boolean;
+  isDownloadingZip?: boolean;
 }
 
 const renderShotTypeBadge = (shotType?: string) => {
@@ -71,6 +77,11 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   onBanCandidate,
   onFetchMore,
   isFetchingMore,
+  projectTitle,
+  onBatchSaveSelected,
+  onDownloadSelectedZip,
+  isBatchSaving,
+  isDownloadingZip,
 }) => {
   const [filter, setFilter] = useState<'all' | 'approved' | 'selected' | 'rejected'>('all');
   const [themeFilter, setThemeFilter] = useState<string>('all');
@@ -154,6 +165,51 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
               Clear
             </button>
           </div>
+
+          {/* Bulk Actions for Selected Clips */}
+          {selectedCount > 0 && (
+            <div className="flex items-center gap-1.5 animate-in fade-in duration-200">
+              {onDownloadSelectedZip && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const selectedList = candidates.filter((c) => selectedIds.includes(c.source_video_id));
+                    onDownloadSelectedZip(selectedList);
+                  }}
+                  disabled={isDownloadingZip}
+                  title="Download all selected raw video clips in a single ZIP without rendering"
+                  className="h-9 px-3 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-stone-950 flex items-center gap-1.5 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isDownloadingZip ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isDownloadingZip ? 'Packaging ZIP...' : `Download ${selectedCount} Clips (ZIP)`}</span>
+                </button>
+              )}
+
+              {onBatchSaveSelected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const selectedList = candidates.filter((c) => selectedIds.includes(c.source_video_id));
+                    onBatchSaveSelected(selectedList);
+                  }}
+                  disabled={isBatchSaving}
+                  title={`Save all ${selectedCount} selected clips to Library and tag as used in "${projectTitle || 'this project'}"`}
+                  className="h-9 px-3 rounded-xl text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800/60 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isBatchSaving ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  ) : (
+                    <BookmarkCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  <span>{isBatchSaving ? 'Saving...' : 'Save to Library'}</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Fetch More Videos (Next Batch) */}
           {onFetchMore && (

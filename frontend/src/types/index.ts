@@ -131,6 +131,7 @@ export interface GenerationRequest {
   transition_duration: number;
   playback_speed: number;  // 0.4, 0.5, 0.75, 1.0
   prioritize_slow_motion: boolean;
+  loop_mode?: 'single_pass' | 'loop_to_target';
   allow_reuse: boolean;
   avoid_recently_used: boolean;
   enable_pexels: boolean;
@@ -188,6 +189,7 @@ export interface LibraryItem {
   height: number;
   subtheme?: string;
   shot_type?: string;
+  used_in_titles?: string[];
   intent_score: number;
   theme_score: number;
   calmness_score: number;

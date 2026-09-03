@@ -45,7 +45,8 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
       !searchTerm ||
       item.creator_name?.toLowerCase().includes(term) ||
       item.subtheme?.toLowerCase().includes(term) ||
-      item.source.toLowerCase().includes(term);
+      item.source.toLowerCase().includes(term) ||
+      (item.used_in_titles && item.used_in_titles.some((t) => t.toLowerCase().includes(term)));
 
     const matchesStatus = filterApproved ? item.is_approved : true;
     return matchesSearch && matchesStatus;
@@ -438,6 +439,25 @@ export const LibraryPanel: React.FC<LibraryPanelProps> = ({
                       <span className="text-sm font-bold text-stone-700 dark:text-stone-300">{item.visual_quality_score?.toFixed(1) || '8.0'}</span>
                     </div>
                   </div>
+
+                  {/* Project Title Tags */}
+                  {item.used_in_titles && item.used_in_titles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {item.used_in_titles.map((t, tIdx) => (
+                        <span
+                          key={tIdx}
+                          title={`Click to filter by "${t}"`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSearchTerm(t);
+                          }}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-500/10 text-amber-900 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/50 truncate max-w-[200px] cursor-pointer hover:bg-amber-500/20 transition-colors"
+                        >
+                          Used in: {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 

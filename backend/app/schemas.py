@@ -228,6 +228,7 @@ class GenerationRequest(BaseModel):
     transition_duration: float = 2.0
     playback_speed: float = 0.5  # 0.4 (Ultra-Slow), 0.5 (Half-Speed), 0.75 (Gentle), 1.0 (Normal)
     prioritize_slow_motion: bool = True
+    loop_mode: str = "single_pass"  # "single_pass" (1 loop only, no repeating) | "loop_to_target" (repeat sequence to target duration)
 
     allow_reuse: bool = True
     avoid_recently_used: bool = True
@@ -300,6 +301,7 @@ class LibraryItemSchema(BaseModel):
     intent_tags: List[str] = []
     mood_tags: List[str] = []
     subtheme: Optional[str] = None
+    used_in_titles: List[str] = []
     intent_score: float
     theme_score: float
     calmness_score: float
@@ -310,6 +312,16 @@ class LibraryItemSchema(BaseModel):
     is_approved: bool
     rejection_reason: Optional[str] = None
     created_at: Optional[datetime] = None
+
+
+class BatchSaveCandidatesRequest(BaseModel):
+    candidates: List[CandidateItem]
+    title: Optional[str] = None
+
+
+class DownloadCandidatesZipRequest(BaseModel):
+    candidates: List[CandidateItem]
+    title: Optional[str] = "selected_clips"
 
 
 class HistoryItemSchema(BaseModel):
