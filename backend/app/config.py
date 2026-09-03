@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     DEFAULT_RESOLUTION: str = "1080p"
     DEFAULT_TRANSITION: str = "crossfade"
     DEFAULT_TRANSITION_DURATION: float = 2.0
-    DEFAULT_MAX_UNIQUE_VIDEOS: int = 20
+    DEFAULT_MAX_UNIQUE_VIDEOS: int = 50
     DEFAULT_MIN_CLIP_DURATION: int = 15
 
     # Base Paths

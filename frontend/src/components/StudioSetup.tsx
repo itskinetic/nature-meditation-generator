@@ -402,7 +402,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const autoBalanceClips = () => {
     const keys = Object.keys(selectedNatures);
     if (keys.length === 0) return;
-    const totalMax = settings.maximum_unique_videos || 16;
+    const totalMax = settings.maximum_unique_videos || 50;
     const countPerTheme = Math.max(1, Math.floor(totalMax / keys.length));
     const remainder = totalMax % keys.length;
 
@@ -435,7 +435,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         name: customName.trim(),
         icon: '✨',
         category: 'Custom',
-        clipCount: 4,
+        clipCount: 10,
         queries: qList.length > 0 ? qList : [customName.trim()],
         isCustom: true,
       },

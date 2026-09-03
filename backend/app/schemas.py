@@ -217,7 +217,7 @@ class GenerationRequest(BaseModel):
     target_duration: float = 30.0  # value in unit
     duration_unit: str = "minutes"  # "minutes" or "hours" or "seconds" (for dry-run)
 
-    maximum_unique_videos: int = 10
+    maximum_unique_videos: int = 50
     minimum_clip_duration: float = 15.0
     maximum_clip_duration: Optional[float] = None
 
@@ -332,7 +332,7 @@ class WebhookGenerateRequest(BaseModel):
     script: Optional[str] = ""
     duration_hours: Optional[float] = 1.0
     duration_minutes: Optional[float] = None
-    maximum_unique_videos: int = 20
+    maximum_unique_videos: int = 50
     aspect_ratio: str = "16:9"
     resolution: str = "1080p"
     transition_type: str = "crossfade"

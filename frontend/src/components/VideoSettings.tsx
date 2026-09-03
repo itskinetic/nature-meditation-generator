@@ -69,7 +69,7 @@ export const VideoSettings: React.FC<VideoSettingsProps> = ({
           <input
             type="range"
             min={4}
-            max={50}
+            max={100}
             value={settings.maximum_unique_videos}
             onChange={(e) => updateSetting('maximum_unique_videos', Number(e.target.value))}
             className="w-full h-2 bg-stone-200 dark:bg-stone-950 rounded-lg appearance-none cursor-pointer accent-amber-500 mt-3"

@@ -78,7 +78,7 @@ export function App() {
     preset: 'sunlit_forest',
     target_duration: 30,
     duration_unit: 'minutes',
-    maximum_unique_videos: 10,
+    maximum_unique_videos: 50,
     minimum_clip_duration: 15,
     maximum_clip_duration: undefined,
     aspect_ratio: '16:9',
@@ -109,7 +109,7 @@ export function App() {
   useEffect(() => {
     const totalSelectedClips = Object.values(selectedNatures).reduce((acc, n) => acc + n.clipCount, 0);
     if (totalSelectedClips > 0) {
-      setSettings((prev) => ({ ...prev, maximum_unique_videos: totalSelectedClips }));
+      setSettings((prev) => ({ ...prev, maximum_unique_videos: Math.max(50, totalSelectedClips) }));
     }
   }, [selectedNatures]);
 
@@ -219,9 +219,10 @@ export function App() {
         setCandidates(data.candidates);
         setSearchPage(1);
         // Auto-select approved candidates up to maximum_unique_videos
+        const maxToSelect = Math.max(50, settings.maximum_unique_videos || 50);
         const approvedIds = data.candidates
           .filter((c: CandidateItem) => c.is_approved)
-          .slice(0, settings.maximum_unique_videos)
+          .slice(0, maxToSelect)
           .map((c: CandidateItem) => c.source_video_id);
         setSelectedCandidateIds(approvedIds);
       }

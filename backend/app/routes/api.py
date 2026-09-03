@@ -145,12 +145,37 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
             # Fetch candidates for this environment (5 clips per keyword per provider)
             per_page = 5
-            # Prefer explicit queries passed from request, otherwise use environment queries
+            # Run queries for this environment, guaranteeing at least 5 diverse keywords per scene
             queries_to_run = []
             if req.queries and len(req.queries) > 0:
-                queries_to_run = list(req.queries[:10])
+                queries_to_run = list(req.queries[:15])
             else:
-                queries_to_run = list(env_spec.queries[:2]) if env_spec.queries else [env_spec.name]
+                queries_to_run = list(env_spec.queries) if env_spec.queries else []
+                if not queries_to_run:
+                    queries_to_run = [env_spec.name]
+
+                # Guarantee at least 5 diverse keywords per scene
+                if len(queries_to_run) < 5:
+                    preset_obj = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
+                    if preset_obj and preset_obj.queries:
+                        for pq in preset_obj.queries:
+                            if pq not in queries_to_run:
+                                queries_to_run.append(pq)
+                            if len(queries_to_run) >= 5:
+                                break
+                    clean_name = env_spec.name.lower()
+                    fallbacks = [
+                        f"bright daylight {clean_name} forward drone glide 4k",
+                        f"clear sunny day {clean_name} forward aerial 4k",
+                        f"peaceful {clean_name} slow tracking daylight 4k",
+                        f"vibrant {clean_name} landscape sunny day 4k",
+                        f"crystal clear {clean_name} calm daylight 4k"
+                    ]
+                    for fb in fallbacks:
+                        if len(queries_to_run) >= 5:
+                            break
+                        if fb not in queries_to_run:
+                            queries_to_run.append(fb)
 
             if req.prioritize_slow_motion and req.studio_mode != "documentary":
                 enriched = []
@@ -274,7 +299,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
     elif req.storyboard_beats and len(req.storyboard_beats) > 0:
         for beat in req.storyboard_beats:
             beat_raw: List[CandidateItem] = []
-            queries_to_run = list(beat.keywords[:2]) if beat.keywords else [beat.visual_subject]
+            queries_to_run = list(beat.keywords) if beat.keywords else [beat.visual_subject]
 
             for q in queries_to_run:
                 if req.media_type in ("video", "both", None):
@@ -403,7 +428,7 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
             c.rejection_reason = score_res.reason if not score_res.keep else None
             return c
 
-        scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:30]])
+        scored_generic = await asyncio.gather(*[score_single_generic(c) for c in filtered[:100]])
         for c in scored_generic:
             if c.is_approved:
                 approved.append(c)

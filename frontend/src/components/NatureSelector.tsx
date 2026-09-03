@@ -44,7 +44,7 @@ export const NatureSelector: React.FC<NatureSelectorProps> = ({
       if (next[preset.id]) {
         delete next[preset.id];
       } else {
-        const count = Math.max(2, Math.round(targetTotalClips / (Object.keys(next).length + 1)) || 4);
+        const count = Math.max(5, Math.round(targetTotalClips / (Object.keys(next).length + 1)) || 10);
         next[preset.id] = {
           id: preset.id,
           name: preset.name,

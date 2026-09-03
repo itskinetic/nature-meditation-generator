@@ -72,11 +72,12 @@ Analyze the title and narrative storyline script, detect the specific wildlife s
 
 Title: {title or 'Wild Kingdom'}
 Script: {script or 'Wildlife roaming their natural habitats'}
-Target Total Clips Needed: {target_clips or 10}
+Target Total Clips Needed: {target_clips or 50}
 {cooldown_str}
 DIRECTOR INSTRUCTIONS:
 - Extract dynamic, custom visual scenes directly from what is being narrated without being constrained to any fixed list.
-- Generate highly descriptive, specific 4K stock video search queries (e.g. "snow leopard stalking rocky mountain cliff 4k", "humpback whale breaching blue ocean sunset", "red eyed tree frog rainforest leaf close up", "lion pride savanna wildlife 4k").
+- KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search queries (minimum 5 queries per scene) to provide abundant footage selection.
+- Generate highly descriptive, specific 4K stock video search queries (e.g. "snow leopard stalking rocky mountain cliff 4k", "humpback whale breaching blue ocean 4k", "red eyed tree frog rainforest leaf close up", "lion pride savanna wildlife 4k").
 - STRICTLY EXCLUDE: zoos, cages, enclosures, domestic pets (dogs/cats), aquariums, human trainers, fences, vehicles, tourists, text overlays.
 
 Return ONLY valid JSON matching this schema:
@@ -88,22 +89,34 @@ Return ONLY valid JSON matching this schema:
   "preferred_colors": ["golden amber", "deep ocean blue", "savanna ochre", "jungle green"],
   "visual_motifs": ["lion pride stalking grassland", "cheetah running sprint", "elephant herd at waterhole"],
   "avoid_visuals": ["zoo", "cage", "enclosure", "aquarium", "pet", "dog", "cat", "human", "tourist", "fence", "car", "text", "timelapse"],
-  "generated_queries": ["query 1", "query 2", "query 3"],
+  "generated_queries": ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6", "query 7", "query 8", "query 9", "query 10"],
   "planned_environments": [
     {{
       "id": "scene_1",
       "name": "Savanna Predators & Big Cats",
       "icon": "🦁",
-      "keywords": ["lion pride savanna wildlife 4k", "cheetah hunting grassland 4k"],
-      "suggested_clips": 2,
+      "keywords": [
+        "lion pride savanna wildlife 4k",
+        "cheetah hunting grassland sprint 4k",
+        "leopard resting on acacia branch 4k",
+        "african lion walking golden grass 4k",
+        "cheetah cubs playing savanna daylight 4k"
+      ],
+      "suggested_clips": 8,
       "enabled": true
     }},
     {{
       "id": "scene_2",
       "name": "Deep Ocean Giants",
       "icon": "🐋",
-      "keywords": ["humpback whale swimming underwater 4k", "sea turtle coral reef clear water 4k"],
-      "suggested_clips": 2,
+      "keywords": [
+        "humpback whale swimming underwater 4k",
+        "sea turtle coral reef clear water 4k",
+        "pod of dolphins gliding blue ocean 4k",
+        "orca whale surfacing peaceful ocean 4k",
+        "manta ray gliding crystal clear water 4k"
+      ],
+      "suggested_clips": 8,
       "enabled": true
     }}
   ]
@@ -112,11 +125,11 @@ Return ONLY valid JSON matching this schema:
         else:
             prompt = f"""
 You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
-Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract exactly 5 matching visual nature scenes with tailored search keywords (2 clips per scene for 10 clips total).
+Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract matching visual nature scenes with AT LEAST 5 diverse search keywords per scene.
 
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
-Target Total Video Clips Needed: {target_clips or 10}
+Target Total Video Clips Needed: {target_clips or 50}
 {cooldown_str}
 EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
 - Do NOT generate generic geographical stock filler that ignores the emotional core of the title/script.
@@ -131,7 +144,8 @@ EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
     - Crystal clear turquoise ocean vistas, pristine mountain ridges under vast clear blue sky, sparkling clean water in morning daylight.
 
 DIRECTOR INSTRUCTIONS:
-- Plan exactly 5 distinct visual scenes (scene_1 to scene_5) with 2 diverse, high-performing keywords each (10 keywords total).
+- Plan 4 to 6 distinct visual scenes (scene_1, scene_2, etc.).
+- KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search keywords (minimum 5 keywords per scene) to provide abundant footage selection.
 - LIGHTING & VISIBILITY REQUIREMENT (STRICT):
   * Mandate CLEAN, BRIGHT NATURAL DAYLIGHT, high-key open sky lighting, and vivid natural colors (emerald green, azure blue, clear turquoise).
   * STRICTLY FORBIDDEN keywords that cause dark/silhouette/backlit stock footage:
@@ -164,16 +178,28 @@ Return ONLY valid JSON matching this schema:
       "id": "scene_1",
       "name": "Bright Daylight Forest Canopy",
       "icon": "🌲",
-      "keywords": ["bright daylight lush green forest forward drone glide 4k", "vibrant mossy woodland bright daylight slow tracking 4k"],
-      "suggested_clips": 2,
+      "keywords": [
+        "bright daylight lush green forest forward drone glide 4k",
+        "vibrant mossy woodland bright daylight slow tracking 4k",
+        "clear sunny day forest canopy aerial 4k",
+        "emerald green pine trees peaceful daylight glide 4k",
+        "lush woodland path sunny day slow tracking 4k"
+      ],
+      "suggested_clips": 8,
       "enabled": true
     }},
     {{
       "id": "scene_2",
       "name": "Sunny Mountain Valley",
       "icon": "🏔️",
-      "keywords": ["clear sunny day mountain valley forward aerial tracking 4k", "vibrant alpine green meadow sunny day aerial 4k"],
-      "suggested_clips": 2,
+      "keywords": [
+        "clear sunny day mountain valley forward aerial tracking 4k",
+        "vibrant alpine green meadow sunny day aerial 4k",
+        "sunny mountain lake reflection peaceful daylight 4k",
+        "bright daylight rolling alpine hills drone glide 4k",
+        "placid crystal mountain stream sunny day 4k"
+      ],
+      "suggested_clips": 8,
       "enabled": true
     }}
   ]
@@ -194,12 +220,54 @@ Return ONLY valid JSON matching this schema:
                         data = resp.json()
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
                         parsed = json.loads(text)
+                        self._ensure_min_scene_keywords(parsed)
                         return IntentAnalysisResult(**parsed)
                     else:
                         logger.warning(f"Gemini model {model_name} returned status {resp.status_code}: {resp.text[:100]}")
                 except Exception as ex:
                     logger.warning(f"Gemini model {model_name} request failed: {ex}")
         return None
+
+    def _ensure_min_scene_keywords(self, parsed: dict) -> None:
+        """Guarantees that every planned environment has at least 5 distinct search keywords."""
+        if not isinstance(parsed, dict) or "planned_environments" not in parsed:
+            return
+
+        all_gen_queries = list(parsed.get("generated_queries") or [])
+        for pe in parsed.get("planned_environments", []):
+            kws = pe.get("keywords") or []
+            unique_kws: List[str] = []
+            seen = set()
+            for k in kws:
+                cleaned = str(k).strip()
+                if cleaned and cleaned.lower() not in seen:
+                    seen.add(cleaned.lower())
+                    unique_kws.append(cleaned)
+
+            clean_name = str(pe.get("name") or "Nature Scene").strip().lower()
+            supplements = [
+                f"bright daylight {clean_name} forward drone glide 4k",
+                f"clear sunny day {clean_name} aerial tracking vista 4k",
+                f"peaceful {clean_name} calm daylight slow tracking 4k",
+                f"vibrant {clean_name} wide landscape sunny day 4k",
+                f"crystal clear {clean_name} peaceful daylight 4k",
+                f"lush {clean_name} sunny morning drone glide 4k",
+                f"placid {clean_name} open sky daylight 4k"
+            ]
+            for supp in supplements:
+                if len(unique_kws) >= 5:
+                    break
+                if supp.lower() not in seen:
+                    seen.add(supp.lower())
+                    unique_kws.append(supp)
+
+            pe["keywords"] = unique_kws
+            pe["suggested_clips"] = max(5, int(pe.get("suggested_clips", 5)))
+            for q in unique_kws:
+                if q not in all_gen_queries:
+                    all_gen_queries.append(q)
+
+        parsed["generated_queries"] = all_gen_queries
 
     def _analyze_heuristic(
         self,
@@ -362,22 +430,32 @@ Return ONLY valid JSON matching this schema:
             motifs = ["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle daytime light"]
             keys = ["sunlit_forest", "wildflower_meadow", "mountain_lake", "calm_ocean"]
 
-        clips_per_env = max(2, target_clips // len(keys))
+        clips_per_env = max(5, target_clips // max(1, len(keys)))
         all_queries = []
         selected_envs = []
 
         for k in keys:
-            env_def = NATURE_ENVIRONMENTS.get(k)
+            env_def = NATURE_ENVIRONMENTS.get(k) or WILDLIFE_ENVIRONMENTS.get(k)
             if env_def:
+                kw = list(env_def.queries)
+                if len(kw) < 5:
+                    clean_name = env_def.name.lower()
+                    kw.extend([
+                        f"bright daylight {clean_name} forward drone 4k",
+                        f"clear sunny day {clean_name} tracking vista 4k",
+                        f"peaceful {clean_name} calm daylight glide 4k",
+                        f"vibrant {clean_name} wide aerial sunny day 4k",
+                        f"crystal clear {clean_name} peaceful daylight 4k"
+                    ])
                 selected_envs.append(PlannedEnvironment(
                     id=env_def.id,
                     name=env_def.name,
                     icon=env_def.icon,
-                    keywords=env_def.queries[:3],
+                    keywords=kw[:7],
                     suggested_clips=clips_per_env,
                     enabled=True
                 ))
-                all_queries.extend(env_def.queries[:2])
+                all_queries.extend(kw[:5])
 
         return IntentAnalysisResult(
             intent=intent,
