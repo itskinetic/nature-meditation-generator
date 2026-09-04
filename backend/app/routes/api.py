@@ -836,6 +836,18 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
             metadata_json=json.dumps(metadata)
         )
 
+        # Auto-purge intermediate scratch files in job_dir to prevent disk bloat
+        try:
+            for pattern in ["norm_clip_*.mp4", "master_*.mp4", "video_merged.mp4", "raw_clip_*.mp4", "mixed_voiceover.aac", "meditation_soundtrack.aac"]:
+                for temp_f in job_dir.glob(pattern):
+                    try:
+                        temp_f.unlink()
+                    except Exception:
+                        pass
+            logger.info(f"Auto-purged intermediate scratch files for job {job_id}")
+        except Exception as e:
+            logger.warning(f"Error auto-purging scratch files for {job_id}: {e}")
+
     except Exception as e:
         logger.error(f"Generation pipeline error: {e}", exc_info=True)
         job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
@@ -1558,6 +1570,66 @@ def trigger_manual_cleanup(retention_days: int = 3):
     """Manually trigger retention cleanup of rendered videos & cache older than N days (default 3)."""
     from backend.app.services.cleanup_service import cleanup_old_renders
     return cleanup_old_renders(retention_seconds=retention_days * 24 * 3600)
+
+
+@router.get("/storage/stats")
+def get_disk_storage_stats():
+    """Returns live disk space breakdown for scratch files, renders, library, cache, and previews."""
+    from backend.app.services.cleanup_service import get_storage_stats
+    return get_storage_stats()
+
+
+class StoragePurgeRequest(BaseModel):
+    target: str = "scratch_jobs"  # 'scratch_jobs', 'cache_previews', 'renders', 'library', 'all'
+    keep_final_videos: bool = True
+
+
+@router.post("/storage/purge")
+def purge_storage_category(req: StoragePurgeRequest):
+    """Purges selected storage category to reclaim disk space."""
+    from backend.app.services.cleanup_service import (
+        purge_intermediate_scratch,
+        purge_cache_and_previews,
+        purge_renders,
+        purge_library_files
+    )
+
+    t = req.target.lower().strip()
+    total_reclaimed = 0.0
+    total_deleted = 0
+    details = {}
+
+    if t in ("scratch_jobs", "all"):
+        res = purge_intermediate_scratch(keep_final_videos=req.keep_final_videos)
+        total_reclaimed += res.get("reclaimed_mb", 0.0)
+        total_deleted += res.get("deleted_count", 0)
+        details["scratch_jobs"] = res
+
+    if t in ("cache_previews", "all"):
+        res = purge_cache_and_previews()
+        total_reclaimed += res.get("reclaimed_mb", 0.0)
+        total_deleted += res.get("deleted_count", 0)
+        details["cache_previews"] = res
+
+    if t in ("renders", "all"):
+        res = purge_renders()
+        total_reclaimed += res.get("reclaimed_mb", 0.0)
+        total_deleted += res.get("deleted_count", 0)
+        details["renders"] = res
+
+    if t in ("library", "all"):
+        res = purge_library_files()
+        total_reclaimed += res.get("reclaimed_mb", 0.0)
+        total_deleted += res.get("deleted_count", 0)
+        details["library"] = res
+
+    return {
+        "status": "success",
+        "target": t,
+        "deleted_count": total_deleted,
+        "reclaimed_mb": round(total_reclaimed, 2),
+        "details": details
+    }
 
 
 # --- KEYWORD BANK & ROTATION ENDPOINTS ---

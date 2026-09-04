@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Film, Database, History, Sun, Moon, Zap, Trees, Compass, Sliders, Headphones } from 'lucide-react';
+import { Sparkles, Film, Database, History, Sun, Moon, Zap, Trees, Compass, Sliders, Headphones, HardDrive } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'generator' | 'library' | 'history' | 'audio';
@@ -8,6 +8,8 @@ interface HeaderProps {
   setIsDark: (dark: boolean) => void;
   activeJobsCount?: number;
   onOpenQueue?: () => void;
+  onOpenStorage?: () => void;
+  storageFormatted?: string;
   studioMode?: 'meditation' | 'documentary';
   onToggleStudioMode?: (mode: 'meditation' | 'documentary') => void;
 }
@@ -19,6 +21,8 @@ export const Header: React.FC<HeaderProps> = ({
   setIsDark,
   activeJobsCount = 0,
   onOpenQueue,
+  onOpenStorage,
+  storageFormatted,
   studioMode = 'meditation',
   onToggleStudioMode,
 }) => {
@@ -130,6 +134,24 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Subtle divider */}
               <div className="w-px h-4 bg-stone-300/80 dark:bg-stone-700/80 mx-0.5" />
 
+              {/* Storage Button */}
+              {onOpenStorage && (
+                <button
+                  type="button"
+                  onClick={onOpenStorage}
+                  title="Open Storage & Disk Cleaner"
+                  className="h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all cursor-pointer"
+                >
+                  <HardDrive className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
+                  <span>Storage</span>
+                  {storageFormatted && (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/15 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300">
+                      {storageFormatted}
+                    </span>
+                  )}
+                </button>
+              )}
+
               {/* Queue Button integrated into the same bar */}
               {onOpenQueue && (
                 <button
@@ -151,6 +173,18 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               )}
             </nav>
+
+            {/* Mobile Storage Button */}
+            {onOpenStorage && (
+              <button
+                type="button"
+                onClick={onOpenStorage}
+                title="Storage"
+                className="sm:hidden h-8 flex items-center gap-1 px-2 rounded-xl text-xs font-medium bg-stone-100/90 dark:bg-stone-900/90 border border-stone-200 dark:border-stone-800 text-stone-600 dark:text-stone-300 cursor-pointer"
+              >
+                <HardDrive className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {/* Mobile Queue Button (shown on mobile header) */}
             {onOpenQueue && (

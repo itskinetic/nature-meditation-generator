@@ -10,6 +10,7 @@ import { GenerationPanel } from './components/GenerationPanel';
 import { LibraryPanel } from './components/LibraryPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import { QueueDrawer } from './components/QueueDrawer';
+import { StorageModal } from './components/StorageModal';
 import { AudioSpacerPanel } from './components/AudioSpacerPanel';
 import { api } from './api/client';
 import {
@@ -67,6 +68,7 @@ export function App() {
   const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
   const [customMusicName, setCustomMusicName] = useState<string>('');
   const [storyboardBeats, setStoryboardBeats] = useState<VisualBeat[]>([]);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
 
   // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
@@ -140,6 +142,13 @@ export function App() {
       const data = query.state.data as ActiveJobItem[] | undefined;
       return data && data.length > 0 ? 1000 : 5000;
     },
+  });
+
+  // Storage Stats Polling
+  const { data: storageStats } = useQuery({
+    queryKey: ['storageStats'],
+    queryFn: () => api.getStorageStats(),
+    refetchInterval: 30000,
   });
 
   // Active Job Polling
@@ -501,6 +510,8 @@ export function App() {
         setIsDark={setIsDark}
         activeJobsCount={activeJobs.length}
         onOpenQueue={() => setIsQueueOpen(true)}
+        onOpenStorage={() => setIsStorageOpen(true)}
+        storageFormatted={storageStats?.total?.formatted}
         studioMode={settings.studio_mode || 'meditation'}
         onToggleStudioMode={(mode) => {
           setSettings((prev) => ({
@@ -522,6 +533,11 @@ export function App() {
         activeJobs={activeJobs}
         recentCompleted={historyItems}
         onCancelJob={(id) => cancelMutation.mutate(id)}
+      />
+
+      <StorageModal
+        isOpen={isStorageOpen}
+        onClose={() => setIsStorageOpen(false)}
       />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-4 pb-24 sm:py-8">

@@ -307,4 +307,33 @@ export interface AudioProjectListResult {
   processed_count: number;
 }
 
+export interface StorageCategory {
+  id: string;
+  name: string;
+  description: string;
+  path: string;
+  safe_to_delete: boolean;
+  bytes: number;
+  mb: number;
+  formatted: string;
+  count: number;
+}
+
+export interface StorageStats {
+  status: string;
+  total: {
+    bytes: number;
+    mb: number;
+    formatted: string;
+  };
+  categories: {
+    scratch_jobs: StorageCategory;
+    cache_previews: StorageCategory;
+    renders: StorageCategory;
+    library: StorageCategory;
+    audio_music: StorageCategory;
+  };
+}
+
+
 

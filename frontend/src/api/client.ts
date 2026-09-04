@@ -259,6 +259,22 @@ export const api = {
     return res.json();
   },
 
+  async getStorageStats(): Promise<import('../types').StorageStats> {
+    const res = await fetch(`${API_BASE}/storage/stats`);
+    if (!res.ok) throw new Error('Failed to get storage stats');
+    return res.json();
+  },
+
+  async purgeStorage(target: string = 'scratch_jobs', keepFinalVideos: boolean = true): Promise<{ status: string; target: string; deleted_count: number; reclaimed_mb: number; details: any }> {
+    const res = await fetch(`${API_BASE}/storage/purge`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target, keep_final_videos: keepFinalVideos }),
+    });
+    if (!res.ok) throw new Error('Failed to purge storage');
+    return res.json();
+  },
+
   async getHistory(): Promise<HistoryItem[]> {
     const res = await fetch(`${API_BASE}/history`);
     if (!res.ok) throw new Error('Failed to get history');
