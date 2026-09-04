@@ -43,10 +43,41 @@ def _get_dir_size_and_count(directory: Path, pattern: str = "*") -> Dict[str, An
     }
 
 
+PRESERVED_JOB_FILES = {"final_video.mp4", "metadata.json", "credits.txt"}
+
+
 def get_storage_stats() -> Dict[str, Any]:
     """Returns live storage breakdown across all data categories."""
-    scratch_stats = _get_dir_size_and_count(settings.JOBS_DIR)
-    renders_stats = _get_dir_size_and_count(settings.RENDERS_DIR)
+    scratch_bytes = 0
+    scratch_count = 0
+    job_renders_bytes = 0
+    job_renders_count = 0
+
+    if settings.JOBS_DIR.exists():
+        for job_folder in settings.JOBS_DIR.iterdir():
+            if job_folder.is_dir():
+                for p in job_folder.iterdir():
+                    if p.is_file():
+                        try:
+                            sz = p.stat().st_size
+                            if p.name == "final_video.mp4":
+                                job_renders_bytes += sz
+                                job_renders_count += 1
+                            elif p.name not in PRESERVED_JOB_FILES:
+                                scratch_bytes += sz
+                                scratch_count += 1
+                        except Exception:
+                            pass
+
+    standalone_renders = _get_dir_size_and_count(settings.RENDERS_DIR)
+    total_renders_bytes = standalone_renders["bytes"] + job_renders_bytes
+    total_renders_count = standalone_renders["count"] + job_renders_count
+    total_renders_mb = round(total_renders_bytes / (1024 * 1024), 2)
+    renders_formatted = f"{total_renders_mb / 1024:.2f} GB" if total_renders_mb >= 1024 else f"{total_renders_mb:.1f} MB"
+
+    scratch_mb = round(scratch_bytes / (1024 * 1024), 2)
+    scratch_formatted = f"{scratch_mb / 1024:.2f} GB" if scratch_mb >= 1024 else f"{scratch_mb:.1f} MB"
+
     library_stats = _get_dir_size_and_count(settings.LIBRARY_DIR)
     cache_stats = _get_dir_size_and_count(settings.CACHE_DIR)
     previews_stats = _get_dir_size_and_count(settings.PREVIEWS_DIR)
@@ -54,8 +85,8 @@ def get_storage_stats() -> Dict[str, Any]:
     audio_stats = _get_dir_size_and_count(settings.AUDIO_DIR)
 
     total_bytes = (
-        scratch_stats["bytes"]
-        + renders_stats["bytes"]
+        scratch_bytes
+        + total_renders_bytes
         + library_stats["bytes"]
         + cache_stats["bytes"]
         + previews_stats["bytes"]
@@ -63,10 +94,7 @@ def get_storage_stats() -> Dict[str, Any]:
         + audio_stats["bytes"]
     )
     total_mb = total_bytes / (1024 * 1024)
-    if total_mb >= 1024:
-        total_formatted = f"{total_mb / 1024:.2f} GB"
-    else:
-        total_formatted = f"{total_mb:.1f} MB"
+    total_formatted = f"{total_mb / 1024:.2f} GB" if total_mb >= 1024 else f"{total_mb:.1f} MB"
 
     return {
         "status": "success",
@@ -79,10 +107,13 @@ def get_storage_stats() -> Dict[str, Any]:
             "scratch_jobs": {
                 "id": "scratch_jobs",
                 "name": "Render Scratch Files & Slices",
-                "description": "Intermediate FFmpeg cuts (norm_clip_*.mp4, master_*.mp4, video_merged.mp4)",
+                "description": "Temporary FFmpeg cuts, slow-motion masters, and audio mixes",
                 "path": str(settings.JOBS_DIR),
                 "safe_to_delete": True,
-                **scratch_stats
+                "bytes": scratch_bytes,
+                "mb": scratch_mb,
+                "formatted": scratch_formatted,
+                "count": scratch_count
             },
             "cache_previews": {
                 "id": "cache_previews",
@@ -99,9 +130,12 @@ def get_storage_stats() -> Dict[str, Any]:
                 "id": "renders",
                 "name": "Exported Video Renders",
                 "description": "Final completed 30-min MP4 renders and master exports",
-                "path": str(settings.RENDERS_DIR),
+                "path": f"{settings.RENDERS_DIR}, {settings.JOBS_DIR}",
                 "safe_to_delete": False,
-                **renders_stats
+                "bytes": total_renders_bytes,
+                "mb": total_renders_mb,
+                "formatted": renders_formatted,
+                "count": total_renders_count
             },
             "library": {
                 "id": "library",
@@ -128,39 +162,17 @@ def get_storage_stats() -> Dict[str, Any]:
 
 def purge_intermediate_scratch(keep_final_videos: bool = True) -> Dict[str, Any]:
     """
-    Deletes intermediate sliced clips, master videos, and merged files inside JOBS_DIR.
-    If keep_final_videos is True, preserves final_video.mp4 and credits.txt in completed jobs.
+    Deletes all intermediate sliced clips, master videos, and scratch files inside JOBS_DIR.
+    If keep_final_videos is True, preserves final_video.mp4, credits.txt, and metadata.json in completed jobs.
     """
     if not settings.JOBS_DIR.exists():
-        return {"deleted_files": 0, "reclaimed_mb": 0.0}
+        return {"deleted_count": 0, "reclaimed_mb": 0.0}
 
     deleted_count = 0
     reclaimed_bytes = 0
 
-    intermediate_patterns = [
-        "norm_clip_*.mp4",
-        "master_*.mp4",
-        "video_merged.mp4",
-        "raw_clip_*.mp4",
-        "mixed_voiceover.aac",
-        "meditation_soundtrack.aac",
-        "subtitles.ass",
-        "*.log"
-    ]
-
-    for job_folder in settings.JOBS_DIR.iterdir():
+    for job_folder in list(settings.JOBS_DIR.iterdir()):
         if job_folder.is_dir():
-            for pattern in intermediate_patterns:
-                for file_path in job_folder.glob(pattern):
-                    try:
-                        size = file_path.stat().st_size
-                        file_path.unlink()
-                        deleted_count += 1
-                        reclaimed_bytes += size
-                    except Exception as e:
-                        logger.warning(f"Could not delete intermediate file {file_path}: {e}")
-
-            # If keep_final_videos is False, delete entire job folder
             if not keep_final_videos:
                 try:
                     for f in job_folder.rglob("*"):
@@ -171,10 +183,21 @@ def purge_intermediate_scratch(keep_final_videos: bool = True) -> Dict[str, Any]
                 except Exception as e:
                     logger.warning(f"Could not delete job folder {job_folder}: {e}")
             else:
-                files_left = list(job_folder.iterdir())
-                if len(files_left) == 0:
+                for file_path in list(job_folder.iterdir()):
+                    if file_path.is_file() and file_path.name not in PRESERVED_JOB_FILES:
+                        try:
+                            size = file_path.stat().st_size
+                            file_path.unlink()
+                            deleted_count += 1
+                            reclaimed_bytes += size
+                        except Exception as e:
+                            logger.warning(f"Could not delete intermediate file {file_path}: {e}")
+
+                # If job folder does not contain final_video.mp4, clean up the whole folder
+                has_final = (job_folder / "final_video.mp4").exists()
+                if not has_final:
                     try:
-                        job_folder.rmdir()
+                        shutil.rmtree(job_folder, ignore_errors=True)
                     except Exception:
                         pass
 
