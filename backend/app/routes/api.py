@@ -11,6 +11,7 @@ import zipfile
 import httpx
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
