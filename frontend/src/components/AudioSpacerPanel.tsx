@@ -1583,29 +1583,44 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                         <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
                       </button>
 
-                      {isProcessed && proj.download_url && (
-                        <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1">
+                        {/* DOCX Transcript Download Button */}
+                        {(proj.status === 'transcribed' || proj.status === 'processed' || (proj.segments && proj.segments.length > 0)) && (
                           <a
-                            href={proj.download_url}
-                            download={getSpacedDownloadFilename(proj.title, proj.original_name)}
-                            className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
-                            title={`Download ${getSpacedDownloadFilename(proj.title, proj.original_name)}`}
+                            href={api.getProjectDocxUrl(proj.id)}
+                            download={`${(proj.title || 'transcript').replace(/\.[^/.]+$/, '')}_transcript.docx`}
+                            className="p-1 px-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60 transition-colors flex items-center gap-1 text-[11px] font-medium"
+                            title="Download Transcript as Word Document (.docx)"
                           >
-                            <Download className="w-3.5 h-3.5" />
+                            <FileText className="w-3 h-3 text-blue-500 shrink-0" />
+                            <span className="text-[10px] font-bold">DOCX</span>
                           </a>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const dur = proj.spaced_duration || proj.duration;
-                              onUseInStudio(proj.spaced_filename || proj.filename, dur, proj.script_text);
-                            }}
-                            className="p-1.5 rounded-lg bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors font-bold cursor-pointer"
-                            title="Send directly to Video Studio"
-                          >
-                            <Film className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                        )}
+
+                        {isProcessed && proj.download_url && (
+                          <>
+                            <a
+                              href={proj.download_url}
+                              download={getSpacedDownloadFilename(proj.title, proj.original_name)}
+                              className="p-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-700 dark:text-stone-300 transition-colors"
+                              title={`Download ${getSpacedDownloadFilename(proj.title, proj.original_name)}`}
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const dur = proj.spaced_duration || proj.duration;
+                                onUseInStudio(proj.spaced_filename || proj.filename, dur, proj.script_text);
+                              }}
+                              className="p-1.5 rounded-lg bg-amber-500 text-stone-950 hover:bg-amber-600 transition-colors font-bold cursor-pointer"
+                              title="Send directly to Video Studio"
+                            >
+                              <Film className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1938,9 +1953,23 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                     )}
                   </div>
 
-                  <span className="text-[10px] font-mono font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full shrink-0">
-                    {filteredSegments.length} {filteredSegments.length === 1 ? 'card' : 'cards'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {activeProject && (
+                      <a
+                        href={api.getProjectDocxUrl(activeProject.id)}
+                        download={`${(activeProject.title || 'transcript').replace(/\.[^/.]+$/, '')}_transcript.docx`}
+                        className="h-6 px-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        title="Download transcript as Word document (.docx)"
+                      >
+                        <FileText className="w-3 h-3 text-blue-500 shrink-0" />
+                        <span>DOCX Transcript</span>
+                      </a>
+                    )}
+
+                    <span className="text-[10px] font-mono font-bold text-stone-500 dark:text-stone-400 bg-stone-100 dark:bg-stone-800 px-2 py-0.5 rounded-full shrink-0">
+                      {filteredSegments.length} {filteredSegments.length === 1 ? 'card' : 'cards'}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Row 2: Search input + Auto-scroll toggle (Never overflowing or squashed!) */}

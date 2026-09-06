@@ -14,7 +14,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body, Response
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
@@ -1779,14 +1779,17 @@ def get_audio_projects(
 
 @router.post("/audio/projects/batch-upload", response_model=List[AudioProjectSchema])
 async def batch_upload_audio(
+    background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
     """
     Uploads multiple raw audio files to the persistent Audio Inbox.
-    Unprocessed audio tracks will remain stored until the user is ready to pace them.
+    Automatically enqueues background speech transcription with Gemini AI if configured.
     """
     created_projects = []
+    gemini_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
+    can_auto_transcribe = bool(gemini_key and len(gemini_key.strip()) >= 5)
 
     for file in files:
         file_uuid = uuid.uuid4().hex[:8]
@@ -1802,6 +1805,7 @@ async def batch_upload_audio(
                 script_text=None
             )
             wav_name = Path(analysis["normalized_wav_path"]).name
+            initial_status = "transcribing" if can_auto_transcribe else "unprocessed"
 
             # Create or update AudioProject in DB
             db_project = AudioProject(
@@ -1810,7 +1814,7 @@ async def batch_upload_audio(
                 original_name=file.filename or clean_filename,
                 filename=wav_name,
                 duration=analysis["duration"],
-                status="unprocessed",
+                status=initial_status,
                 script_text="",
                 waveform_peaks_json=json.dumps(analysis["waveform_peaks"]),
                 segments_json=json.dumps([s for s in analysis["segments"]]),
@@ -1821,6 +1825,10 @@ async def batch_upload_audio(
             db.add(db_project)
             db.commit()
             db.refresh(db_project)
+
+            if can_auto_transcribe:
+                background_tasks.add_task(run_project_transcription, db_project.id)
+                logger.info(f"Auto-enqueued Gemini speech transcription for uploaded project {db_project.id} ({file.filename})")
 
             created_projects.append(
                 AudioProjectSchema(
@@ -1973,6 +1981,50 @@ def delete_audio_project(project_id: int, db: Session = Depends(get_db)):
     db.delete(p)
     db.commit()
     return {"status": "deleted", "id": project_id}
+
+
+@router.get("/audio/projects/{project_id}/export-docx")
+async def export_audio_project_docx(project_id: int, db: Session = Depends(get_db)):
+    """
+    Generates and returns a formatted Microsoft Word (.docx) document
+    containing the complete audio script and timestamped spoken phrases.
+    """
+    from backend.app.services.docx_service import build_transcript_docx
+    import re
+
+    p = db.query(AudioProject).filter(AudioProject.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Audio project not found")
+
+    segments = []
+    if p.segments_json:
+        try:
+            segments = json.loads(p.segments_json)
+        except Exception:
+            segments = []
+
+    # Clean filename for Content-Disposition header
+    raw_name = p.title or p.original_name or f"audio_project_{p.id}"
+    base_name = re.sub(r'[\\/*?:"<>|]', "", raw_name)
+    base_name = re.sub(r'\.[^/.]+$', '', base_name).strip() or f"audio_{p.id}"
+    safe_filename = f"{base_name}_transcript.docx"
+
+    docx_stream = build_transcript_docx(
+        title=p.title or "Meditation Audio Transcript",
+        duration=p.duration or 0.0,
+        segments=segments,
+        script_text=p.script_text,
+        original_filename=p.original_name or p.filename,
+        spaced_duration=p.spaced_duration
+    )
+
+    return StreamingResponse(
+        docx_stream,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f'attachment; filename="{safe_filename}"'
+        }
+    )
 
 
 
@@ -2238,6 +2290,11 @@ async def run_project_transcription(project_id: int):
         )
 
         peaks = audio_spacer_service.extract_waveform_peaks(wav_path, num_peaks=800)
+
+        # Assemble clean transcript text from segments
+        clean_phrases = [seg["text"].strip() for seg in new_segments if seg.get("text") and seg["text"].strip()]
+        if clean_phrases and (not p.script_text or not p.script_text.strip()):
+            p.script_text = "\n\n".join(clean_phrases)
 
         p.segments_json = json.dumps(new_segments)
         p.silence_intervals_json = json.dumps(existing_silences)

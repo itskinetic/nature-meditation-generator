@@ -483,4 +483,8 @@ export const api = {
     }
     return res.json();
   },
+
+  getProjectDocxUrl(projectId: number): string {
+    return `${API_BASE}/audio/projects/${projectId}/export-docx`;
+  },
 };
