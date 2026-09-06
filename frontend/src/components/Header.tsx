@@ -121,14 +121,15 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('history')}
-                className={`h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                title="History"
+                aria-label="History"
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer ${
                   activeTab === 'history'
                     ? 'bg-amber-100 dark:bg-amber-950 text-amber-950 dark:text-amber-200 border border-amber-300/80 dark:border-amber-800/60 shadow-xs font-semibold'
-                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200'
+                    : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50'
                 }`}
               >
                 <History className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
-                <span>History</span>
               </button>
 
               {/* Subtle divider */}
@@ -139,16 +140,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onOpenStorage}
-                  title="Open Storage & Disk Cleaner"
-                  className="h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all cursor-pointer"
+                  title={storageFormatted ? `Storage (${storageFormatted})` : "Storage & Disk Cleaner"}
+                  aria-label="Storage"
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all cursor-pointer"
                 >
                   <HardDrive className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
-                  <span>Storage</span>
-                  {storageFormatted && (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-amber-500/15 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300">
-                      {storageFormatted}
-                    </span>
-                  )}
                 </button>
               )}
 
@@ -157,16 +153,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   type="button"
                   onClick={onOpenQueue}
-                  className={`h-7 flex items-center gap-1.5 px-3 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                  title={activeJobsCount > 0 ? `Queue (${activeJobsCount} active)` : "Render Queue"}
+                  aria-label="Render Queue"
+                  className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all cursor-pointer relative ${
                     activeJobsCount > 0
                       ? 'bg-amber-200/80 dark:bg-amber-900/80 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700 font-semibold animate-pulse'
                       : 'text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50'
                   }`}
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
-                  <span>Queue</span>
                   {activeJobsCount > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-stone-950 dark:bg-amber-500 text-white dark:text-stone-950 text-[10px] flex items-center justify-center font-mono font-bold">
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-stone-950 dark:bg-amber-500 text-white dark:text-stone-950 text-[9px] flex items-center justify-center font-mono font-bold leading-none">
                       {activeJobsCount}
                     </span>
                   )}
