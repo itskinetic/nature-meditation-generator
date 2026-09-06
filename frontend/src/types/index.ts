@@ -202,6 +202,7 @@ export interface LibraryItem {
 export interface HistoryItem {
   job_id: string;
   title?: string;
+  script?: string;
   detected_intent?: string;
   duration: number;
   target_duration: number;
@@ -212,6 +213,10 @@ export interface HistoryItem {
   render_date?: string;
   status: string;
   download_url?: string;
+  stream_url?: string;
+  file_exists?: boolean;
+  aspect_ratio?: string;
+  resolution?: string;
   error_message?: string;
   current_stage?: string;
 }

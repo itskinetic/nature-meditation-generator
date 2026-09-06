@@ -18,7 +18,8 @@ import {
   JobDetail,
   CandidateItem,
   ActiveJobItem,
-  VisualBeat
+  VisualBeat,
+  HistoryItem
 } from './types';
 
 export function App() {
@@ -129,7 +130,7 @@ export function App() {
   });
 
   // Load History Items
-  const { data: historyItems = [], isLoading: isHistoryLoading } = useQuery({
+  const { data: historyItems = [], isLoading: isHistoryLoading, refetch: refetchHistory } = useQuery({
     queryKey: ['history'],
     queryFn: api.getHistory,
   });
@@ -468,6 +469,41 @@ export function App() {
     },
   });
 
+  const deleteHistoryMutation = useMutation({
+    mutationFn: (jobId: string) => api.deleteHistoryItem(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['storageStats'] });
+    },
+  });
+
+  const clearHistoryMutation = useMutation({
+    mutationFn: (scope: 'all' | 'purged' | 'failed') => api.clearHistory(scope),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['storageStats'] });
+    },
+  });
+
+  const handleReuseInStudio = (job: HistoryItem) => {
+    if (job.title) setTitle(job.title);
+    if (job.script) setScript(job.script);
+    if (job.target_duration || job.duration) {
+      const dur = job.target_duration || job.duration;
+      const isHours = dur >= 3600;
+      setSettings((prev) => ({
+        ...prev,
+        title: job.title || prev.title,
+        script: job.script || prev.script,
+        target_duration: isHours ? Math.round((dur / 3600) * 10) / 10 : Math.round((dur / 60) * 10) / 10,
+        duration_unit: isHours ? 'hours' : 'minutes',
+        aspect_ratio: (job.aspect_ratio as any) || prev.aspect_ratio,
+        resolution: (job.resolution as any) || prev.resolution,
+      }));
+    }
+    setActiveTab('generator');
+  };
+
   // Get selected candidate objects in exact user sequence order
   const selectedCandidatesList = selectedCandidateIds
     .map((id) => candidates.find((c) => c.source_video_id === id))
@@ -692,6 +728,11 @@ export function App() {
           <HistoryPanel
             history={historyItems}
             isLoading={isHistoryLoading}
+            onRefresh={() => refetchHistory()}
+            onDeleteItem={(id) => deleteHistoryMutation.mutate(id)}
+            onClearHistory={(scope) => clearHistoryMutation.mutate(scope)}
+            onReuseInStudio={handleReuseInStudio}
+            isDeleting={deleteHistoryMutation.isPending || clearHistoryMutation.isPending}
           />
         )}
       </main>

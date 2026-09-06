@@ -25,7 +25,7 @@ from backend.app.schemas import (
     PresetSchema, SearchRequest, SearchResponse, EnvironmentSearchSpec,
     CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
-    LibraryItemSchema, HistoryItemSchema, WebhookGenerateRequest,
+    LibraryItemSchema, HistoryItemSchema, ClearHistoryRequest, WebhookGenerateRequest,
     StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
     KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest,
     BatchSaveCandidatesRequest, DownloadCandidatesZipRequest,
@@ -1496,9 +1496,22 @@ def get_history(db: Session = Depends(get_db)):
     jobs = db.query(GenerationJob).order_by(GenerationJob.created_at.desc()).all()
     res = []
     for j in jobs:
+        file_on_disk = False
+        if j.output_path:
+            try:
+                p = Path(j.output_path)
+                file_on_disk = p.is_file() and p.stat().st_size > 0
+            except Exception:
+                file_on_disk = False
+
+        is_completed = j.status == "completed"
+        download_url = f"/api/jobs/{j.id}/download" if (is_completed and file_on_disk) else None
+        stream_url = f"/api/jobs/{j.id}/stream" if (is_completed and file_on_disk) else None
+
         res.append(HistoryItemSchema(
             job_id=j.id,
             title=j.title,
+            script=j.script,
             detected_intent=j.detected_intent,
             duration=j.actual_duration_seconds or j.target_duration_seconds,
             target_duration=j.target_duration_seconds,
@@ -1508,11 +1521,78 @@ def get_history(db: Session = Depends(get_db)):
             repeat_count=j.sequence_repeat_count,
             render_date=j.created_at,
             status=j.status,
-            download_url=f"/api/jobs/{j.id}/download" if j.status == "completed" else None,
+            download_url=download_url,
+            stream_url=stream_url,
+            file_exists=file_on_disk,
+            aspect_ratio=j.aspect_ratio or "16:9",
+            resolution=j.resolution or "1080p",
             error_message=j.error_message,
             current_stage=j.current_stage
         ))
     return res
+
+
+@router.delete("/history/{job_id}")
+def delete_history_item(job_id: str, db: Session = Depends(get_db)):
+    """Deletes an individual history job record and cleans up rendered file if on disk."""
+    job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Generation job not found")
+
+    # Clean up output video if it exists on disk
+    if job.output_path:
+        try:
+            p = Path(job.output_path)
+            if p.exists() and p.is_file():
+                p.unlink()
+        except Exception as e:
+            logger.warning(f"Error removing video file for job {job_id}: {e}")
+
+    db.delete(job)
+    db.commit()
+    return {"status": "deleted", "job_id": job_id}
+
+
+@router.post("/history/clear")
+def clear_history(req: ClearHistoryRequest = Body(...), db: Session = Depends(get_db)):
+    """
+    Batch cleans history records based on scope:
+    - 'all': removes all completed, failed, and cancelled jobs
+    - 'purged': removes completed jobs whose video files no longer exist on disk
+    - 'failed': removes only failed and cancelled jobs
+    """
+    active_statuses = ["pending", "analyzing", "searching", "scoring", "downloading", "rendering"]
+    candidates = db.query(GenerationJob).filter(GenerationJob.status.notin_(active_statuses)).all()
+    deleted_count = 0
+
+    for job in candidates:
+        file_on_disk = False
+        if job.output_path:
+            try:
+                p = Path(job.output_path)
+                file_on_disk = p.is_file() and p.stat().st_size > 0
+            except Exception:
+                file_on_disk = False
+
+        should_delete = False
+        if req.scope == "all":
+            should_delete = True
+        elif req.scope == "purged":
+            should_delete = (job.status == "completed" and not file_on_disk)
+        elif req.scope == "failed":
+            should_delete = (job.status in ["failed", "cancelled"])
+
+        if should_delete:
+            if file_on_disk and job.output_path:
+                try:
+                    Path(job.output_path).unlink()
+                except Exception:
+                    pass
+            db.delete(job)
+            deleted_count += 1
+
+    db.commit()
+    return {"status": "cleared", "deleted_count": deleted_count, "scope": req.scope}
 
 
 @router.post("/webhooks/generate")

@@ -327,6 +327,7 @@ class DownloadCandidatesZipRequest(BaseModel):
 class HistoryItemSchema(BaseModel):
     job_id: str
     title: Optional[str] = None
+    script: Optional[str] = None
     detected_intent: Optional[str] = None
     duration: float
     target_duration: float
@@ -337,8 +338,16 @@ class HistoryItemSchema(BaseModel):
     render_date: Optional[datetime] = None
     status: str
     download_url: Optional[str] = None
+    stream_url: Optional[str] = None
+    file_exists: bool = False
+    aspect_ratio: Optional[str] = "16:9"
+    resolution: Optional[str] = "1080p"
     error_message: Optional[str] = None
     current_stage: Optional[str] = None
+
+
+class ClearHistoryRequest(BaseModel):
+    scope: str = "all"  # "all", "purged", "failed"
 
 
 class WebhookGenerateRequest(BaseModel):

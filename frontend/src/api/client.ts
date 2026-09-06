@@ -281,6 +281,24 @@ export const api = {
     return res.json();
   },
 
+  async deleteHistoryItem(jobId: string): Promise<{ status: string; job_id: string }> {
+    const res = await fetch(`${API_BASE}/history/${jobId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to delete history item');
+    return res.json();
+  },
+
+  async clearHistory(scope: 'all' | 'purged' | 'failed' = 'all'): Promise<{ status: string; deleted_count: number; scope: string }> {
+    const res = await fetch(`${API_BASE}/history/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope }),
+    });
+    if (!res.ok) throw new Error('Failed to clear history');
+    return res.json();
+  },
+
   async getActiveJobs(): Promise<ActiveJobItem[]> {
     const res = await fetch(`${API_BASE}/jobs/active`);
     if (!res.ok) throw new Error('Failed to get active jobs');
