@@ -6,6 +6,7 @@ import os
 import shutil
 import uuid
 import wave
+import re
 import io
 import zipfile
 import httpx
@@ -1951,8 +1952,11 @@ async def batch_upload_audio(
 
     for file in files:
         try:
+            raw_name = Path(file.filename).name if file.filename else "audio.m4a"
+            safe_stem = re.sub(r'[^\w\-_\.]', '_', Path(raw_name).stem)
+            suffix = Path(raw_name).suffix.lower() or ".wav"
             file_uuid = uuid.uuid4().hex[:8]
-            clean_filename = f"{file_uuid}_{file.filename}"
+            clean_filename = f"{file_uuid}_{safe_stem}{suffix}"
             target_path = settings.AUDIO_DIR / clean_filename
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1970,8 +1974,8 @@ async def batch_upload_audio(
             # Create or update AudioProject in DB
             db_project = AudioProject(
                 file_id=analysis["file_id"],
-                title=file.filename or clean_filename,
-                original_name=file.filename or clean_filename,
+                title=raw_name,
+                original_name=raw_name,
                 filename=wav_name,
                 duration=analysis["duration"],
                 status=initial_status,
@@ -2206,8 +2210,11 @@ async def upload_and_analyze_audio(
     detect natural silences, parse script tags, and save to SQLite.
     """
     settings.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+    raw_name = Path(file.filename).name if file.filename else "audio.m4a"
+    safe_stem = re.sub(r'[^\w\-_\.]', '_', Path(raw_name).stem)
+    suffix = Path(raw_name).suffix.lower() or ".wav"
     file_uuid = uuid.uuid4().hex[:8]
-    clean_filename = f"{file_uuid}_{file.filename}"
+    clean_filename = f"{file_uuid}_{safe_stem}{suffix}"
     target_path = settings.AUDIO_DIR / clean_filename
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -2225,8 +2232,8 @@ async def upload_and_analyze_audio(
         # Save to DB
         db_proj = AudioProject(
             file_id=analysis["file_id"],
-            title=file.filename or clean_filename,
-            original_name=file.filename or clean_filename,
+            title=raw_name,
+            original_name=raw_name,
             filename=wav_name,
             duration=analysis["duration"],
             status="unprocessed",

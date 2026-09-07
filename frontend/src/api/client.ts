@@ -18,6 +18,33 @@ import {
 
 const API_BASE = '/api';
 
+async function extractResponseError(res: Response, fallback: string): Promise<string> {
+  try {
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      if (json && json.detail) {
+        return typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+      }
+      if (json && json.message) return json.message;
+    } catch {
+      if (res.status === 413) {
+        return 'Audio file is too large for the server (HTTP 413). Please upload a file under 100MB.';
+      }
+      if (res.status === 502) {
+        return 'Server gateway error (HTTP 502). The server is restarting or unreachable.';
+      }
+      if (res.status === 504) {
+        return 'Upload timed out (HTTP 504). Please try a shorter audio file.';
+      }
+      if (text && text.trim().length > 0 && text.trim().length <= 250 && !text.includes('<!DOCTYPE')) {
+        return text.trim();
+      }
+    }
+  } catch {}
+  return `${fallback} (${res.status} ${res.statusText})`;
+}
+
 export const api = {
   async healthCheck() {
     const res = await fetch(`${API_BASE}/health`);
@@ -355,8 +382,8 @@ export const api = {
       body: formData,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to upload audio' }));
-      throw new Error(err.detail || 'Failed to upload and analyze audio');
+      const message = await extractResponseError(res, 'Failed to upload audio');
+      throw new Error(message);
     }
     return res.json();
   },
@@ -368,8 +395,8 @@ export const api = {
       body: JSON.stringify({ file_id: fileId, script_text: scriptText }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to re-analyze audio' }));
-      throw new Error(err.detail || 'Failed to re-analyze audio');
+      const message = await extractResponseError(res, 'Failed to re-analyze audio');
+      throw new Error(message);
     }
     return res.json();
   },
@@ -381,8 +408,8 @@ export const api = {
       body: JSON.stringify({ file_id: fileId, segments, fade_duration: fadeDuration }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to process audio' }));
-      throw new Error(err.detail || 'Failed to process audio spacing');
+      const message = await extractResponseError(res, 'Failed to process audio spacing');
+      throw new Error(message);
     }
     return res.json();
   },
@@ -401,8 +428,8 @@ export const api = {
       body: JSON.stringify({ filename }),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to send audio to studio' }));
-      throw new Error(err.detail || 'Failed to send audio to studio');
+      const message = await extractResponseError(res, 'Failed to send audio to studio');
+      throw new Error(message);
     }
     return res.json();
   },
@@ -424,8 +451,8 @@ export const api = {
       body: formData,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Failed to batch upload audio files' }));
-      throw new Error(err.detail || 'Failed to batch upload audio files');
+      const message = await extractResponseError(res, 'Failed to upload audio files');
+      throw new Error(message);
     }
     return res.json();
   },

@@ -108,10 +108,11 @@ class AudioSpacerService:
         return parsed_entries
 
     async def decode_to_pcm_wav(self, input_path: Path, output_wav: Path) -> Path:
-        """Decodes any audio format (MP3, M4A, AAC, FLAC) into standard 44.1kHz 16-bit stereo PCM WAV."""
+        """Decodes any audio format (MP3, M4A, AAC, FLAC, OGG) into standard 44.1kHz 16-bit stereo PCM WAV."""
         cmd = [
             self.ffmpeg_bin, "-y",
             "-i", str(input_path),
+            "-vn", "-sn", "-dn",
             "-ar", "44100",
             "-ac", "2",
             "-c:a", "pcm_s16le",
@@ -119,12 +120,14 @@ class AudioSpacerService:
         ]
         proc = await asyncio.create_subprocess_exec(
             *cmd,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
-        await proc.communicate()
+        _, stderr = await proc.communicate()
         if proc.returncode != 0:
-            raise RuntimeError(f"FFmpeg decoding failed for {input_path}")
+            err_msg = stderr.decode("utf-8", errors="replace") if stderr else "Unknown FFmpeg error"
+            logger.error(f"FFmpeg decoding failed for {input_path.name}: {err_msg}")
+            raise RuntimeError(f"FFmpeg decoding failed: {err_msg[-300:].strip()}")
         return output_wav
 
     def extract_waveform_peaks(self, wav_path: Path, num_peaks: int = 800) -> List[float]:
