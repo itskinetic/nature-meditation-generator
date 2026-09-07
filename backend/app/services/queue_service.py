@@ -20,7 +20,8 @@ from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMEN
 
 logger = logging.getLogger(__name__)
 
-MAX_CONCURRENT_RENDERS = 2
+# Render 1 video at a time to prevent VPS RAM/CPU overload; subsequent jobs queue safely in line
+MAX_CONCURRENT_RENDERS = 1
 
 
 class QueueService:

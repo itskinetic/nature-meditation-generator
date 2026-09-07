@@ -112,6 +112,7 @@ class AudioSpacerService:
         """Decodes any audio format (MP3, M4A, AAC, FLAC, OGG) into standard 44.1kHz 16-bit stereo PCM WAV."""
         cmd = [
             self.ffmpeg_bin, "-y",
+            "-threads", "2",
             "-i", str(input_path),
             "-vn", "-sn", "-dn",
             "-ar", "44100",
@@ -133,7 +134,8 @@ class AudioSpacerService:
 
     def extract_waveform_peaks(self, wav_path: Path, num_peaks: int = 800) -> List[float]:
         """
-        Extracts normalized amplitude peaks [0.0 - 1.0] from a 16-bit PCM WAV for fast frontend canvas rendering.
+        Extracts normalized amplitude peaks [0.0 - 1.0] from a 16-bit PCM WAV using streaming seek.
+        Uses < 100 KB RAM regardless of file length (prevents VPS OOM crashes on long audio files).
         """
         try:
             with wave.open(str(wav_path), 'rb') as wf:
@@ -143,34 +145,31 @@ class AudioSpacerService:
                 if n_frames == 0 or sampwidth != 2:
                     return [0.0] * num_peaks
 
-                raw_bytes = wf.readframes(n_frames)
-                total_samples = len(raw_bytes) // 2
-                
-                # Unpack as signed 16-bit integers
-                samples = struct.unpack(f"<{total_samples}h", raw_bytes)
-                
-                # Downsample into num_peaks buckets
-                samples_per_bucket = max(1, total_samples // (num_peaks * n_channels))
+                frames_per_peak = max(1, n_frames // num_peaks)
                 peaks = []
-                
                 max_possible = 32768.0
+
+                # Sample up to 256 frames per bucket for negligible memory & CPU footprint (<100KB)
+                sample_frames = min(frames_per_peak, 256)
+                format_char = "h"
+
                 for i in range(num_peaks):
-                    start_idx = i * samples_per_bucket * n_channels
-                    end_idx = min(total_samples, start_idx + samples_per_bucket * n_channels)
-                    if start_idx >= total_samples:
+                    target_frame = i * frames_per_peak
+                    wf.setpos(min(n_frames - 1, target_frame))
+                    data = wf.readframes(sample_frames)
+                    if not data:
                         peaks.append(0.0)
                         continue
-                    
-                    bucket = samples[start_idx:end_idx]
-                    if not bucket:
+
+                    num_samples = len(data) // 2
+                    if num_samples == 0:
                         peaks.append(0.0)
                         continue
-                    
-                    # Calculate max peak in bucket
-                    max_val = max(abs(s) for s in bucket)
-                    normalized = round(min(1.0, max_val / max_possible), 4)
-                    peaks.append(normalized)
-                    
+
+                    samples = struct.unpack(f"<{num_samples}{format_char}", data)
+                    peak = max(abs(s) for s in samples)
+                    peaks.append(round(min(1.0, peak / max_possible), 4))
+
                 return peaks
         except Exception as e:
             logger.warning(f"Error extracting waveform peaks: {e}")
@@ -187,6 +186,7 @@ class AudioSpacerService:
         """
         cmd = [
             self.ffmpeg_bin,
+            "-threads", "2",
             "-i", str(wav_path),
             "-af", f"silencedetect=noise={noise_db}:d={min_dur}",
             "-f", "null", "-"
@@ -272,6 +272,7 @@ Do not wrap in markdown, return pure JSON."""
                 try:
                     cmd = [
                         self.ffmpeg_bin, "-y",
+                        "-threads", "2",
                         "-ss", str(start_offset),
                         "-t", str(chunk_duration),
                         "-i", str(audio_file_path),
@@ -711,6 +712,7 @@ Do not wrap in markdown, return pure JSON."""
         # Master & encode to high-bitrate MP3 via FFmpeg
         cmd_mp3 = [
             self.ffmpeg_bin, "-y",
+            "-threads", "2",
             "-i", str(temp_out_wav),
             "-codec:a", "libmp3lame",
             "-b:a", "192k",

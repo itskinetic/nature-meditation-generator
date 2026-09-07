@@ -93,6 +93,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-f", "lavfi",
             "-i", filter_chain,
             "-t", str(duration),
@@ -214,6 +215,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-loop", "1",
             "-framerate", "30",
             "-i", str(image_file),
@@ -237,7 +239,7 @@ class FFmpegService:
             logger.error(f"Ken Burns image processing failed: {stderr.decode('utf-8', errors='ignore')}")
             # Fallback simple scale
             fallback_vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1,fps=30,format=yuv420p"
-            fcmd = ["ffmpeg", "-y", "-loop", "1", "-i", str(image_file), "-t", str(duration), "-vf", fallback_vf, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output_file)]
+            fcmd = ["ffmpeg", "-y", "-threads", "2", "-loop", "1", "-i", str(image_file), "-t", str(duration), "-vf", fallback_vf, "-an", "-c:v", "libx264", "-pix_fmt", "yuv420p", str(output_file)]
             fproc = await asyncio.create_subprocess_exec(*fcmd)
             await fproc.communicate()
         return output_file
@@ -277,7 +279,7 @@ class FFmpegService:
         filters.extend([f"fps=30", f"format=yuv420p"])
         filter_str = ",".join(filters)
 
-        cmd = ["ffmpeg", "-y"]
+        cmd = ["ffmpeg", "-y", "-threads", "2"]
         if start_offset > 0.05:
             cmd.extend(["-ss", f"{start_offset:.2f}"])
         cmd.extend([
@@ -322,6 +324,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-i", str(input_file),
             "-vf", filter_str,
             "-an",
@@ -362,6 +365,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-ss", f"{safe_offset:.2f}",
             "-i", str(master_file),
             "-t", f"{safe_dur:.2f}",
@@ -383,6 +387,7 @@ class FFmpegService:
         if not output_file.exists() or output_file.stat().st_size < 1000:
             fallback_cmd = [
                 "ffmpeg", "-y",
+                "-threads", "2",
                 "-i", str(master_file),
                 "-t", f"{safe_dur:.2f}",
                 "-c:v", "libx264",
@@ -516,6 +521,7 @@ class FFmpegService:
                 mixed_audio = job_dir / "mixed_voiceover.aac"
                 amix_cmd = [
                     "ffmpeg", "-y",
+                    "-threads", "2",
                     "-i", str(vo_path),
                     "-i", str(meditation_audio),
                     "-filter_complex", "[0:a]volume=1.0[vo];[1:a]volume=0.25[bg];[vo][bg]amix=inputs=2:duration=first:dropout_transition=2[aout]",
@@ -561,6 +567,7 @@ class FFmpegService:
             sub_escaped = str(subtitle_file).replace("\\", "/").replace(":", "\\:")
             mux_cmd = [
                 "ffmpeg", "-y",
+                "-threads", "2",
                 "-i", str(video_only_output),
                 "-i", str(final_audio_path),
                 "-vf", f"subtitles='{sub_escaped}'",
@@ -576,6 +583,7 @@ class FFmpegService:
         else:
             mux_cmd = [
                 "ffmpeg", "-y",
+                "-threads", "2",
                 "-i", str(video_only_output),
                 "-i", str(final_audio_path),
                 "-t", str(target_duration),
@@ -659,6 +667,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             *inputs,
             "-filter_complex", filter_complex,
             "-map", "[outv]",
@@ -765,6 +774,7 @@ class FFmpegService:
                     merge_filter = f"[0:v][1:v]xfade=transition={xfade_name}:duration={transition_duration}:offset={offset:.3f}[outv]"
                     cmd = [
                         "ffmpeg", "-y",
+                        "-threads", "2",
                         "-i", str(seg_a),
                         "-i", str(seg_b),
                         "-filter_complex", merge_filter,
@@ -810,6 +820,7 @@ class FFmpegService:
 
         cmd = [
             "ffmpeg", "-y",
+            "-threads", "2",
             "-f", "concat",
             "-safe", "0",
             "-i", str(concat_list),
