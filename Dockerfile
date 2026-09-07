@@ -28,7 +28,7 @@ COPY .env.example ./.env
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Create storage directories
-RUN mkdir -p data/previews data/renders data/library data/music
+RUN mkdir -p data/previews data/renders data/library data/music data/audio data/cache data/jobs data/credits
 
 EXPOSE 8000
 

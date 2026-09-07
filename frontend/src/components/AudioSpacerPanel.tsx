@@ -259,8 +259,15 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     try {
       const fileList = Array.from(files);
-      await api.batchUploadAudioFiles(fileList, autoTranscribeOnUpload);
+      const uploaded = await api.batchUploadAudioFiles(fileList, autoTranscribeOnUpload);
       await queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+      if (uploaded && uploaded.length > 0) {
+        setToastNotification({
+          id: Date.now(),
+          title: 'Upload Successful',
+          message: `Uploaded ${uploaded.length} audio file${uploaded.length > 1 ? 's' : ''} to your Audio Inbox.`,
+        });
+      }
     } catch (err: any) {
       console.error('Batch upload error:', err);
       setErrorMessage(err.message || 'Failed to upload audio files.');

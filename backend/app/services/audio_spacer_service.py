@@ -712,7 +712,8 @@ Do not wrap in markdown, return pure JSON."""
     async def analyze_audio_file(
         self,
         input_file_path: Path,
-        script_text: Optional[str] = None
+        script_text: Optional[str] = None,
+        transcribe: bool = False
     ) -> Dict[str, Any]:
         """
         Full analysis pipeline:
@@ -720,9 +721,10 @@ Do not wrap in markdown, return pure JSON."""
         2. Computes duration & waveform peak data
         3. Detects silence intervals
         4. Parses script pause tags
-        5. Aligns into interactive segments
+        5. Aligns into interactive segments (silence-driven fallback if transcribe=False)
         """
         file_id = uuid.uuid4().hex[:10]
+        settings.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
         temp_wav_path = settings.AUDIO_DIR / f"{file_id}_norm.wav"
 
         await self.decode_to_pcm_wav(input_file_path, temp_wav_path)
@@ -739,8 +741,12 @@ Do not wrap in markdown, return pure JSON."""
         transcriptions = []
         if script_text and script_text.strip():
             parsed_script = self.parse_script(script_text)
-        else:
-            transcriptions = await self.transcribe_audio(temp_wav_path)
+        elif transcribe:
+            try:
+                transcriptions = await self.transcribe_audio(temp_wav_path)
+            except Exception as e:
+                logger.warning(f"Audio transcription failed during analysis for {input_file_path.name}: {e}")
+                transcriptions = []
 
         segments = self.align_segments(parsed_script, silences, total_duration, transcriptions)
 
