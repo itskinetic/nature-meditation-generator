@@ -414,12 +414,12 @@ export const api = {
     return res.json();
   },
 
-  async batchUploadAudioFiles(files: File[]): Promise<AudioProjectItem[]> {
+  async batchUploadAudioFiles(files: File[], autoTranscribe: boolean = false): Promise<AudioProjectItem[]> {
     const formData = new FormData();
     for (const f of files) {
       formData.append('files', f);
     }
-    const res = await fetch(`${API_BASE}/audio/projects/batch-upload`, {
+    const res = await fetch(`${API_BASE}/audio/projects/batch-upload?auto_transcribe=${autoTranscribe}`, {
       method: 'POST',
       body: formData,
     });

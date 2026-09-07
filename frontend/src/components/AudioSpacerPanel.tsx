@@ -131,6 +131,8 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
   const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [autoTranscribeOnUpload, setAutoTranscribeOnUpload] = useState<boolean>(false);
+  const [transcribingProjectIds, setTranscribingProjectIds] = useState<Set<number>>(new Set());
 
   const autosaveTimeoutRef = useRef<any>(null);
   const prevProjectsRef = useRef<Map<number, string>>(new Map());
@@ -257,7 +259,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     try {
       const fileList = Array.from(files);
-      await api.batchUploadAudioFiles(fileList);
+      await api.batchUploadAudioFiles(fileList, autoTranscribeOnUpload);
       await queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
     } catch (err: any) {
       console.error('Batch upload error:', err);
@@ -490,7 +492,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
     const projId = activeProject?.id;
     const fileId = analysisData?.file_id || activeProject?.file_id;
     if (!projId && !fileId) {
-      setErrorMessage('Please load an audio file first.');
+      setErrorMessage('Please open an audio project from the Inbox first to run transcription.');
       return;
     }
 
@@ -1399,20 +1401,22 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
           <p className="text-xs leading-relaxed font-mono opacity-90 pl-6 bg-red-500/5 dark:bg-red-950/30 p-2 rounded-xl border border-red-500/20">
             {errorMessage}
           </p>
-          <div className="flex items-center gap-2 pl-6 pt-1 flex-wrap">
-            <button
-              type="button"
-              onClick={handleTranscribeAudio}
-              disabled={isTranscribing}
-              className="px-2.5 py-1 rounded-lg bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-            >
-              <RefreshCw className={`w-3 h-3 ${isTranscribing ? 'animate-spin' : ''}`} />
-              <span>Retry AI Transcription</span>
-            </button>
-            <span className="text-[11px] text-stone-500 dark:text-stone-400">
-              Tip: Quota issues resolve automatically in ~60 seconds.
-            </span>
-          </div>
+          {(activeProject || analysisData) && (
+            <div className="flex items-center gap-2 pl-6 pt-1 flex-wrap">
+              <button
+                type="button"
+                onClick={handleTranscribeAudio}
+                disabled={isTranscribing}
+                className="px-2.5 py-1 rounded-lg bg-red-500 text-white font-bold text-xs hover:bg-red-600 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <RefreshCw className={`w-3 h-3 ${isTranscribing ? 'animate-spin' : ''}`} />
+                <span>Retry AI Transcription</span>
+              </button>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400">
+                Tip: Quota issues resolve automatically in ~60 seconds.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1472,6 +1476,20 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                 </button>
               </div>
 
+              {/* Optional Auto-transcribe Toggle */}
+              <label
+                className="h-8 px-2.5 rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-600 dark:text-stone-300 flex items-center gap-1.5 select-none cursor-pointer hover:bg-stone-200/60 dark:hover:bg-stone-800/60 transition-colors shrink-0"
+                title="When enabled, speech transcription will automatically run in the background after upload completes"
+              >
+                <input
+                  type="checkbox"
+                  checked={autoTranscribeOnUpload}
+                  onChange={(e) => setAutoTranscribeOnUpload(e.target.checked)}
+                  className="rounded text-amber-500 focus:ring-amber-500/40 w-3.5 h-3.5 cursor-pointer accent-amber-500"
+                />
+                <span className="text-[11px]">Auto-transcribe</span>
+              </label>
+
               {/* Batch Upload Audio Button */}
               <label className="h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer shrink-0">
                 <input
@@ -1528,6 +1546,10 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                           <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" /> Paced Master
                           </span>
+                        ) : proj.status === 'failed' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-400 text-[10px] font-bold flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-rose-500" /> Transcribe Failed
+                          </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 text-[10px] font-bold flex items-center gap-1">
                             <Clock className="w-3 h-3" /> In Inbox (Raw)
@@ -1574,14 +1596,63 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
                     {/* Bottom Action Buttons */}
                     <div className="flex items-center justify-between gap-1.5 pt-3 mt-2 border-t border-stone-100 dark:border-stone-800/80">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenProject(proj)}
-                        className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-700 dark:text-stone-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
-                      >
-                        <FolderOpen className="w-3 h-3" />
-                        <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenProject(proj)}
+                          className="px-2.5 py-1 rounded-lg bg-stone-100 dark:bg-stone-800 hover:bg-amber-500 hover:text-stone-950 text-stone-700 dark:text-stone-300 text-[11px] font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <FolderOpen className="w-3 h-3" />
+                          <span>{isCurrent ? 'Editing' : 'Open in Lab'}</span>
+                        </button>
+
+                        {/* Transcribe / Retry button on card */}
+                        {(proj.status === 'unprocessed' || proj.status === 'failed') && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setTranscribingProjectIds((prev) => new Set(prev).add(proj.id));
+                              try {
+                                await api.transcribeProjectAsync(proj.id);
+                                queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+                              } catch (err: any) {
+                                setErrorMessage(err.message || 'Failed to start AI transcription');
+                              } finally {
+                                setTranscribingProjectIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(proj.id);
+                                  return next;
+                                });
+                              }
+                            }}
+                            disabled={transcribingProjectIds.has(proj.id)}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs ${
+                              proj.status === 'failed'
+                                ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                                : 'bg-amber-500 hover:bg-amber-600 text-stone-950'
+                            }`}
+                            title={proj.status === 'failed' ? 'Retry Gemini AI speech transcription' : 'Transcribe speech with Gemini AI'}
+                          >
+                            {transcribingProjectIds.has(proj.id) ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                <span>Starting...</span>
+                              </>
+                            ) : proj.status === 'failed' ? (
+                              <>
+                                <RefreshCw className="w-3 h-3" />
+                                <span>Retry</span>
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="w-3 h-3" />
+                                <span>Transcribe</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-1">
                         {/* DOCX Transcript Download Button */}

@@ -1861,15 +1861,16 @@ def get_audio_projects(
 async def batch_upload_audio(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
+    auto_transcribe: bool = Query(False),
     db: Session = Depends(get_db)
 ):
     """
     Uploads multiple raw audio files to the persistent Audio Inbox.
-    Automatically enqueues background speech transcription with Gemini AI if configured.
+    Guarantees upload and audio normalization complete first before transcribing.
     """
     created_projects = []
     gemini_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
-    can_auto_transcribe = bool(gemini_key and len(gemini_key.strip()) >= 5)
+    can_auto_transcribe = bool(auto_transcribe and gemini_key and len(gemini_key.strip()) >= 5)
 
     for file in files:
         file_uuid = uuid.uuid4().hex[:8]
