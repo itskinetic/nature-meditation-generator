@@ -461,7 +461,9 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
 
     projs.forEach((proj) => {
       const prevStatus = prevProjectsRef.current.get(proj.id);
-      if (prevStatus === 'transcribing' && (proj.status === 'transcribed' || proj.status === 'unprocessed')) {
+
+      // Genuinely completed transcription
+      if (prevStatus === 'transcribing' && proj.status === 'transcribed') {
         const count = proj.segments?.length || 0;
         setToastNotification({
           id: Date.now(),
@@ -470,8 +472,12 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
           projectId: proj.id,
         });
 
-        // If this project is currently open in the studio, auto-sync in 0ms!
+        // Auto-dismiss after 6 seconds
+        setTimeout(() => setToastNotification((curr) => (curr?.title.includes('Complete') ? null : curr)), 6000);
+
+        // If this project is currently open in the studio, auto-sync and update activeProject
         if (activeProject?.id === proj.id) {
+          setActiveProject(proj);
           setSegments(proj.segments || []);
           setAnalysisData((prev) =>
             prev
@@ -484,15 +490,44 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
           );
           setIsTranscribing(false);
         }
-      } else if (prevStatus === 'transcribing' && proj.status === 'failed') {
+      } 
+      // User cancelled transcription
+      else if (prevStatus === 'transcribing' && proj.status === 'unprocessed') {
+        setToastNotification({
+          id: Date.now(),
+          title: 'Transcription Cancelled',
+          message: `Transcription for "${proj.title}" was stopped.`,
+          projectId: proj.id,
+        });
+
+        // Auto-dismiss after 4 seconds
+        setTimeout(() => setToastNotification((curr) => (curr?.title.includes('Cancelled') ? null : curr)), 4000);
+
+        if (activeProject?.id === proj.id) {
+          setActiveProject(proj);
+          setIsTranscribing(false);
+        }
+      } 
+      // Failed transcription
+      else if (prevStatus === 'transcribing' && proj.status === 'failed') {
         setErrorMessage(`Background transcription failed for "${proj.title}". Please retry.`);
         if (activeProject?.id === proj.id) {
+          setActiveProject(proj);
           setIsTranscribing(false);
         }
       }
+
+      // Always sync activeProject status if it changed in backend
+      if (activeProject?.id === proj.id && activeProject.status !== proj.status) {
+        setActiveProject(proj);
+        if (proj.status !== 'transcribing') {
+          setIsTranscribing(false);
+        }
+      }
+
       prevProjectsRef.current.set(proj.id, proj.status);
     });
-  }, [projectListResult?.projects, activeProject?.id]);
+  }, [projectListResult?.projects, activeProject?.id, activeProject?.status]);
 
   // Directly transcribe speech audio using Gemini AI in background
   const handleTranscribeAudio = async () => {
@@ -2103,7 +2138,7 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
               </div>
 
               {/* Active Background Transcribing Banner */}
-              {(activeProject?.status === 'transcribing' || isTranscribing) && (
+              {(activeProject?.status === 'transcribing' || isTranscribing) && activeProject?.status !== 'transcribed' && activeProject?.status !== 'unprocessed' && (
                 <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-900 dark:text-amber-200 text-xs flex items-center gap-2.5 animate-pulse shadow-xs">
                   <RefreshCw className="w-4 h-4 text-amber-500 animate-spin shrink-0" />
                   <div className="flex flex-col gap-0.5">
