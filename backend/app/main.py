@@ -34,6 +34,21 @@ async def lifespan(app: FastAPI):
         cleanup_old_renders()
     except Exception as e:
         logger.warning(f"Initial render cleanup error: {e}")
+
+    # Reset any orphaned transcribing/processing audio tasks from container restarts
+    try:
+        from backend.app.database import SessionLocal
+        from backend.app.models import AudioProject
+        db = SessionLocal()
+        orphaned = db.query(AudioProject).filter(AudioProject.status.in_(["transcribing", "processing"])).all()
+        for p in orphaned:
+            p.status = "unprocessed"
+        if orphaned:
+            db.commit()
+            logger.info(f"Reset {len(orphaned)} orphaned audio tasks to 'unprocessed' on startup.")
+        db.close()
+    except Exception as e:
+        logger.warning(f"Error resetting orphaned audio tasks on startup: {e}")
         
     cleanup_task = asyncio.create_task(periodic_cleanup_loop())
     yield
