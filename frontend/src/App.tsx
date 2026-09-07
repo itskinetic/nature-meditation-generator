@@ -385,6 +385,7 @@ export function App() {
       refetchJob();
       queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
     },
   });
 

@@ -1888,8 +1888,8 @@ async def run_project_transcription(project_id: int):
             db.commit()
             return
 
-        # Run transcription via Gemini
-        transcriptions = await audio_spacer_service.transcribe_audio(wav_path)
+        # Run transcription via Gemini with dynamic progress tracking
+        transcriptions = await audio_spacer_service.transcribe_audio(wav_path, job_key=f"audio_{project_id}")
 
         existing_silences = json.loads(p.silence_intervals_json) if p.silence_intervals_json else []
         if not existing_silences:
@@ -1930,6 +1930,12 @@ async def run_project_transcription(project_id: int):
         except Exception:
             pass
     finally:
+        audio_spacer_service.transcription_progress.pop(f"audio_{project_id}", None)
+        try:
+            if p and p.file_id:
+                audio_spacer_service.transcription_progress.pop(p.file_id, None)
+        except Exception:
+            pass
         db.close()
 
 

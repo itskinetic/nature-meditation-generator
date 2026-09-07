@@ -46,8 +46,11 @@ class QueueService:
                 try:
                     p_id = int(job_id.replace("audio_", ""))
                     from backend.app.models import AudioProject
+                    from backend.app.services.audio_spacer_service import audio_spacer_service
+                    audio_spacer_service.transcription_progress.pop(job_id, None)
                     p = db.query(AudioProject).filter(AudioProject.id == p_id).first()
                     if p:
+                        audio_spacer_service.transcription_progress.pop(p.file_id, None)
                         p.status = "unprocessed"
                         db.commit()
                         return True
@@ -86,15 +89,29 @@ class QueueService:
         # Include active Audio AI jobs (transcribing / spacing)
         try:
             from backend.app.models import AudioProject
+            from backend.app.services.audio_spacer_service import audio_spacer_service
             active_audio = db.query(AudioProject).filter(AudioProject.status.in_(["transcribing", "processing"])).order_by(AudioProject.updated_at.desc()).all()
             for p in active_audio:
                 is_transcribing = p.status == "transcribing"
-                stage_text = "🎙️ AI Speech Transcription (Gemini)" if is_transcribing else "🎵 Spacing & Mastering Audio Track"
+                audio_job_id = f"audio_{p.id}"
+                prog_info = audio_spacer_service.transcription_progress.get(audio_job_id) or audio_spacer_service.transcription_progress.get(p.file_id)
+
+                if is_transcribing:
+                    if prog_info:
+                        progress = prog_info.get("progress", 15)
+                        stage_text = f"🎙️ {prog_info.get('stage', 'AI Speech Transcription')}"
+                    else:
+                        progress = 15
+                        stage_text = "🎙️ AI Speech Transcription (Gemini)"
+                else:
+                    progress = 85
+                    stage_text = "🎵 Spacing & Mastering Audio Track"
+
                 result.append({
-                    "id": f"audio_{p.id}",
+                    "id": audio_job_id,
                     "title": p.title or p.original_name or "Voiceover Audio",
                     "status": "rendering",
-                    "progress": 65 if is_transcribing else 85,
+                    "progress": progress,
                     "current_stage": stage_text,
                     "target_duration_seconds": int(p.duration or 0),
                     "type": "audio",

@@ -36,6 +36,7 @@ class AudioSpacerService:
     def __init__(self):
         self.ffmpeg_bin = "ffmpeg"
         self.ffprobe_bin = "ffprobe"
+        self.transcription_progress: Dict[str, Dict[str, Any]] = {}
 
     def parse_script(self, script_text: str) -> List[Dict[str, Any]]:
         """
@@ -211,10 +212,11 @@ class AudioSpacerService:
             })
         return silences
 
-    async def transcribe_audio(self, audio_file_path: Path) -> List[Dict[str, Any]]:
+    async def transcribe_audio(self, audio_file_path: Path, job_key: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Transcribes speech audio into timestamped spoken phrases using Gemini Audio API.
         Converts audio to 16kHz mono WAV and uses candidate models with automatic retry and error reporting.
+        Reports real-time chunk completion progress so the UI never sits frozen at a static percentage.
         """
         api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY")
         if not api_key or len(api_key.strip()) < 5:
@@ -239,6 +241,15 @@ class AudioSpacerService:
         last_error_detail = None
         sem = asyncio.Semaphore(2)  # Process 2 chunks concurrently for 2x speedup without exceeding quota
 
+        actual_key = job_key or audio_file_path.stem
+        completed_chunks = 0
+        self.transcription_progress[actual_key] = {
+            "completed": 0,
+            "total": num_chunks,
+            "progress": 10,
+            "stage": f"Transcribing chunk 0/{num_chunks}..."
+        }
+
         prompt = """Transcribe this voiceover speech into timestamped phrases/sentences.
 Return ONLY a valid JSON array of objects with keys start_seconds, end_seconds, text.
 Example:
@@ -252,7 +263,8 @@ Example:
 Do not wrap in markdown, return pure JSON."""
 
         async def process_chunk(chunk_idx: int) -> List[Dict[str, Any]]:
-            nonlocal last_error_detail
+            nonlocal last_error_detail, completed_chunks
+            chunk_results: List[Dict[str, Any]] = []
             async with sem:
                 start_offset = chunk_idx * chunk_duration
                 chunk_wav = settings.CACHE_DIR / f"{audio_file_path.stem}_chunk_{chunk_idx}.wav"
@@ -272,96 +284,110 @@ Do not wrap in markdown, return pure JSON."""
                     with open(chunk_wav, "rb") as f:
                         audio_bytes = f.read()
 
-                    if len(audio_bytes) < 1000:
-                        return []
-
-                    b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
-                    payload = {
-                        "contents": [{
-                            "parts": [
-                                {"inline_data": {"mime_type": "audio/wav", "data": b64_audio}},
-                                {"text": prompt}
-                            ]
-                        }],
-                        "generationConfig": {
-                            "temperature": 0.1,
-                            "response_mime_type": "application/json"
+                    if len(audio_bytes) >= 1000:
+                        b64_audio = base64.b64encode(audio_bytes).decode("utf-8")
+                        payload = {
+                            "contents": [{
+                                "parts": [
+                                    {"inline_data": {"mime_type": "audio/wav", "data": b64_audio}},
+                                    {"text": prompt}
+                                ]
+                            }],
+                            "generationConfig": {
+                                "temperature": 0.1,
+                                "response_mime_type": "application/json"
+                            }
                         }
-                    }
 
-                    async with httpx.AsyncClient(timeout=45.0) as client:
-                        for model_name in candidate_models:
-                            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-                            try:
-                                resp = await client.post(url, json=payload)
-                                if resp.status_code == 200:
-                                    data = resp.json()
-                                    raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-                                    raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
-                                    raw_text = re.sub(r'\s*```$', '', raw_text)
+                        async with httpx.AsyncClient(timeout=45.0) as client:
+                            for model_name in candidate_models:
+                                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+                                try:
+                                    resp = await client.post(url, json=payload)
+                                    if resp.status_code == 200:
+                                        data = resp.json()
+                                        raw_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                                        raw_text = re.sub(r'^```(?:json)?\s*', '', raw_text, flags=re.IGNORECASE)
+                                        raw_text = re.sub(r'\s*```$', '', raw_text)
 
-                                    match = re.search(r'(\[.*\]|\{.*\})', raw_text, re.DOTALL)
-                                    raw_json = match.group(1) if match else raw_text
+                                        match = re.search(r'(\[.*\]|\{.*\})', raw_text, re.DOTALL)
+                                        raw_json = match.group(1) if match else raw_text
 
-                                    try:
-                                        parsed = json.loads(raw_json)
-                                    except Exception:
-                                        array_match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
-                                        if array_match:
-                                            parsed = json.loads(array_match.group(0))
-                                        else:
-                                            continue
+                                        try:
+                                            parsed = json.loads(raw_json)
+                                        except Exception:
+                                            array_match = re.search(r'\[\s*\{.*?\}\s*\]', raw_text, re.DOTALL)
+                                            if array_match:
+                                                parsed = json.loads(array_match.group(0))
+                                            else:
+                                                continue
 
-                                    if isinstance(parsed, dict):
-                                        for k in ["phrases", "segments", "transcriptions", "transcript", "items", "results"]:
-                                            if k in parsed and isinstance(parsed[k], list):
-                                                parsed = parsed[k]
-                                                break
+                                        if isinstance(parsed, dict):
+                                            for k in ["phrases", "segments", "transcriptions", "transcript", "items", "results"]:
+                                                if k in parsed and isinstance(parsed[k], list):
+                                                    parsed = parsed[k]
+                                                    break
 
-                                    chunk_items = []
-                                    if isinstance(parsed, list):
-                                        for item in parsed:
-                                            if isinstance(item, dict):
-                                                txt = str(item.get("text") or item.get("phrase") or item.get("transcript") or "").strip()
-                                                if txt:
-                                                    start_val = item.get("start_seconds") or item.get("start") or item.get("startTime") or item.get("start_time") or 0.0
-                                                    end_val = item.get("end_seconds") or item.get("end") or item.get("endTime") or item.get("end_time") or (float(start_val) + 2.0)
-                                                    chunk_items.append({
-                                                        "start_seconds": round(float(start_val) + start_offset, 2),
-                                                        "end_seconds": round(float(end_val) + start_offset, 2),
-                                                        "text": txt
-                                                    })
+                                        chunk_items = []
+                                        if isinstance(parsed, list):
+                                            for item in parsed:
+                                                if isinstance(item, dict):
+                                                    txt = str(item.get("text") or item.get("phrase") or item.get("transcript") or "").strip()
+                                                    if txt:
+                                                        start_val = item.get("start_seconds") or item.get("start") or item.get("startTime") or item.get("start_time") or 0.0
+                                                        end_val = item.get("end_seconds") or item.get("end") or item.get("endTime") or item.get("end_time") or (float(start_val) + 2.0)
+                                                        chunk_items.append({
+                                                            "start_seconds": round(float(start_val) + start_offset, 2),
+                                                            "end_seconds": round(float(end_val) + start_offset, 2),
+                                                            "text": txt
+                                                        })
 
-                                    if chunk_items:
-                                        logger.info(f"Chunk {chunk_idx + 1}/{num_chunks} transcribed: {len(chunk_items)} phrases.")
-                                        return chunk_items
-                                elif resp.status_code == 429:
-                                    last_error_detail = "Google API Quota Exceeded (HTTP 429). Please retry shortly."
-                                    logger.warning(f"Model {model_name} quota error 429")
-                                elif resp.status_code == 503:
-                                    last_error_detail = f"Google Gemini Servers Busy (HTTP 503). Model {model_name}."
-                                    logger.warning(f"Model {model_name} busy 503")
-                                else:
-                                    last_error_detail = f"Google API returned error {resp.status_code}: {resp.text[:120]}"
-                                    logger.warning(f"Model {model_name} status {resp.status_code}: {resp.text[:100]}")
-                            except Exception as ex:
-                                last_error_detail = f"Network error contacting Google Gemini: {str(ex)}"
-                                logger.warning(f"Model {model_name} chunk {chunk_idx} error: {ex}")
+                                        if chunk_items:
+                                            logger.info(f"Chunk {chunk_idx + 1}/{num_chunks} transcribed: {len(chunk_items)} phrases.")
+                                            chunk_results = chunk_items
+                                            break
+                                    elif resp.status_code == 429:
+                                        last_error_detail = "Google API Quota Exceeded (HTTP 429). Please retry shortly."
+                                        logger.warning(f"Model {model_name} quota error 429")
+                                    elif resp.status_code == 503:
+                                        last_error_detail = f"Google Gemini Servers Busy (HTTP 503). Model {model_name}."
+                                        logger.warning(f"Model {model_name} busy 503")
+                                    else:
+                                        last_error_detail = f"Google API returned error {resp.status_code}: {resp.text[:120]}"
+                                        logger.warning(f"Model {model_name} status {resp.status_code}: {resp.text[:100]}")
+                                except Exception as ex:
+                                    last_error_detail = f"Network error contacting Google Gemini: {str(ex)}"
+                                    logger.warning(f"Model {model_name} chunk {chunk_idx} error: {ex}")
                 except Exception as e:
                     last_error_detail = f"Audio processing error: {str(e)}"
                     logger.warning(f"Error processing chunk {chunk_idx}: {e}")
                 finally:
+                    completed_chunks += 1
+                    pct = 10 + int((completed_chunks / num_chunks) * 80)
+                    self.transcription_progress[actual_key] = {
+                        "completed": completed_chunks,
+                        "total": num_chunks,
+                        "progress": min(90, pct),
+                        "stage": f"Transcribing chunk {completed_chunks}/{num_chunks} ({pct}%)..."
+                    }
                     if chunk_wav.exists():
                         try:
                             chunk_wav.unlink()
                         except Exception:
                             pass
-                return []
+                return chunk_results
 
         # Process chunks with bounded concurrency
         chunk_tasks = [process_chunk(i) for i in range(num_chunks)]
         results = await asyncio.gather(*chunk_tasks)
         all_transcriptions = [item for sub in results for item in sub]
+
+        self.transcription_progress[actual_key] = {
+            "completed": num_chunks,
+            "total": num_chunks,
+            "progress": 95,
+            "stage": "Aligning speech phrases and silences..."
+        }
 
         if not all_transcriptions:
             msg = last_error_detail or "Gemini speech transcription did not detect any speech in the audio track."

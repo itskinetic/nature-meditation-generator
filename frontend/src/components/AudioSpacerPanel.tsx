@@ -1659,6 +1659,28 @@ export const AudioSpacerPanel: React.FC<AudioSpacerPanelProps> = ({
                             )}
                           </button>
                         )}
+
+                        {/* Cancel button if actively transcribing */}
+                        {proj.status === 'transcribing' && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await api.cancelJob(`audio_${proj.id}`);
+                                queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+                                queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
+                              } catch (err: any) {
+                                setErrorMessage(err.message || 'Failed to cancel transcription');
+                              }
+                            }}
+                            className="px-2 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 bg-stone-100 hover:bg-rose-500 hover:text-white text-stone-600 dark:bg-stone-800 dark:text-stone-300 dark:hover:bg-rose-600 dark:hover:text-white transition-all cursor-pointer shadow-xs"
+                            title="Cancel transcription"
+                          >
+                            <X className="w-3 h-3" />
+                            <span>Cancel</span>
+                          </button>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1">
