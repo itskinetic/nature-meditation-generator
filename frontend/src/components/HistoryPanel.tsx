@@ -268,7 +268,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         <div className="space-y-3.5">
           {filteredHistory.map((job) => {
             const isCompleted = job.status === 'completed';
-            const isFailed = job.status === 'failed' || job.status === 'cancelled';
+            const isCancelled = job.status === 'cancelled';
+            const isFailed = job.status === 'failed';
+            const isInterrupted = !isCompleted && !isFailed && !isCancelled;
             const isFileReady = isCompleted && Boolean(job.file_exists && job.download_url);
             const isPurged = isCompleted && !job.file_exists;
             const isPreviewOpen = previewingJobId === job.job_id;
@@ -315,6 +317,20 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 flex items-center gap-1">
                           <AlertCircle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
                           Failed
+                        </span>
+                      )}
+
+                      {isCancelled && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 flex items-center gap-1">
+                          <X className="w-3 h-3 text-stone-500" />
+                          Cancelled
+                        </span>
+                      )}
+
+                      {isInterrupted && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                          Interrupted / Rebooted
                         </span>
                       )}
 
@@ -398,14 +414,16 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   </div>
                 )}
 
-                {/* Failure Diagnostic Box */}
-                {isFailed && (job.error_message || job.current_stage) && (
+                {/* Failure / Interrupted Diagnostic Box */}
+                {!isCompleted && (
                   <div className="mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                     <div className="space-y-0.5 min-w-0">
-                      <span className="font-bold text-rose-900 dark:text-rose-200 block">Failure Reason</span>
+                      <span className="font-bold text-rose-900 dark:text-rose-200 block">
+                        {isCancelled ? 'Job Cancelled' : isFailed ? 'Failure Reason' : 'Interrupted by Server Restart'}
+                      </span>
                       <p className="font-mono text-[11px] opacity-90 break-words leading-relaxed">
-                        {job.error_message || job.current_stage}
+                        {job.error_message || job.current_stage || 'This job was interrupted before footage clips were finalized (likely during a server reboot). Click "Re-run in Studio" to restart it.'}
                       </p>
                     </div>
                   </div>

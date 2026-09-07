@@ -35,20 +35,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Initial render cleanup error: {e}")
 
-    # Reset any orphaned transcribing/processing audio tasks from container restarts
+    # Reset any orphaned transcribing/processing audio tasks or video generation jobs from container restarts
     try:
         from backend.app.database import SessionLocal
-        from backend.app.models import AudioProject
+        from backend.app.models import AudioProject, GenerationJob
         db = SessionLocal()
-        orphaned = db.query(AudioProject).filter(AudioProject.status.in_(["transcribing", "processing"])).all()
-        for p in orphaned:
+        orphaned_audio = db.query(AudioProject).filter(AudioProject.status.in_(["transcribing", "processing"])).all()
+        for p in orphaned_audio:
             p.status = "unprocessed"
-        if orphaned:
+        if orphaned_audio:
             db.commit()
-            logger.info(f"Reset {len(orphaned)} orphaned audio tasks to 'unprocessed' on startup.")
+            logger.info(f"Reset {len(orphaned_audio)} orphaned audio tasks to 'unprocessed' on startup.")
+
+        active_video_statuses = ["pending", "queued", "analyzing", "searching", "scoring", "downloading", "evaluating", "rendering", "stitching"]
+        orphaned_video = db.query(GenerationJob).filter(GenerationJob.status.in_(active_video_statuses)).all()
+        for j in orphaned_video:
+            j.status = "failed"
+            j.error_message = "Generation was interrupted by server restart or crash."
+            j.current_stage = "Interrupted by server reboot"
+        if orphaned_video:
+            db.commit()
+            logger.info(f"Marked {len(orphaned_video)} orphaned video generation jobs as failed on startup.")
+
         db.close()
     except Exception as e:
-        logger.warning(f"Error resetting orphaned audio tasks on startup: {e}")
+        logger.warning(f"Error resetting orphaned tasks on startup: {e}")
         
     cleanup_task = asyncio.create_task(periodic_cleanup_loop())
     yield
