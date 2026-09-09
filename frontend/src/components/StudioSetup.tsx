@@ -167,9 +167,11 @@ interface StudioSetupProps {
   setScript: (val: string) => void;
   settings: GenerationRequest;
   setSettings: React.Dispatch<React.SetStateAction<GenerationRequest>>;
-  presets: Record<string, Preset>;
-  selectedNatures: Record<string, SelectedNatureItem>;
-  setSelectedNatures: React.Dispatch<React.SetStateAction<Record<string, SelectedNatureItem>>>;
+  presets?: Record<string, Preset>;
+  searchKeywords?: string[];
+  setSearchKeywords?: React.Dispatch<React.SetStateAction<string[]>>;
+  selectedNatures?: Record<string, SelectedNatureItem>;
+  setSelectedNatures?: React.Dispatch<React.SetStateAction<Record<string, SelectedNatureItem>>>;
   onUploadMusic: (file: File) => void;
   isUploadingMusic: boolean;
   customMusicName?: string;
@@ -177,6 +179,7 @@ interface StudioSetupProps {
   isSearching: boolean;
   onAutoPlanAI: () => void;
   isPlanningAI: boolean;
+  onRegenerateKeywords?: () => void;
   analysis?: IntentAnalysisResult | null;
   excludeAllHistory?: boolean;
   setExcludeAllHistory?: (val: boolean) => void;
@@ -196,7 +199,9 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   settings,
   setSettings,
   presets,
-  selectedNatures,
+  searchKeywords = [],
+  setSearchKeywords,
+  selectedNatures = {},
   setSelectedNatures,
   onUploadMusic,
   isUploadingMusic,
@@ -205,6 +210,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   isSearching,
   onAutoPlanAI,
   isPlanningAI,
+  onRegenerateKeywords,
   analysis,
   excludeAllHistory = false,
   setExcludeAllHistory,
@@ -216,11 +222,85 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   onPreviewCandidate,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [showCustomForm, setShowCustomForm] = useState<boolean>(false);
-  const [customName, setCustomName] = useState<string>('');
-  const [customQueries, setCustomQueries] = useState<string>('');
-  const [editingKeyword, setEditingKeyword] = useState<{ sceneId: string; index: number } | null>(null);
-  const [newKeywordInput, setNewKeywordInput] = useState<{ [sceneId: string]: string }>({});
+  // Direct Keyword Workspace State
+  const [keywordInput, setKeywordInput] = useState<string>('');
+  const [editingKeywordIndex, setEditingKeywordIndex] = useState<number | null>(null);
+  const [regeneratingIdx, setRegeneratingIdx] = useState<number | null>(null);
+  const [showBulkModal, setShowBulkModal] = useState<boolean>(false);
+  const [bulkInputText, setBulkInputText] = useState<string>('');
+
+  const activeKeywords = searchKeywords || [];
+
+  const handleRegenerateOne = async (index: number, oldKw: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (regeneratingIdx !== null) return;
+    setRegeneratingIdx(index);
+    try {
+      const res = await api.regenerateOneKeyword({
+        bad_keyword: oldKw,
+        title,
+        script,
+        existing_queries: activeKeywords,
+        studio_mode: settings.studio_mode || 'meditation',
+      });
+      if (res.new_keyword && setSearchKeywords) {
+        setSearchKeywords((prev) => prev.map((k, i) => (i === index ? res.new_keyword : k)));
+      }
+    } catch (err) {
+      console.warn('Failed to regenerate single keyword:', err);
+    } finally {
+      setRegeneratingIdx(null);
+    }
+  };
+
+  const handleAddKeyword = (kw: string) => {
+    const clean = kw.trim();
+    if (!clean) return;
+    if (setSearchKeywords && !activeKeywords.some((k) => k.toLowerCase() === clean.toLowerCase())) {
+      setSearchKeywords((prev) => [...prev, clean]);
+    }
+    setKeywordInput('');
+  };
+
+  const handleRemoveKeyword = (index: number) => {
+    if (setSearchKeywords) {
+      setSearchKeywords((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleUpdateSingleKeyword = (index: number, newKw: string) => {
+    const clean = newKw.trim();
+    if (setSearchKeywords) {
+      if (clean) {
+        setSearchKeywords((prev) => prev.map((k, i) => (i === index ? clean : k)));
+      } else {
+        setSearchKeywords((prev) => prev.filter((_, i) => i !== index));
+      }
+    }
+    setEditingKeywordIndex(null);
+  };
+
+  const handleBulkAdd = () => {
+    if (!bulkInputText.trim() || !setSearchKeywords) return;
+    const splitKeywords = bulkInputText
+      .split(/[\n,]+/)
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+    setSearchKeywords((prev) => {
+      const existing = new Set(prev.map((k) => k.toLowerCase()));
+      const added: string[] = [];
+      for (const kw of splitKeywords) {
+        if (!existing.has(kw.toLowerCase())) {
+          existing.add(kw.toLowerCase());
+          added.push(kw);
+        }
+      }
+      return [...prev, ...added];
+    });
+    setBulkInputText('');
+    setShowBulkModal(false);
+  };
 
   // Keyword Bank & Favorites State
   const [showKeywordBank, setShowKeywordBank] = useState<boolean>(false);
@@ -292,25 +372,15 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
     }
   };
 
-  const handleInsertFromBank = (keyword: string, targetSceneId?: string) => {
+  const handleInsertFromBank = (keyword: string) => {
     const clean = keyword.trim();
     if (!clean) return;
-    const sceneKeys = Object.keys(selectedNatures);
-    const destId = targetSceneId || selectedTargetSceneId || sceneKeys[0];
-
-    if (destId && selectedNatures[destId]) {
-      setSelectedNatures((prev) => {
-        const queries = [...(prev[destId].queries || [])];
-        if (!queries.includes(clean)) {
-          queries.push(clean);
+    if (setSearchKeywords) {
+      setSearchKeywords((prev) => {
+        if (!prev.some((k) => k.toLowerCase() === clean.toLowerCase())) {
+          return [...prev, clean];
         }
-        return {
-          ...prev,
-          [destId]: {
-            ...prev[destId],
-            queries,
-          },
-        };
+        return prev;
       });
     }
   };
@@ -320,137 +390,6 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
   const updateSetting = <K extends keyof GenerationRequest>(key: K, value: GenerationRequest[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
-
-  // Remove a scene from active plan
-  const removeNature = (id: string) => {
-    setSelectedNatures((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  };
-
-  // Keyword management handlers
-  const handleUpdateKeyword = (sceneId: string, index: number, value: string) => {
-    const val = value.trim();
-    setSelectedNatures((prev) => {
-      if (!prev[sceneId]) return prev;
-      const queries = [...(prev[sceneId].queries || [])];
-      if (val) {
-        queries[index] = val;
-      } else {
-        queries.splice(index, 1);
-      }
-      return {
-        ...prev,
-        [sceneId]: {
-          ...prev[sceneId],
-          queries,
-        },
-      };
-    });
-    setEditingKeyword(null);
-  };
-
-  const handleRemoveKeyword = (sceneId: string, index: number) => {
-    setSelectedNatures((prev) => {
-      if (!prev[sceneId]) return prev;
-      const queries = [...(prev[sceneId].queries || [])];
-      queries.splice(index, 1);
-      return {
-        ...prev,
-        [sceneId]: {
-          ...prev[sceneId],
-          queries,
-        },
-      };
-    });
-  };
-
-  const handleAddKeywordToScene = (sceneId: string) => {
-    const text = (newKeywordInput[sceneId] || '').trim();
-    if (!text) return;
-    setSelectedNatures((prev) => {
-      if (!prev[sceneId]) return prev;
-      const queries = [...(prev[sceneId].queries || []), text];
-      return {
-        ...prev,
-        [sceneId]: {
-          ...prev[sceneId],
-          queries,
-        },
-      };
-    });
-    setNewKeywordInput((prev) => ({ ...prev, [sceneId]: '' }));
-  };
-
-  // Update clip count for a selected scene
-  const updateClipCount = (id: string, count: number) => {
-    setSelectedNatures((prev) => {
-      if (!prev[id]) return prev;
-      return {
-        ...prev,
-        [id]: {
-          ...prev[id],
-          clipCount: Math.max(1, count),
-        },
-      };
-    });
-  };
-
-  // Auto-balance clips evenly across all selected themes
-  const autoBalanceClips = () => {
-    const keys = Object.keys(selectedNatures);
-    if (keys.length === 0) return;
-    const totalMax = settings.maximum_unique_videos || 50;
-    const countPerTheme = Math.max(1, Math.floor(totalMax / keys.length));
-    const remainder = totalMax % keys.length;
-
-    setSelectedNatures((prev) => {
-      const next = { ...prev };
-      keys.forEach((k, idx) => {
-        next[k] = {
-          ...next[k],
-          clipCount: countPerTheme + (idx < remainder ? 1 : 0),
-        };
-      });
-      return next;
-    });
-  };
-
-  // Add custom nature theme
-  const handleAddCustom = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!customName.trim()) return;
-    const qList = customQueries
-      .split(',')
-      .map((q) => q.trim())
-      .filter(Boolean);
-
-    const customId = `custom_${Date.now()}`;
-    setSelectedNatures((prev) => ({
-      ...prev,
-      [customId]: {
-        id: customId,
-        name: customName.trim(),
-        icon: '✨',
-        category: 'Custom',
-        clipCount: 10,
-        queries: qList.length > 0 ? qList : [customName.trim()],
-        isCustom: true,
-      },
-    }));
-
-    setCustomName('');
-    setCustomQueries('');
-    setShowCustomForm(false);
-  };
-
-  const selectedList = Object.values(selectedNatures);
-  const totalAllocatedClips = selectedList.reduce((acc, curr) => acc + curr.clipCount, 0);
-
-  const uniquePresets = Array.from(new Map(Object.values(presets).map((p) => [p.id, p])).values());
-  const filteredPresetList = uniquePresets;
 
   return (
     <div className="bg-white dark:bg-stone-900/80 border border-stone-200/90 dark:border-stone-800/80 rounded-3xl p-5 sm:p-7 shadow-sm dark:shadow-xl dark:shadow-black/20 backdrop-blur-sm space-y-5 sm:space-y-6 transition-colors duration-200">
@@ -564,7 +503,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
             className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 disabled:opacity-50 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
           >
             <Wand2 className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-            <span>{isPlanningAI ? 'Analyzing Concept...' : (isDocMode ? 'AI Director: Plan Wildlife Scenes' : 'Analyze & Suggest Themes')}</span>
+            <span>{isPlanningAI ? 'Extracting Keywords...' : (isDocMode ? 'AI Director: Plan Wildlife Scenes' : 'AI Director: Suggest Keywords')}</span>
           </button>
 
           {isDocMode && onBreakdownStoryboard && (
@@ -591,255 +530,189 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
         />
       )}
 
-      {/* 2. DYNAMIC AI-EXTRACTED VISUAL SCENES & NARRATIVE CUES */}
-      {(selectedList.length > 0 || !!analysis) && (
-        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
-                Dynamic AI Visual Scenes & Keywords
-              </h3>
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
-                {selectedList.length} Scenes • {totalAllocatedClips} Clips
-              </span>
-            </div>
+      {/* 2. DYNAMIC SEARCH KEYWORDS WORKSPACE */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-3.5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Compass className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-xs font-semibold text-amber-950 dark:text-amber-300 uppercase tracking-wider">
+              Search Keywords
+            </h3>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200">
+              {activeKeywords.length} Keywords • {settings.maximum_unique_videos} Target Clips
+            </span>
+          </div>
 
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {onRegenerateKeywords && (
               <button
                 type="button"
-                onClick={() => {
-                  loadKeywordBank();
-                  setShowKeywordBank(true);
-                }}
-                className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                title="Open Saved & Favorite Keyword Bank"
+                onClick={onRegenerateKeywords}
+                disabled={isPlanningAI}
+                className="h-8 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-300 dark:border-amber-700 text-xs font-semibold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                title="Regenerate all keywords with a fresh creative angle"
               >
-                <BookMarked className="w-3.5 h-3.5 text-amber-500" />
-                <span>Keyword Bank ({bankItems.length})</span>
+                <RefreshCw className={`w-3.5 h-3.5 text-amber-600 dark:text-amber-400 ${isPlanningAI ? 'animate-spin' : ''}`} />
+                <span>{isPlanningAI ? 'Regenerating...' : 'Regenerate Keywords'}</span>
               </button>
+            )}
 
-              {selectedList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                loadKeywordBank();
+                setShowKeywordBank(true);
+              }}
+              className="h-8 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Open Saved & Favorite Keyword Bank"
+            >
+              <BookMarked className="w-3.5 h-3.5 text-amber-500" />
+              <span>Keyword Bank ({bankItems.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowBulkModal(true)}
+              className="h-8 px-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Bulk paste keywords"
+            >
+              <Plus className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>Bulk Paste</span>
+            </button>
+
+            {activeKeywords.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchKeywords && setSearchKeywords([])}
+                className="h-8 px-2.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 shadow-xs transition-colors cursor-pointer"
+                title="Clear all search keywords"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* AI Intent & Mood Metadata Banner */}
+        {analysis && (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-white/90 dark:bg-stone-900/90 border border-amber-200/60 dark:border-amber-800/40 text-xs">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <span className="font-semibold text-stone-500 dark:text-stone-400">Narrative Intent:</span>
+              <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
+            </div>
+            {analysis.mood && analysis.mood.length > 0 && (
+              <div className="flex items-center gap-1 shrink-0">
+                {analysis.mood.slice(0, 4).map((m) => (
+                  <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/40">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Interactive Keywords Cloud */}
+        <div className="p-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs">
+          <div className="flex items-center justify-between text-[10px] text-stone-400 mb-2.5">
+            <span className="font-medium">Click keyword to edit • Click refresh to regenerate • Click star to save to bank</span>
+            <span>{activeKeywords.length} active queries</span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {activeKeywords.map((q, idx) => {
+              const isEditing = editingKeywordIndex === idx;
+              const isRegeneratingThis = regeneratingIdx === idx;
+              return isEditing ? (
+                <input
+                  key={idx}
+                  type="text"
+                  defaultValue={q}
+                  autoFocus
+                  onBlur={(e) => handleUpdateSingleKeyword(idx, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleUpdateSingleKeyword(idx, (e.target as HTMLInputElement).value);
+                    if (e.key === 'Escape') setEditingKeywordIndex(null);
+                  }}
+                  className="h-7 px-2.5 text-xs font-medium bg-amber-50 dark:bg-amber-950 border border-amber-400 rounded-lg text-amber-950 dark:text-amber-100 outline-none shadow-xs min-w-[200px]"
+                />
+              ) : (
+                <div
+                  key={idx}
+                  className="group flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100/90 dark:bg-stone-800/90 hover:bg-amber-50/80 dark:hover:bg-amber-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-xs text-stone-800 dark:text-stone-200 shadow-2xs"
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => handleToggleFavorite(q, e)}
+                    title={favoriteKeywordSet.has(q.toLowerCase().trim()) ? "Saved Favorite (in Keyword Bank)" : "Save to Favorite Keyword Bank"}
+                    className="p-0.5 rounded cursor-pointer transition-colors shrink-0"
+                  >
+                    <Star className={`w-3.5 h-3.5 ${favoriteKeywordSet.has(q.toLowerCase().trim()) ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
+                  </button>
+                  <span
+                    onClick={() => setEditingKeywordIndex(idx)}
+                    className="cursor-pointer hover:underline font-medium select-text"
+                    title="Click to edit keyword"
+                  >
+                    {q}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isRegeneratingThis}
+                    onClick={(e) => handleRegenerateOne(idx, q, e)}
+                    title="Regenerate this keyword with an alternative"
+                    className="text-stone-400 hover:text-amber-600 dark:hover:text-amber-400 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100 shrink-0 ml-0.5"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isRegeneratingThis ? 'animate-spin text-amber-500' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveKeyword(idx)}
+                    title="Remove keyword"
+                    className="text-stone-400 hover:text-rose-600 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100 shrink-0 ml-0.5"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Inline Quick Add Field */}
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={keywordInput}
+                onChange={(e) => setKeywordInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    if (keywordInput.trim()) {
+                      handleAddKeyword(keywordInput);
+                    }
+                  }
+                }}
+                placeholder="+ Add keyword (press Enter)..."
+                className="h-7 px-3 text-xs bg-transparent border border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-400 rounded-xl text-stone-700 dark:text-stone-300 placeholder:text-stone-400 focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 w-56 transition-all"
+              />
+              {keywordInput.trim() && (
                 <button
                   type="button"
-                  onClick={autoBalanceClips}
-                  className="h-9 px-3.5 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-xs font-medium text-stone-700 dark:text-stone-300 hover:text-stone-950 dark:hover:text-white flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  onClick={() => handleAddKeyword(keywordInput)}
+                  className="h-7 px-2.5 rounded-xl bg-amber-500 text-stone-950 text-xs font-bold cursor-pointer"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-stone-400" />
-                  <span>Balance Clips</span>
+                  Add
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setShowCustomForm(!showCustomForm)}
-                className="h-9 px-3.5 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-                <span>+ Custom Scene</span>
-              </button>
             </div>
           </div>
 
-          {/* AI Intent & Mood Metadata Banner */}
-          {analysis && (
-            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 px-3.5 rounded-xl bg-white/90 dark:bg-stone-900/90 border border-amber-200/60 dark:border-amber-800/40 text-xs">
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="font-semibold text-stone-500 dark:text-stone-400">Narrative Intent:</span>
-                <span className="font-medium text-stone-800 dark:text-stone-200 italic truncate">"{analysis.intent}"</span>
-              </div>
-              {analysis.mood && analysis.mood.length > 0 && (
-                <div className="flex items-center gap-1 shrink-0">
-                  {analysis.mood.slice(0, 3).map((m) => (
-                    <span key={m} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300/40">
-                      {m}
-                    </span>
-                  ))}
-                </div>
-              )}
+          {activeKeywords.length === 0 && (
+            <div className="py-4 text-center text-xs text-stone-400">
+              No keywords yet. Enter your meditation title or script and click <strong className="text-amber-600 dark:text-amber-400">Suggest Keywords</strong> above, or type custom keywords.
             </div>
-          )}
-
-          {/* Dynamic AI Scenes Review Grid */}
-          {selectedList.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {selectedList.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex flex-col justify-between gap-2 p-3 rounded-xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800/90 shadow-xs hover:border-amber-400/60 dark:hover:border-amber-600/60 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-base">{item.icon || '🌲'}</span>
-                      <span className="text-xs font-semibold text-stone-800 dark:text-stone-200 truncate">
-                        {item.name}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* Clip Stepper */}
-                      <div className="flex items-center gap-1 bg-stone-100 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-lg px-1.5 py-0.5">
-                        <button
-                          type="button"
-                          onClick={() => updateClipCount(item.id, item.clipCount - 1)}
-                          className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300 w-3.5 text-center">
-                          {item.clipCount}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateClipCount(item.id, item.clipCount + 1)}
-                          className="text-xs font-bold text-stone-500 hover:text-stone-900 dark:hover:text-white px-0.5 cursor-pointer"
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      {/* Remove Scene Button */}
-                      <button
-                        type="button"
-                        onClick={() => removeNature(item.id)}
-                        title="Remove scene from plan"
-                        className="p-1 rounded-md text-stone-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Interactive Keywords Review & Edit Section */}
-                  <div className="pt-2 border-t border-stone-100 dark:border-stone-800/60 space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] text-stone-400">
-                      <span className="font-semibold uppercase tracking-wider text-stone-500 dark:text-stone-400">
-                        Search Keywords ({item.queries?.length || 0})
-                      </span>
-                      <span className="text-[9px] text-stone-400">Click keyword to edit</span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {item.queries?.map((q, qIdx) => {
-                        const isEditing = editingKeyword?.sceneId === item.id && editingKeyword?.index === qIdx;
-                        return isEditing ? (
-                          <input
-                            key={qIdx}
-                            type="text"
-                            defaultValue={q}
-                            autoFocus
-                            onBlur={(e) => handleUpdateKeyword(item.id, qIdx, e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleUpdateKeyword(item.id, qIdx, (e.target as HTMLInputElement).value);
-                              if (e.key === 'Escape') setEditingKeyword(null);
-                            }}
-                            className="h-6 px-2 text-[11px] font-medium bg-amber-50 dark:bg-amber-950 border border-amber-400 rounded-md text-amber-950 dark:text-amber-100 outline-none shadow-xs"
-                          />
-                        ) : (
-                          <div
-                            key={qIdx}
-                            className="group/kw flex items-start gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100/90 dark:bg-stone-800/90 hover:bg-amber-50/80 dark:hover:bg-amber-950/40 border border-stone-200/80 dark:border-stone-700/80 hover:border-amber-300 dark:hover:border-amber-700 transition-all text-[11px] text-stone-800 dark:text-stone-200 w-full"
-                          >
-                            <button
-                              type="button"
-                              onClick={(e) => handleToggleFavorite(q, e)}
-                              title={favoriteKeywordSet.has(q.toLowerCase().trim()) ? "Saved Favorite (in Keyword Bank)" : "Save to Favorite Keyword Bank"}
-                              className="p-0.5 rounded cursor-pointer transition-colors mt-0.5 shrink-0"
-                            >
-                              <Star className={`w-3 h-3 ${favoriteKeywordSet.has(q.toLowerCase().trim()) ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-600 hover:text-amber-400'}`} />
-                            </button>
-                            <span
-                              onClick={() => setEditingKeyword({ sceneId: item.id, index: qIdx })}
-                              className="cursor-pointer hover:underline whitespace-normal break-words leading-tight flex-1 select-text"
-                              title="Click to edit keyword"
-                            >
-                              {q}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveKeyword(item.id, qIdx)}
-                              title="Remove keyword"
-                              className="text-stone-400 hover:text-rose-600 rounded p-0.5 cursor-pointer opacity-70 hover:opacity-100 shrink-0 mt-0.5"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        );
-                      })}
-
-                      {/* Add Keyword Chip */}
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="text"
-                          value={newKeywordInput[item.id] || ''}
-                          onChange={(e) => setNewKeywordInput((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddKeywordToScene(item.id);
-                            }
-                          }}
-                          placeholder="+ Add keyword..."
-                          className="h-6 px-2 text-[10px] bg-transparent border border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-400 rounded-md text-stone-700 dark:text-stone-300 placeholder:text-stone-400 focus:outline-none focus:border-amber-500 focus:bg-white dark:focus:bg-stone-900 w-28 transition-all"
-                        />
-                        {newKeywordInput[item.id] && (
-                          <button
-                            type="button"
-                            onClick={() => handleAddKeywordToScene(item.id)}
-                            className="h-6 px-1.5 rounded bg-amber-500 text-stone-950 text-[10px] font-bold cursor-pointer"
-                          >
-                            Add
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Custom Scene Inline Form */}
-          {showCustomForm && (
-            <form
-              onSubmit={handleAddCustom}
-              className="bg-white dark:bg-stone-900 border border-amber-300 dark:border-amber-800/80 rounded-xl p-3 space-y-2 animate-in fade-in zoom-in-95 duration-150"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={customName}
-                  onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="Scene name (e.g. Bioluminescent Deep Sea)"
-                  className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
-                  required
-                />
-                <input
-                  type="text"
-                  value={customQueries}
-                  onChange={(e) => setCustomQueries(e.target.value)}
-                  placeholder="Stock search keywords (e.g. bioluminescent jellyfish ocean 4k)"
-                  className="h-9 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl px-3 text-xs text-stone-900 dark:text-white"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomForm(false)}
-                  className="h-9 px-3.5 rounded-xl text-xs text-stone-500 hover:text-stone-900 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="h-9 px-3.5 bg-amber-100 dark:bg-amber-950/80 hover:bg-amber-200/80 dark:hover:bg-amber-900/80 border border-amber-300/80 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 font-medium rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  Add Scene
-                </button>
-              </div>
-            </form>
           )}
         </div>
-      )}
+      </div>
 
       {/* 4. SETTINGS & HISTORY REUSE CONTROLS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 pt-3 border-t border-stone-200 dark:border-stone-800">
@@ -1176,25 +1049,25 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
       {/* 5. PRIMARY ACTION BAR */}
       <div className="pt-3 border-t border-stone-200 dark:border-stone-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs text-stone-500 dark:text-stone-400 text-center sm:text-left">
-          {selectedList.length > 0 ? (
+          {activeKeywords.length > 0 ? (
             <>
               Target: <strong className="text-stone-900 dark:text-stone-200">{settings.target_duration} {settings.duration_unit || 'mins'}</strong> •{' '}
-              <strong className="text-amber-700 dark:text-amber-400">{selectedList.length} {selectedList.length === 1 ? 'scene' : 'scenes'}</strong> ({totalAllocatedClips} clips) •{' '}
+              <strong className="text-amber-700 dark:text-amber-400">{activeKeywords.length} {activeKeywords.length === 1 ? 'keyword' : 'keywords'}</strong> ({settings.maximum_unique_videos} clips) •{' '}
               <span className="font-medium text-stone-700 dark:text-stone-300">{settings.aspect_ratio} {settings.resolution}</span>
             </>
           ) : (
-            <span>Enter your narrative concept or script to discover and fetch matching 4K stock footage.</span>
+            <span>Enter search keywords or click "Suggest Keywords" to discover and fetch matching 4K stock footage.</span>
           )}
         </div>
 
         <button
           type="button"
           onClick={onSearchFootage}
-          disabled={isSearching || (!title.trim() && !script.trim() && selectedList.length === 0)}
+          disabled={isSearching || (!title.trim() && !script.trim() && activeKeywords.length === 0)}
           className="w-full sm:w-auto h-9 px-4 rounded-xl bg-amber-200/70 dark:bg-amber-950/80 hover:bg-amber-200 dark:hover:bg-amber-900 border border-amber-300/90 dark:border-amber-700/80 disabled:opacity-50 text-stone-950 dark:text-amber-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer shrink-0"
         >
           <Search className="w-3.5 h-3.5 text-stone-900 dark:text-amber-300" />
-          <span>{isSearching ? 'Searching & Evaluating Footage...' : (selectedList.length > 0 ? `Fetch Footage for Plan (${totalAllocatedClips} clips)` : 'Fetch Footage for Plan')}</span>
+          <span>{isSearching ? 'Searching & Evaluating Footage...' : (activeKeywords.length > 0 ? `Fetch Footage (${activeKeywords.length} keywords)` : 'Fetch Footage')}</span>
         </button>
       </div>
 
@@ -1260,36 +1133,16 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               </button>
             </div>
 
-            {/* Target Scene Selector & Search */}
-            <div className="p-3 border-b border-stone-100 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2 bg-stone-50/30 dark:bg-stone-950/30">
-              <div className="flex items-center gap-2 min-w-[220px]">
-                <span className="text-xs font-semibold text-stone-500 dark:text-stone-400">Insert into:</span>
-                <select
-                  value={selectedTargetSceneId || (selectedList[0]?.id || '')}
-                  onChange={(e) => setSelectedTargetSceneId(e.target.value)}
-                  className="h-8 px-2 text-xs bg-stone-100 dark:bg-stone-800 border border-stone-200 dark:border-stone-700 rounded-lg text-stone-800 dark:text-stone-200 font-medium cursor-pointer"
-                >
-                  {selectedList.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.icon || '🌲'} {s.name}
-                    </option>
-                  ))}
-                  {selectedList.length === 0 && (
-                    <option value="">(No active scenes)</option>
-                  )}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-1 max-w-xs">
-                <Search className="w-3.5 h-3.5 text-stone-400" />
-                <input
-                  type="text"
-                  value={bankSearch}
-                  onChange={(e) => setBankSearch(e.target.value)}
-                  placeholder="Search bank keywords..."
-                  className="w-full h-8 px-2.5 text-xs bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-lg outline-none text-stone-900 dark:text-white"
-                />
-              </div>
+            {/* Search Bar */}
+            <div className="p-3 border-b border-stone-100 dark:border-stone-800 flex items-center gap-2 bg-stone-50/30 dark:bg-stone-950/30">
+              <Search className="w-3.5 h-3.5 text-stone-400 shrink-0 ml-1" />
+              <input
+                type="text"
+                value={bankSearch}
+                onChange={(e) => setBankSearch(e.target.value)}
+                placeholder="Search saved bank keywords..."
+                className="w-full h-8 px-2.5 text-xs bg-stone-100/80 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700 rounded-lg outline-none text-stone-900 dark:text-white"
+              />
             </div>
 
             {/* Keywords List */}
@@ -1323,16 +1176,14 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {selectedList.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleInsertFromBank(item.keyword)}
-                          className="h-7 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                          <span>Insert</span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleInsertFromBank(item.keyword)}
+                        className="h-7 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold flex items-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Insert</span>
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => handleDeleteFromBank(item.id, e)}
@@ -1347,9 +1198,58 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
 
               {bankItems.length === 0 && (
                 <div className="text-center py-8 text-stone-400 text-xs">
-                  No keywords saved yet. Star any keyword pill in your scenes or type one above to save it to your bank!
+                  No keywords saved yet. Star any keyword pill in your studio or type one above to save it to your bank!
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK KEYWORD IMPORT MODAL */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-800">
+              <h3 className="text-sm font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                <Plus className="w-4 h-4 text-amber-500" />
+                <span>Bulk Import Search Keywords</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-600 dark:hover:text-stone-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
+              Paste keywords separated by commas or new lines. Duplicate phrases are automatically filtered.
+            </p>
+            <textarea
+              rows={6}
+              value={bulkInputText}
+              onChange={(e) => setBulkInputText(e.target.value)}
+              placeholder={`aerial redwood forest morning fog 4k\npeaceful alpine lake reflection daylight 4k\nslow motion turquoise waves sunny day 4k`}
+              className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-mono"
+              autoFocus
+            />
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowBulkModal(false)}
+                className="h-8 px-3 rounded-xl text-xs text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkAdd}
+                disabled={!bulkInputText.trim()}
+                className="h-8 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                Add Keywords
+              </button>
             </div>
           </div>
         </div>

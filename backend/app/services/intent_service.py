@@ -23,12 +23,12 @@ class IntentService:
         preset_name: Optional[str] = None,
         target_clips: int = 10,
         studio_mode: str = "meditation",
+        avoid_queries: Optional[List[str]] = None,
         db: Optional[Session] = None
     ) -> IntentAnalysisResult:
         """
-        AI Video Director: Analyzes meditation or wildlife documentary concepts and automatically plans
-        exactly 5 harmonious, diverse environment scenes (2 clips each, 10 clips total) with search keywords,
-        rotating away from recently used keywords on cooldown.
+        AI Video Director: Analyzes meditation or wildlife documentary concepts and dynamically extracts
+        rich search keywords directly tailored to the narrative, avoiding recently used or rejected keywords.
         """
         cooldown_keywords: List[str] = []
         if db:
@@ -43,7 +43,11 @@ class IntentService:
 
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
-                result = await self._analyze_with_gemini(title, script, manual_intent, manual_mood, target_clips, studio_mode, cooldown_keywords=cooldown_keywords)
+                result = await self._analyze_with_gemini(
+                    title, script, manual_intent, manual_mood, target_clips, studio_mode,
+                    cooldown_keywords=cooldown_keywords,
+                    avoid_queries=avoid_queries
+                )
                 if result:
                     return result
             except Exception as e:
@@ -59,11 +63,18 @@ class IntentService:
         manual_mood: Optional[List[str]],
         target_clips: int,
         studio_mode: str = "meditation",
-        cooldown_keywords: Optional[List[str]] = None
+        cooldown_keywords: Optional[List[str]] = None,
+        avoid_queries: Optional[List[str]] = None
     ) -> Optional[IntentAnalysisResult]:
         cooldown_str = ""
         if cooldown_keywords:
             cooldown_str = f"\nRECENTLY USED KEYWORDS ON COOLDOWN (Do NOT reuse these exact phrases; explore fresh terminology and diverse natural angles):\n{json.dumps(cooldown_keywords[:20])}\n"
+
+        avoid_str = ""
+        if avoid_queries and len(avoid_queries) > 0:
+            clean_avoids = [q.strip() for q in avoid_queries if q and q.strip()][:25]
+            if clean_avoids:
+                avoid_str = f"\nREGENERATION DIRECTIVE — AVOID PREVIOUS KEYWORDS (Generate completely different, fresh, alternative visual scenes):\n{json.dumps(clean_avoids)}\n"
 
         if studio_mode == "documentary":
             prompt = f"""
@@ -74,6 +85,7 @@ Title: {title or 'Wild Kingdom'}
 Script: {script or 'Wildlife roaming their natural habitats'}
 Target Total Clips Needed: {target_clips or 50}
 {cooldown_str}
+{avoid_str}
 DIRECTOR INSTRUCTIONS:
 - Extract dynamic, custom visual scenes directly from what is being narrated without being constrained to any fixed list.
 - KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search queries (minimum 5 queries per scene) to provide abundant footage selection.
@@ -125,92 +137,57 @@ Return ONLY valid JSON matching this schema:
         else:
             prompt = f"""
 You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
-Analyze the meditation title and guidance script, detect the true emotional intent, time-of-day, atmosphere, and mood, then dynamically extract matching visual nature scenes with AT LEAST 5 diverse search keywords per scene.
+Analyze the meditation title and guidance script, detect the true emotional intent, atmosphere, pacing, and mood, then dynamically extract 10 to 18 rich, diverse, and authentic 4K stock video search keywords based directly on what is described or evoked in the title and script.
 
 Title: {title or 'Serene Meditation'}
 Script: {script or 'Restful breathing and peaceful presence'}
 Target Total Video Clips Needed: {target_clips or 50}
 {cooldown_str}
-EMOTIONAL METAPHOR TRANSLATION PROTOCOL (CRITICAL):
-- Do NOT generate generic geographical stock filler that ignores the emotional core of the title/script.
-- DECODE the emotional feeling and metaphor into clean, bright, daytime visual nature phenomena that stock video engines index:
-  * LOVE / HEART-OPENING / EXPANSION / WARMTH / RECEIVING:
-    - Lush, vibrant green mountain valleys in full bright daylight with open clear skies (e.g. "bright daylight lush green valley forward aerial glide 4k", "vibrant mountain meadows sunny day 4k").
-    - Crystal clear turquoise waters gently rippling in bright daytime light.
-    - Blooming vibrant meadows bathed in clear sunny daylight.
-  * STILLNESS / DEEP PEACE / REST / GROUNDING:
-    - Pristine mirror-like alpine lakes reflecting clear blue sky in bright daylight, ancient quiet green mossy woodlands under soft bright daylight canopy.
-  * CLARITY / VITALITY / AWAKENING:
-    - Crystal clear turquoise ocean vistas, pristine mountain ridges under vast clear blue sky, sparkling clean water in morning daylight.
-
-DIRECTOR INSTRUCTIONS (CALM, SPACIOUS, UNCLUTTERED VISUALS):
-- Plan 4 to 6 distinct visual scenes (scene_1, scene_2, etc.).
-- KEYWORD VOLUME REQUIREMENT (MANDATORY): For EACH scene, generate AT LEAST 5 to 7 distinct, diverse search keywords (minimum 5 keywords per scene).
-- VISUAL SPACIOUSNESS & COMPOSITION (CRITICAL):
-  * Footage MUST be peaceful, spacious, minimalist, and serene. NEVER cluttered or chaotic.
-  * ALWAYS mandate wide open landscape vistas with a VISIBLE HORIZON and CLEAR BLUE SKY (rule of thirds: tranquil sky above, calm landscape below).
-  * Preferred peaceful settings:
-    - Calm alpine lake reflecting clear blue sky with gentle distant mountains.
-    - Serene sandy beach where gentle clear waves slowly lap against the shore under an open horizon.
-    - Wide open sunlit green meadow or rolling hills with a peaceful blue sky.
-    - Ground-level woodland path between spaced-out trees with soft sunlight filtering through.
-- STRICTLY FORBIDDEN PERSPECTIVES & VISUAL CLUTTER:
-  * DO NOT use terms like "canopy", "treetops", "drone glide", "aerial tracking", "aerial", "flyover", "overhead", or "top down".
-    (These return dizzying high-altitude sweeps of bumpy "broccoli" treetops, top-down angles, or flat choppy water textures with no horizon).
-  * DO NOT search for dense jungle tangles, overgrown thickets, choppy turbulent water, or cluttered textures.
-  * DO NOT search for mountains without specifying "green" or "summer lake" (avoids ski resorts, snow lifts, and barren slopes).
-  * STRICTLY EXCLUDE: ski resorts, chairlifts, ski slopes, snow parks, winter sports, fences, power lines, roads, cars, boats, people, timelapse.
-- LIGHTING & VISIBILITY REQUIREMENT:
-  * Clean, bright natural daylight, high-key open sky lighting, vivid natural colors (emerald green, azure blue, clear turquoise).
-  * Strictly forbidden: "sunbeams", "god rays", "golden hour", "sunset", "dusk", "twilight", "backlit", "silhouette", "dark".
-- KEYWORD FORMULATION:
-  * Combine: [Serene Atmosphere] + [Spacious Nature Element] + [Horizon/Reflection/Sky] + [Daylight]
-  * Ideal Examples:
-    - "peaceful mountain lake reflection blue sky daylight 4k"
-    - "calm ocean beach gentle waves horizon sunny day 4k"
-    - "serene green hills landscape open horizon daylight 4k"
-    - "quiet forest path sunlight peaceful woodland 4k"
-    - "tranquil alpine lake shore clear water sunny day 4k"
-    - "peaceful wildflower meadow distant mountains daylight 4k"
-    - "calm turquoise water gentle shoreline sunny day 4k"
+{avoid_str}
+DIRECTOR INSTRUCTIONS (FRESH, AUTHENTIC KEYWORDS — NO PRESET REPETITION):
+- DO NOT default to generic forest or mountain lake tropes unless specifically called for by the script.
+- DECODE the specific nature imagery, geography, elements, textures, and metaphors described in the script (e.g. desert sands, ocean tide pools, gentle rainfall on leaves, misty redwood giants, alpine meadows, crystal brooks, bamboo groves, calm seas, sunlit rolling hills).
+- KEYWORD REQUIREMENT: Generate at least 10 to 18 diverse, specific, high-aesthetic 4K stock video search queries in "generated_queries".
+- Formulate queries that stock footage engines (Pexels & Pixabay) index cleanly:
+  * Combine: [Serene Atmosphere] + [Specific Nature Element] + [Horizon/Reflection/Water/Sky] + [Daylight] + [4k]
+- VISUAL COMPOSITION:
+  * Footage MUST be peaceful, spacious, minimalist, and serene.
+  * Mandate wide open landscape vistas, visible horizons, or calm reflections.
+  * STRICTLY EXCLUDE: ski resorts, chairlifts, fences, roads, cars, boats, people, timelapse, rapid motion, text, logos.
+  * STRICTLY FORBIDDEN: "canopy", "treetops", "drone glide", "aerial tracking", "overhead", "top down", "dark", "sunset", "golden hour", "dusk", "night" (unless sleep theme is explicitly requested).
 
 Return ONLY valid JSON matching this schema:
 {{
-  "intent": "gentle calming of the nervous system and deep presence",
+  "intent": "narrative intent description reflecting the script",
   "mood": ["peaceful", "calm", "serene", "soothing", "grounding"],
   "energy_level": "very low",
-  "visual_style": "spacious, tranquil, uncluttered bright natural daylight landscapes with clear horizons and calm skies",
+  "visual_style": "spacious, tranquil, uncluttered bright natural daylight landscapes with clear horizons and calm waters",
   "preferred_colors": ["emerald green", "azure sky blue", "crystal turquoise", "fresh spring jade"],
-  "visual_motifs": ["calm lake reflection", "peaceful ocean horizon", "open sunny mountain meadows", "quiet woodland trail"],
-  "avoid_visuals": ["canopy", "treetops", "top down", "overhead", "broccoli forest", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
-  "generated_queries": ["query 1", "query 2", "query 3", "query 4", "query 5", "query 6", "query 7", "query 8", "query 9", "query 10"],
+  "visual_motifs": ["open horizons", "gentle flowing water", "peaceful nature vistas"],
+  "avoid_visuals": ["canopy", "treetops", "top down", "overhead", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "generated_queries": [
+    "distinct 4k stock video query 1 matching script",
+    "distinct 4k stock video query 2 matching script",
+    "distinct 4k stock video query 3 matching script",
+    "distinct 4k stock video query 4 matching script",
+    "distinct 4k stock video query 5 matching script",
+    "distinct 4k stock video query 6 matching script",
+    "distinct 4k stock video query 7 matching script",
+    "distinct 4k stock video query 8 matching script",
+    "distinct 4k stock video query 9 matching script",
+    "distinct 4k stock video query 10 matching script"
+  ],
   "planned_environments": [
     {{
       "id": "scene_1",
-      "name": "Serene Sunlit Forest Path",
-      "icon": "🌲",
+      "name": "Distinct Visual Setting 1",
+      "icon": "🌿",
       "keywords": [
-        "peaceful green forest path sunlight daylight 4k",
-        "serene woodland clearing sunny day blue sky 4k",
-        "quiet forest trail sunlight peaceful woodland 4k",
-        "tranquil green trees sun dappled nature landscape 4k",
-        "peaceful woodland glade daylight clear sky 4k"
+        "distinct query 1 4k",
+        "distinct query 2 4k",
+        "distinct query 3 4k"
       ],
-      "suggested_clips": 8,
-      "enabled": true
-    }},
-    {{
-      "id": "scene_2",
-      "name": "Calm Mountain Lake & Horizon",
-      "icon": "🏔️",
-      "keywords": [
-        "peaceful mountain lake reflection blue sky daylight 4k",
-        "calm alpine valley landscape horizon sunny day 4k",
-        "serene green hills distant mountains daylight 4k",
-        "tranquil mountain lake shore clear water sunny day 4k",
-        "placid crystal mountain lake sunny day horizon 4k"
-      ],
-      "suggested_clips": 8,
+      "suggested_clips": 10,
       "enabled": true
     }}
   ]
@@ -231,7 +208,7 @@ Return ONLY valid JSON matching this schema:
                         data = resp.json()
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
                         parsed = json.loads(text)
-                        self._ensure_min_scene_keywords(parsed)
+                        self._ensure_min_scene_keywords(parsed, studio_mode=studio_mode)
                         return IntentAnalysisResult(**parsed)
                     else:
                         logger.warning(f"Gemini model {model_name} returned status {resp.status_code}: {resp.text[:100]}")
@@ -239,8 +216,15 @@ Return ONLY valid JSON matching this schema:
                     logger.warning(f"Gemini model {model_name} request failed: {ex}")
         return None
 
-    def _ensure_min_scene_keywords(self, parsed: dict) -> None:
-        """Guarantees that every planned environment has at least 5 distinct search keywords."""
+    def _ensure_min_scene_keywords(self, parsed: dict, studio_mode: str = "meditation") -> None:
+        """Guarantees that every planned environment has at least 5 distinct search keywords and normalizes energy_level."""
+        if not isinstance(parsed, dict):
+            return
+
+        if studio_mode == "meditation":
+            parsed["energy_level"] = "very low"
+        elif "energy_level" not in parsed:
+            parsed["energy_level"] = "medium"
         if not isinstance(parsed, dict) or "planned_environments" not in parsed:
             return
 
@@ -655,5 +639,58 @@ Return ONLY valid JSON matching this schema:
             visual_beats=visual_beats
         )
 
+    async def regenerate_one_keyword(
+        self,
+        bad_keyword: str,
+        title: Optional[str] = "",
+        script: Optional[str] = "",
+        existing_queries: Optional[List[str]] = None,
+        studio_mode: str = "meditation"
+    ) -> str:
+        """Generates a single fresh replacement 4K stock video keyword for a rejected/bad keyword."""
+        existing_list = [q.strip().lower() for q in (existing_queries or []) if q and q.strip()]
+        if bad_keyword:
+            existing_list.append(bad_keyword.strip().lower())
+
+        if self.api_key and len(self.api_key.strip()) > 5:
+            try:
+                candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+                payload = {
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"temperature": 0.85, "maxOutputTokens": 100}
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    for model_name in candidate_models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                        resp = await client.post(url, json=payload)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            new_kw = data["candidates"][0]["content"]["parts"][0]["text"].strip().strip('"\'`')
+                            if new_kw and len(new_kw) > 5 and new_kw.lower() not in existing_list:
+                                return new_kw
+            except Exception as e:
+                logger.warning(f"Gemini regenerate_one_keyword failed: {e}")
+
+        # Heuristic fallback
+        fallbacks = [
+            "golden morning sunlight misty redwood forest 4k",
+            "clear turquoise ocean gentle ripples sunny day 4k",
+            "peaceful alpine lake mirror reflection daylight 4k",
+            "tranquil bamboo water fountain slow motion 4k",
+            "serene wildflower meadow distant mountains sunny day 4k",
+            "crystal clear mountain river mossy rocks 4k",
+            "peaceful starry night sky horizon 4k",
+            "calm desert sand dunes gentle wind 4k",
+            "zen pebble garden tranquil water ripples 4k",
+            "emerald green moss forest gentle daylight 4k",
+            "gentle ocean waves sandy beach sunny day 4k",
+            "misty mountain peaks golden morning light 4k"
+        ]
+        for f in fallbacks:
+            if f.lower() not in existing_list:
+                return f
+        return f"{bad_keyword} slow motion daylight 4k"
+
 
 intent_service = IntentService()
+

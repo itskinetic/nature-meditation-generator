@@ -31,7 +31,8 @@ from backend.app.schemas import (
     KeywordBankItemSchema, KeywordBankAddRequest, KeywordBankToggleFavoriteRequest,
     BatchSaveCandidatesRequest, DownloadCandidatesZipRequest,
     AudioSegmentSchema, AudioSilenceIntervalSchema, AudioAnalysisRequest, AudioAnalysisResponse,
-    AudioProcessRequest, AudioProcessResponse, AudioProjectSchema, AudioProjectListResponse
+    AudioProcessRequest, AudioProcessResponse, AudioProjectSchema, AudioProjectListResponse,
+    RegenerateOneKeywordRequest, RegenerateOneKeywordResponse
 )
 from backend.app.presets.nature_presets import NATURE_PRESETS, NATURE_ENVIRONMENTS, WILDLIFE_ENVIRONMENTS, get_presets_for_mode
 from backend.app.services.intent_service import intent_service
@@ -82,9 +83,25 @@ async def analyze_content(req: IntentAnalysisRequest, db: Session = Depends(get_
         manual_mood=req.manual_mood,
         target_clips=req.target_clips or 10,
         studio_mode=req.studio_mode or "meditation",
+        avoid_queries=req.avoid_queries,
         db=db
     )
     return result
+
+
+@router.post("/keywords/regenerate-one", response_model=RegenerateOneKeywordResponse)
+async def regenerate_one_keyword(req: RegenerateOneKeywordRequest):
+    new_kw = await intent_service.regenerate_one_keyword(
+        bad_keyword=req.bad_keyword,
+        title=req.title or "",
+        script=req.script or "",
+        existing_queries=req.existing_queries or [],
+        studio_mode=req.studio_mode or "meditation"
+    )
+    return RegenerateOneKeywordResponse(
+        old_keyword=req.bad_keyword,
+        new_keyword=new_kw
+    )
 
 
 @router.post("/storyboard/breakdown", response_model=StoryboardBreakdownResult)
@@ -122,29 +139,118 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
 
     active_presets = get_presets_for_mode(req.studio_mode or "meditation")
 
-    # Determine scene specs to search
-    specs_to_run = req.environments_spec
-    if not specs_to_run and ((req.title and req.title.strip()) or (req.script and req.script.strip())):
-        try:
-            auto_plan = await intent_service.analyze(
-                title=req.title,
-                script=req.script,
-                studio_mode=req.studio_mode or "meditation"
-            )
-            if auto_plan and auto_plan.planned_environments:
-                specs_to_run = [
-                    EnvironmentSearchSpec(
-                        id=pe.id,
-                        name=pe.name,
-                        queries=pe.keywords,
-                        clip_count=pe.suggested_clips
-                    ) for pe in auto_plan.planned_environments
-                ]
-        except Exception as plan_err:
-            logger.warning(f"Auto-plan in search_candidates failed: {plan_err}")
+    # 1. DIRECT KEYWORDS / QUERIES SEARCH (HIGHEST PRIORITY)
+    # When user provides search keywords, run pure keyword-driven search without theme silos
+    if req.queries and len(req.queries) > 0:
+        queries_to_run = [q.strip() for q in req.queries if q and q.strip()][:30]
 
-    # If environment specs are provided or derived, search per environment
-    if specs_to_run and len(specs_to_run) > 0:
+        if req.prioritize_slow_motion and req.studio_mode != "documentary":
+            enriched = []
+            for q in queries_to_run:
+                words = q.split()
+                if len(words) <= 4 and not any(k in q.lower() for k in ["slow", "glide", "ambient", "calm", "relaxing"]):
+                    if "slow motion" not in q.lower():
+                        enriched.append(f"slow motion {q}")
+                    else:
+                        enriched.append(q)
+                else:
+                    enriched.append(q)
+            queries_to_run = enriched
+
+        search_page = max(1, req.page or 1)
+        per_page = 5
+
+        async def fetch_for_query(q_str: str) -> List[CandidateItem]:
+            items: List[CandidateItem] = []
+            tasks = []
+            if req.media_type in ("video", "both", None):
+                if req.enable_pexels:
+                    tasks.append(pexels_service.search(query=q_str, page=search_page, per_page=per_page, db=db))
+                if req.enable_pixabay:
+                    tasks.append(pixabay_service.search(query=q_str, page=search_page, per_page=per_page, db=db))
+            if tasks:
+                res_list = await asyncio.gather(*tasks, return_exceptions=True)
+                for res in res_list:
+                    if isinstance(res, list):
+                        for item in res:
+                            item.search_query = q_str
+                            item.subtheme = q_str
+                            items.append(item)
+            if req.media_type in ("image", "both"):
+                try:
+                    img_items = await image_fetch_service.search(query=q_str, page=search_page, per_page=per_page, db=db)
+                    for item in img_items:
+                        item.search_query = q_str
+                        item.subtheme = q_str
+                    items.extend(img_items)
+                except Exception as img_err:
+                    logger.warning(f"Image fetch error for query '{q_str}': {img_err}")
+            return items
+
+        all_query_results = await asyncio.gather(*[fetch_for_query(q) for q in queries_to_run], return_exceptions=True)
+        raw_candidates: List[CandidateItem] = []
+        for res in all_query_results:
+            if isinstance(res, list):
+                raw_candidates.extend(res)
+
+        seen_ids = set()
+        for c in raw_candidates:
+            if c.source_video_id not in seen_ids:
+                seen_ids.add(c.source_video_id)
+                all_raw.append(c)
+
+        speed_mult = float(req.playback_speed or 0.5)
+        effective_min_dur = max(4.0, (req.min_duration or 15.0) * speed_mult) if req.media_type != "image" else 5.0
+
+        filtered = candidate_service.filter_candidates(
+            candidates=all_raw,
+            preset=None,
+            min_duration=effective_min_dur,
+            max_duration=req.max_duration,
+            aspect_ratio=req.aspect_ratio,
+            resolution=req.resolution,
+            exclude_all_history=req.exclude_all_history,
+            db=db
+        )
+
+        dummy_analysis = IntentAnalysisResult(
+            intent=req.title or " ".join(queries_to_run[:5]),
+            mood=["peaceful", "calm", "serene"],
+            energy_level="very low" if req.studio_mode != "documentary" else "medium",
+            visual_style="pure expansive nature landscape",
+            preferred_colors=["emerald green", "azure blue", "golden daylight"],
+            visual_motifs=queries_to_run[:5],
+            avoid_visuals=["macro", "close up", "flower", "people", "boats", "buildings"]
+        )
+
+        async def score_single(c: CandidateItem):
+            score_res = await scoring_service.score_candidate(
+                candidate=c,
+                analysis=dummy_analysis,
+                preset=None,
+                studio_mode=req.studio_mode or "meditation",
+                shot_preference=req.shot_preference or "wide"
+            )
+            c.intent_match = score_res.intent_match
+            c.theme_match = score_res.theme_match
+            c.calmness = score_res.calmness
+            c.motion_intensity = score_res.motion_intensity
+            c.visual_quality = score_res.visual_quality
+            c.shot_type = score_res.shot_type or "wide_vista"
+            c.is_approved = score_res.keep
+            c.rejection_reason = score_res.reason if not score_res.keep else None
+            return c
+
+        scored = await asyncio.gather(*[score_single(c) for c in filtered])
+        for c in scored:
+            if c.is_approved:
+                approved.append(c)
+            else:
+                rejected.append(c)
+
+    # 2. ENVIRONMENT SPECS SEARCH (LEGACY / EXPLICIT SPECS)
+    elif req.environments_spec and len(req.environments_spec) > 0:
+        specs_to_run = req.environments_spec
         for env_spec in specs_to_run:
             env_preset = active_presets.get(env_spec.id) or NATURE_ENVIRONMENTS.get(env_spec.id) or WILDLIFE_ENVIRONMENTS.get(env_spec.id)
             target_clips = env_spec.clip_count or 4

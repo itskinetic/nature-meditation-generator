@@ -12,6 +12,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { QueueDrawer } from './components/QueueDrawer';
 import { StorageModal } from './components/StorageModal';
 import { AudioSpacerPanel } from './components/AudioSpacerPanel';
+import { ApiErrorPrompt } from './components/ApiErrorPrompt';
 import { api } from './api/client';
 import {
   GenerationRequest,
@@ -71,8 +72,17 @@ export function App() {
   const [storyboardBeats, setStoryboardBeats] = useState<VisualBeat[]>([]);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
 
-  // Selected Natures for Visual Plan (populated when AI Analyzes or user picks manually)
+  // Selected Natures for Visual Plan (legacy/optional)
   const [selectedNatures, setSelectedNatures] = useState<Record<string, SelectedNatureItem>>({});
+
+  // Pure Keyword-Driven Search Keywords
+  const [searchKeywords, setSearchKeywords] = useState<string[]>([
+    'peaceful green forest sunlight daylight 4k',
+    'calm mountain lake horizon sunny day 4k',
+    'serene ocean beach gentle waves sunny day 4k',
+    'tranquil meadow wildflowers distant hills 4k',
+    'crystal clear turquoise river daylight 4k',
+  ]);
 
   // Generation Settings State
   const [settings, setSettings] = useState<GenerationRequest>({
@@ -188,8 +198,9 @@ export function App() {
 
   // Search Mutation using selected nature specs or title/script auto-discovery
   const searchMutation = useMutation({
-    mutationFn: (params?: { page?: number; envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }> }) => {
+    mutationFn: (params?: { page?: number; queries?: string[]; envSpecs?: Array<{ id: string; name: string; queries: string[]; clip_count: number }> }) => {
       const pageToFetch = params?.page || 1;
+      const queriesToRun = params?.queries || (searchKeywords.length > 0 ? searchKeywords : undefined);
       const selectedList = Object.values(selectedNatures);
       const specs = params?.envSpecs || (selectedList.length > 0 ? selectedList.map((item) => ({
         id: item.id,
@@ -201,6 +212,7 @@ export function App() {
       return api.searchCandidates({
         title: title.trim() || undefined,
         script: script.trim() || undefined,
+        queries: queriesToRun,
         environments_spec: specs,
         preset_name: settings.preset,
         enable_pexels: settings.enable_pexels,
@@ -238,6 +250,9 @@ export function App() {
         setSelectedCandidateIds(approvedIds);
       }
     },
+    onError: (err: any) => {
+      console.error('Footage search API error:', err);
+    },
   });
 
   const handleFetchMore = () => {
@@ -246,35 +261,35 @@ export function App() {
     searchMutation.mutate({ page: nextPage });
   };
 
-  // AI Auto-Plan Mutation (Populates themes and intent for interactive review)
+  // AI Auto-Plan / Keyword Extraction Mutation
   const autoPlanMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (params?: { avoidQueries?: string[] }) =>
       api.analyzeContent(
         title,
         script,
         undefined,
         undefined,
         settings.maximum_unique_videos,
-        settings.studio_mode || 'meditation'
+        settings.studio_mode || 'meditation',
+        params?.avoidQueries
       ),
     onSuccess: (data) => {
       setAnalysis(data);
-      if (data.planned_environments && data.planned_environments.length > 0) {
-        const newSel: Record<string, SelectedNatureItem> = {};
-        data.planned_environments.forEach((pe) => {
-          newSel[pe.id] = {
-            id: pe.id,
-            name: pe.name,
-            icon: pe.icon,
-            category: 'Planned',
-            clipCount: pe.suggested_clips,
-            queries: pe.keywords,
-          };
-        });
-        setSelectedNatures(newSel);
+      if (data.generated_queries && data.generated_queries.length > 0) {
+        setSearchKeywords(data.generated_queries);
+      } else if (data.planned_environments && data.planned_environments.length > 0) {
+        const kws = data.planned_environments.flatMap((pe) => pe.keywords);
+        setSearchKeywords(kws);
       }
     },
+    onError: (err: any) => {
+      console.error('AI Auto-Plan API error:', err);
+    },
   });
+
+  const handleRegenerateKeywords = () => {
+    autoPlanMutation.mutate({ avoidQueries: searchKeywords });
+  };
 
   // Selection toggle handlers
   const handleToggleSelect = (id: string) => {
@@ -343,6 +358,9 @@ export function App() {
         }))
       });
     },
+    onError: (err: any) => {
+      console.error('Storyboard breakdown API error:', err);
+    },
   });
 
   // Generate Mutation
@@ -373,8 +391,7 @@ export function App() {
       queryClient.invalidateQueries({ queryKey: ['history'] });
     },
     onError: (err: any) => {
-      console.error('Render trigger failed:', err);
-      alert('Failed to start render: ' + (err.message || 'Unknown error'));
+      console.error('Render trigger API error:', err);
     },
   });
 
@@ -386,6 +403,9 @@ export function App() {
       queryClient.invalidateQueries({ queryKey: ['activeJobs'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['audioProjects'] });
+    },
+    onError: (err: any) => {
+      console.error('Cancel job API error:', err);
     },
   });
 
@@ -420,6 +440,9 @@ export function App() {
         }));
       }
       setCustomMusicName(data.original_name || data.filename);
+    },
+    onError: (err: any) => {
+      console.error('Music upload API error:', err);
     },
   });
 
@@ -589,6 +612,8 @@ export function App() {
               settings={settings}
               setSettings={setSettings}
               presets={presets}
+              searchKeywords={searchKeywords}
+              setSearchKeywords={setSearchKeywords}
               selectedNatures={selectedNatures}
               setSelectedNatures={setSelectedNatures}
               onUploadMusic={(file) => musicUploadMutation.mutate(file)}
@@ -598,6 +623,7 @@ export function App() {
               isSearching={searchMutation.isPending}
               onAutoPlanAI={() => autoPlanMutation.mutate()}
               isPlanningAI={autoPlanMutation.isPending}
+              onRegenerateKeywords={handleRegenerateKeywords}
               analysis={analysis}
               excludeAllHistory={excludeAllHistory}
               setExcludeAllHistory={setExcludeAllHistory}
@@ -669,7 +695,7 @@ export function App() {
                       <span>Ready to Render Meditation Video</span>
                     </h3>
                     <p className="text-xs text-stone-600 dark:text-stone-400">
-                      Target: <strong className="text-amber-800 dark:text-amber-300">{settings.target_duration} {settings.duration_unit}</strong> ({settings.aspect_ratio}, {settings.resolution}) • Using <strong className="text-stone-900 dark:text-stone-200">{selectedCandidatesList.length || settings.maximum_unique_videos} curated clips</strong> from <strong className="text-amber-800 dark:text-amber-300">{Object.keys(selectedNatures).length} nature themes</strong>
+                      Target: <strong className="text-amber-800 dark:text-amber-300">{settings.target_duration} {settings.duration_unit}</strong> ({settings.aspect_ratio}, {settings.resolution}) • Using <strong className="text-stone-900 dark:text-stone-200">{selectedCandidatesList.length || settings.maximum_unique_videos} curated clips</strong> from <strong className="text-amber-800 dark:text-amber-300">{searchKeywords.length} search keywords</strong>
                       {estimatedRepeats > 0 && (
                         <span className="text-amber-800 dark:text-amber-300 ml-1.5 font-semibold">
                           (Sequence loops ~{estimatedRepeats}x)
@@ -778,6 +804,9 @@ export function App() {
           </button>
         </div>
       )}
+
+      {/* Global API Error Prompt Notifications */}
+      <ApiErrorPrompt />
     </div>
   );
 }

@@ -27,3 +27,9 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(217, 119, 6, 0.6);
 }
+
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+

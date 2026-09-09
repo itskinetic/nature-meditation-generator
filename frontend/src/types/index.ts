@@ -340,5 +340,18 @@ export interface StorageStats {
   };
 }
 
+export interface ApiErrorInfo {
+  id: string;
+  title: string;
+  message: string;
+  detail?: string;
+  status?: number;
+  statusText?: string;
+  endpoint?: string;
+  method?: string;
+  timestamp: string;
+  category: 'provider' | 'ai' | 'server' | 'network' | 'rate_limit' | 'validation' | 'client';
+}
+
 
 

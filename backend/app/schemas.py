@@ -33,6 +33,20 @@ class IntentAnalysisRequest(BaseModel):
     target_clips: Optional[int] = 16
     studio_mode: Optional[str] = "meditation"  # "meditation" | "documentary"
     media_type: Optional[str] = "video"  # "video" | "image" | "both"
+    avoid_queries: Optional[List[str]] = None
+
+
+class RegenerateOneKeywordRequest(BaseModel):
+    bad_keyword: str
+    title: Optional[str] = ""
+    script: Optional[str] = ""
+    existing_queries: Optional[List[str]] = []
+    studio_mode: Optional[str] = "meditation"
+
+
+class RegenerateOneKeywordResponse(BaseModel):
+    old_keyword: str
+    new_keyword: str
 
 
 class IntentAnalysisResult(BaseModel):
