@@ -82,6 +82,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_no_cache_for_html(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    # Prevent browser caching of SPA entrypoint HTML so new builds are loaded instantly
+    if path == "/" or path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Mount static directories
 app.mount("/data/previews", StaticFiles(directory=str(settings.PREVIEWS_DIR)), name="previews")
 app.mount("/data/renders", StaticFiles(directory=str(settings.RENDERS_DIR)), name="renders")

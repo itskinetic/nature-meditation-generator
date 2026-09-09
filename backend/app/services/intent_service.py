@@ -156,6 +156,10 @@ DIRECTOR INSTRUCTIONS (FRESH, AUTHENTIC KEYWORDS — NO PRESET REPETITION):
   * STRICTLY EXCLUDE: ski resorts, chairlifts, fences, roads, cars, boats, people, timelapse, rapid motion, text, logos.
   * STRICTLY FORBIDDEN: "canopy", "treetops", "drone glide", "aerial tracking", "overhead", "top down", "dark", "sunset", "golden hour", "dusk", "night" (unless sleep theme is explicitly requested).
 
+- MANDATORY DAYTIME NATURE ONLY:
+  * All stock video search queries MUST be bright, sunlit, crystal-clear daytime natural landscapes (e.g. "sunlit pine forest morning sunlight 4k", "peaceful alpine lake reflection blue sky sunny 4k", "crystal clear turquoise ocean waves daylight 4k", "sunlit wildflower meadow rolling hills 4k").
+  * STRICTLY FORBIDDEN: "night", "starry sky", "galaxy", "darkness", "midnight", "moonlight", "dusk", "dark", "gloomy", "murky", "sunset", "twilight" (unless sleep is explicitly and unequivocally requested in the user's script). Meditation videos must be bright, calming daytime tranquility.
+
 Return ONLY valid JSON matching this schema:
 {{
   "intent": "narrative intent description reflecting the script",
@@ -164,7 +168,7 @@ Return ONLY valid JSON matching this schema:
   "visual_style": "spacious, tranquil, uncluttered bright natural daylight landscapes with clear horizons and calm waters",
   "preferred_colors": ["emerald green", "azure sky blue", "crystal turquoise", "fresh spring jade"],
   "visual_motifs": ["open horizons", "gentle flowing water", "peaceful nature vistas"],
-  "avoid_visuals": ["canopy", "treetops", "top down", "overhead", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "dark", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "sunset", "golden hour", "dusk", "twilight", "sunbeams", "macro", "close up", "closeup", "detail", "flower", "flowers", "macro flower", "petal", "lotus", "bee", "insect", "bug", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
+  "avoid_visuals": ["night", "stars", "moon", "midnight", "dark", "twilight", "dusk", "sunset", "canopy", "treetops", "top down", "overhead", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "macro", "close up", "closeup", "detail", "flower", "flowers", "petal", "bee", "insect", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
   "generated_queries": [
     "distinct 4k stock video query 1 matching script",
     "distinct 4k stock video query 2 matching script",
@@ -193,7 +197,7 @@ Return ONLY valid JSON matching this schema:
   ]
 }}
 """
-        candidate_models = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+        candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"response_mime_type": "application/json"}
@@ -362,14 +366,23 @@ Return ONLY valid JSON matching this schema:
             motifs = ["sunbeams through green trees", "blooming wildflowers", "crystal clear water"]
             keys = ["sunlit_forest", "wildflower_meadow", "mountain_lake", "calm_ocean"]
 
-        # SLEEP / REST / NIGHT / EVENING
-        elif any(w in combined for w in ["rest", "sleep", "night", "bed", "evening", "slumber", "dream", "moon", "twilight", "dusk", "darkness", "insomnia", "tired", "recharge"]):
-            intent = "deep nervous system relaxation, peaceful evening rest, and gentle sleep"
+        # REST & DEEP RELAXATION (DAYTIME NATURE — DEFAULT FOR MEDITATION)
+        elif any(w in combined for w in ["rest", "relaxation", "relax", "nervous", "calm", "sooth", "peace", "unwind", "stress"]):
+            intent = "deep nervous system relaxation, peaceful daytime stillness, and soothing natural presence"
+            mood = ["peaceful", "calm", "serene", "soothing", "restful"]
+            visual_style = "bright, sunlit serene landscapes, gentle daylight water reflections, and lush green forests"
+            pref_colors = ["soft green", "warm gold", "turquoise blue", "soft white"]
+            motifs = ["sunbeams through green trees", "blooming wildflowers", "crystal clear water", "gentle daylight"]
+            keys = ["sunlit_forest", "wildflower_meadow", "mountain_lake", "calm_ocean"]
+
+        # EXPLICIT SLEEP / BEDTIME (ONLY IF EXPLICITLY REQUESTED)
+        elif any(w in combined for w in ["insomnia", "bedtime", "slumber", "fall asleep", "deep sleep"]):
+            intent = "peaceful evening wind-down, gentle stillness, and tranquil rest"
             mood = ["restful", "peaceful", "serene", "calm", "soothing"]
-            visual_style = "peaceful starry night skies, soft twilight horizons, and tranquil moonlit waters"
-            pref_colors = ["midnight blue", "soft silver", "starlight gold", "lavender twilight"]
-            motifs = ["peaceful starry night sky", "gentle moonlit lake reflections", "silhouetted pine canopy under stars", "soft evening twilight glow"]
-            keys = ["starry_night", "moonlit_water", "sunset_twilight", "night_forest"]
+            visual_style = "soft golden hour sunsets, tranquil calm waters, and peaceful twilight horizons"
+            pref_colors = ["warm amber", "soft gold", "lavender twilight", "soft blue"]
+            motifs = ["gentle golden evening horizon", "calm water reflections", "soft sunset over water"]
+            keys = ["sunset_twilight", "mountain_lake", "calm_ocean", "sunlit_forest"]
 
         # MORNING / SUNRISE / AWAKEN / ENERGY / CLARITY
         elif any(w in combined for w in ["morning", "sunrise", "dawn", "awaken", "awake", "energy", "vitality", "start", "day", "clarity", "focus", "shine"]):
@@ -652,6 +665,17 @@ Return ONLY valid JSON matching this schema:
         if bad_keyword:
             existing_list.append(bad_keyword.strip().lower())
 
+        prompt = f"""You are an expert AI Video Creative Director for a high-quality relaxing nature meditation video studio.
+The user wants to replace an unwanted search query: "{bad_keyword}".
+Title: {title or 'Serene Meditation'}
+Script context: {script or 'Tranquil presence and peaceful nature'}
+Existing queries to avoid duplicating: {json.dumps(existing_list[:20])}
+
+Generate exactly ONE single, highly specific, aesthetic 4K stock video search query (3-6 words) that offers a fresh, distinct visual perspective.
+MANDATORY: Focus on bright, tranquil daytime nature (sunlit forests, clear mountain waters, peaceful meadows, calm ocean ripples).
+NEVER output night, starry skies, darkness, moonlight, dusk, or sunsets.
+Respond ONLY with the search phrase and nothing else."""
+
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
                 candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
@@ -671,7 +695,7 @@ Return ONLY valid JSON matching this schema:
             except Exception as e:
                 logger.warning(f"Gemini regenerate_one_keyword failed: {e}")
 
-        # Heuristic fallback
+        # Heuristic fallback (strictly tranquil daytime nature, no night)
         fallbacks = [
             "golden morning sunlight misty redwood forest 4k",
             "clear turquoise ocean gentle ripples sunny day 4k",
@@ -679,8 +703,8 @@ Return ONLY valid JSON matching this schema:
             "tranquil bamboo water fountain slow motion 4k",
             "serene wildflower meadow distant mountains sunny day 4k",
             "crystal clear mountain river mossy rocks 4k",
-            "peaceful starry night sky horizon 4k",
-            "calm desert sand dunes gentle wind 4k",
+            "vibrant emerald meadow soft daylight 4k",
+            "calm desert sand dunes gentle wind sunny 4k",
             "zen pebble garden tranquil water ripples 4k",
             "emerald green moss forest gentle daylight 4k",
             "gentle ocean waves sandy beach sunny day 4k",
