@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 class IntentService:
     def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY
+        pass
+
+    @property
+    def api_key(self) -> str:
+        import os
+        return (settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or "").strip()
 
     async def analyze(
         self,
@@ -197,13 +202,13 @@ Return ONLY valid JSON matching this schema:
   ]
 }}
 """
-        candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"response_mime_type": "application/json"}
         }
 
-        async with httpx.AsyncClient(timeout=25.0) as client:
+        async with httpx.AsyncClient(timeout=35.0) as client:
             for model_name in candidate_models:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
                 try:
@@ -213,11 +218,12 @@ Return ONLY valid JSON matching this schema:
                         text = data["candidates"][0]["content"]["parts"][0]["text"]
                         parsed = json.loads(text)
                         self._ensure_min_scene_keywords(parsed, studio_mode=studio_mode)
+                        logger.info(f"Gemini AI Director successfully analyzed content with {model_name}")
                         return IntentAnalysisResult(**parsed)
                     else:
                         logger.warning(f"Gemini model {model_name} returned status {resp.status_code}: {resp.text[:100]}")
                 except Exception as ex:
-                    logger.warning(f"Gemini model {model_name} request failed: {ex}")
+                    logger.warning(f"Gemini model {model_name} request failed: {type(ex).__name__}: {ex}")
         return None
 
     def _ensure_min_scene_keywords(self, parsed: dict, studio_mode: str = "meditation") -> None:
@@ -559,7 +565,7 @@ Return ONLY valid JSON matching this schema:
   ]
 }}
 """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+        candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -568,12 +574,20 @@ Return ONLY valid JSON matching this schema:
             }
         }
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                text = data["candidates"][0]["content"]["parts"][0]["text"]
-                parsed = json.loads(text)
-                beats_data = parsed.get("visual_beats", [])
+            for model_name in candidate_models:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                try:
+                    resp = await client.post(url, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        parsed = json.loads(text)
+                        beats_data = parsed.get("visual_beats", [])
+                        break
+                except Exception as ex:
+                    logger.warning(f"Gemini model {model_name} breakdown failed: {ex}")
+            else:
+                return None
 
                 visual_beats = []
                 curr_time = 0.0
@@ -678,7 +692,7 @@ Respond ONLY with the search phrase and nothing else."""
 
         if self.api_key and len(self.api_key.strip()) > 5:
             try:
-                candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+                candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
                 payload = {
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"temperature": 0.85, "maxOutputTokens": 100}
@@ -691,6 +705,7 @@ Respond ONLY with the search phrase and nothing else."""
                             data = resp.json()
                             new_kw = data["candidates"][0]["content"]["parts"][0]["text"].strip().strip('"\'`')
                             if new_kw and len(new_kw) > 5 and new_kw.lower() not in existing_list:
+                                logger.info(f"Gemini successfully regenerated keyword with {model_name}: {new_kw}")
                                 return new_kw
             except Exception as e:
                 logger.warning(f"Gemini regenerate_one_keyword failed: {e}")

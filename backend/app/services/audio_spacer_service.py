@@ -231,9 +231,9 @@ class AudioSpacerService:
             total_duration = 300.0
 
         candidate_models = [
-            "gemini-flash-lite-latest",
+            "gemini-3-flash-preview",
             "gemini-3.5-flash-lite",
-            "gemini-3.1-flash-lite",
+            "gemini-flash-lite-latest",
             "gemini-flash-latest"
         ]
         chunk_duration = 180.0  # 3-minute chunks for guaranteed sub-10MB payload and fast processing

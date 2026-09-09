@@ -11,7 +11,12 @@ logger = logging.getLogger(__name__)
 
 class ScoringService:
     def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY
+        pass
+
+    @property
+    def api_key(self) -> str:
+        import os
+        return (settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or "").strip()
 
     async def score_candidate(
         self,
@@ -177,7 +182,7 @@ Return ONLY valid JSON matching this schema:
             "generationConfig": {"response_mime_type": "application/json"}
         }
 
-        candidate_models = ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-latest"]
+        candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
         async with httpx.AsyncClient(timeout=20.0) as client:
             for model_name in candidate_models:
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"

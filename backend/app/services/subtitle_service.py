@@ -12,7 +12,12 @@ logger = logging.getLogger(__name__)
 
 class SubtitleService:
     def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY
+        pass
+
+    @property
+    def api_key(self) -> str:
+        import os
+        return (settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY") or "").strip()
 
     def format_timestamp_srt(self, seconds: float) -> str:
         hrs = int(seconds // 3600)
@@ -174,7 +179,7 @@ Return ONLY valid JSON matching this schema:
   }
 ]
 """
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key={self.api_key}"
+                candidate_models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-flash-latest"]
                 payload = {
                     "contents": [{
                         "parts": [
@@ -186,22 +191,28 @@ Return ONLY valid JSON matching this schema:
                 }
 
                 async with httpx.AsyncClient(timeout=45.0) as client:
-                    resp = await client.post(url, json=payload)
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        text = data["candidates"][0]["content"]["parts"][0]["text"]
-                        import json
-                        parsed = json.loads(text)
-                        segments = [
-                            SubtitleSegment(
-                                start_seconds=float(item["start_seconds"]),
-                                end_seconds=float(item["end_seconds"]),
-                                text=item["text"].strip()
-                            )
-                            for item in parsed if "text" in item and len(item["text"].strip()) > 0
-                        ]
-                        if segments:
-                            return segments
+                    for model_name in candidate_models:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+                        try:
+                            resp = await client.post(url, json=payload)
+                            if resp.status_code == 200:
+                                data = resp.json()
+                                text = data["candidates"][0]["content"]["parts"][0]["text"]
+                                import json
+                                parsed = json.loads(text)
+                                segments = [
+                                    SubtitleSegment(
+                                        start_seconds=float(s.get("start_seconds", 0.0)),
+                                        end_seconds=float(s.get("end_seconds", 0.0)),
+                                        text=str(s.get("text", "")).strip()
+                                    )
+                                    for s in parsed
+                                    if s.get("text")
+                                ]
+                                if segments:
+                                    return segments
+                        except Exception as ex:
+                            logger.warning(f"Gemini subtitle model {model_name} failed: {ex}")
             except Exception as e:
                 logger.warning(f"Gemini audio transcription error: {e}")
 
