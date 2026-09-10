@@ -15,6 +15,7 @@ import {
   AudioProjectItem,
   AudioProjectListResult,
   ApiErrorInfo,
+  BannedCreatorItem,
 } from '../types';
 
 const API_BASE = '/api';
@@ -368,6 +369,41 @@ export const api = {
         method: 'POST',
       },
       'Failed to Unban Video Candidate'
+    );
+  },
+
+  async banCreator(creator: {
+    creator_name: string;
+    creator_url?: string;
+    source?: string;
+    reason?: string;
+  }): Promise<{ status: string; creator_name: string; message: string }> {
+    return apiFetch<{ status: string; creator_name: string; message: string }>(
+      '/creators/ban',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(creator),
+      },
+      'Failed to Block Creator'
+    );
+  },
+
+  async unbanCreator(creatorName: string): Promise<{ status: string; creator_name: string }> {
+    return apiFetch<{ status: string; creator_name: string }>(
+      `/creators/unban?creator_name=${encodeURIComponent(creatorName)}`,
+      {
+        method: 'POST',
+      },
+      'Failed to Unblock Creator'
+    );
+  },
+
+  async getBannedCreators(): Promise<BannedCreatorItem[]> {
+    return apiFetch<BannedCreatorItem[]>(
+      '/creators/banned',
+      undefined,
+      'Failed to Fetch Blocked Creators'
     );
   },
 

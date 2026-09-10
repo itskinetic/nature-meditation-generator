@@ -114,10 +114,24 @@ class BannedCandidate(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     source_video_id = Column(String(100), unique=True, index=True, nullable=False)
+    normalized_id = Column(String(100), index=True, nullable=True)
     source = Column(String(50), default="pexels")
     source_url = Column(String(500), nullable=True)
+    creator_name = Column(String(200), nullable=True)
     reason = Column(String(500), default="Manually banned by user")
     banned_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class BannedCreator(Base):
+    __tablename__ = "banned_creators"
+
+    id = Column(Integer, primary_key=True, index=True)
+    creator_name = Column(String(200), unique=True, index=True, nullable=False)
+    creator_url = Column(String(500), nullable=True)
+    source = Column(String(50), default="pexels")
+    reason = Column(String(500), default="Manually blocked by user")
+    banned_at = Column(DateTime, default=datetime.datetime.utcnow)
+
 
 
 class AudioProject(Base):

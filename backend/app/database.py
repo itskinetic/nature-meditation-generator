@@ -74,6 +74,14 @@ def init_db():
             if "metadata_json" not in job_cols:
                 conn.execute(text("ALTER TABLE generation_jobs ADD COLUMN metadata_json TEXT"))
 
+            # banned_candidates table columns
+            res_banned = conn.execute(text("PRAGMA table_info(banned_candidates)")).fetchall()
+            banned_cols = {row[1] for row in res_banned}
+            if "normalized_id" not in banned_cols:
+                conn.execute(text("ALTER TABLE banned_candidates ADD COLUMN normalized_id VARCHAR(100)"))
+            if "creator_name" not in banned_cols:
+                conn.execute(text("ALTER TABLE banned_candidates ADD COLUMN creator_name VARCHAR(200)"))
+
             conn.commit()
         except Exception:
             pass

@@ -16,15 +16,16 @@ from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, UploadFile, File, Form, Body, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.app.config import settings
 from backend.app.database import get_db, SessionLocal
-from backend.app.models import GenerationJob, VideoLibraryItem, KeywordBankItem, BannedCandidate, AudioProject
+from backend.app.models import GenerationJob, VideoLibraryItem, KeywordBankItem, BannedCandidate, BannedCreator, SearchCache, AudioProject
 from backend.app.schemas import (
     IntentAnalysisRequest, IntentAnalysisResult,
     PresetSchema, SearchRequest, SearchResponse, EnvironmentSearchSpec,
-    CandidateItem, BanCandidateRequest, GenerationRequest, GenerationResponse,
+    CandidateItem, BanCandidateRequest, BanCreatorRequest, BannedCreatorItem, GenerationRequest, GenerationResponse,
     JobProgressResponse, JobDetailResponse,
     LibraryItemSchema, HistoryItemSchema, ClearHistoryRequest, WebhookGenerateRequest,
     StoryboardBreakdownRequest, StoryboardBreakdownResult, SubtitleConfig, VisualBeat,
@@ -39,7 +40,7 @@ from backend.app.services.intent_service import intent_service
 from backend.app.services.pexels_service import pexels_service
 from backend.app.services.pixabay_service import pixabay_service
 from backend.app.services.image_fetch_service import image_fetch_service
-from backend.app.services.candidate_service import candidate_service
+from backend.app.services.candidate_service import candidate_service, normalize_video_id, normalize_url
 from backend.app.services.scoring_service import scoring_service
 from backend.app.services.library_service import library_service
 from backend.app.services.selection_service import selection_service
@@ -1314,6 +1315,7 @@ def save_candidate_to_library(candidate: CandidateItem, db: Session = Depends(ge
     )
     db.add(item)
     db.commit()
+    purge_video_from_search_cache(db, candidate.source_video_id, candidate.source_url or candidate.download_url)
     return {"status": "saved", "id": item.id, "message": "Saved to Library with theme tags"}
 
 
@@ -1412,6 +1414,9 @@ async def batch_save_candidates(req: BatchSaveCandidatesRequest, db: Session = D
                 saved_count += 1
 
     db.commit()
+    for candidate in req.candidates:
+        purge_video_from_search_cache(db, candidate.source_video_id, candidate.source_url or candidate.download_url)
+
     return {
         "status": "success",
         "saved_count": saved_count,
@@ -1495,46 +1500,219 @@ async def download_candidates_zip(req: DownloadCandidatesZipRequest):
     )
 
 
+def purge_video_from_search_cache(db: Session, video_id: str, video_url: Optional[str] = None):
+    """Purges any candidate matching the given video ID or URL from all cached search queries in SQLite."""
+    try:
+        norm_ids = normalize_video_id(video_id)
+        norm_url = normalize_url(video_url) if video_url else ""
+        caches = db.query(SearchCache).all()
+        for sc in caches:
+            try:
+                items = json.loads(sc.response_json)
+                if not isinstance(items, list):
+                    continue
+                filtered_items = [
+                    item for item in items
+                    if not (
+                        normalize_video_id(item.get("source_video_id")).intersection(norm_ids) or
+                        (norm_url and normalize_url(item.get("source_url")) == norm_url)
+                    )
+                ]
+                if len(filtered_items) != len(items):
+                    sc.response_json = json.dumps(filtered_items)
+            except Exception:
+                continue
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Error purging video from SearchCache: {e}")
+
+
+def purge_creator_from_search_cache(db: Session, creator_name: str, creator_url: Optional[str] = None):
+    """Purges any candidate matching the blocked creator from all cached search queries in SQLite."""
+    try:
+        clean_name = creator_name.strip().lower()
+        clean_url = normalize_url(creator_url) if creator_url else ""
+        caches = db.query(SearchCache).all()
+        for sc in caches:
+            try:
+                items = json.loads(sc.response_json)
+                if not isinstance(items, list):
+                    continue
+                filtered_items = [
+                    item for item in items
+                    if not (
+                        (item.get("creator_name") or "").strip().lower() == clean_name or
+                        (clean_url and normalize_url(item.get("creator_url")) == clean_url)
+                    )
+                ]
+                if len(filtered_items) != len(items):
+                    sc.response_json = json.dumps(filtered_items)
+            except Exception:
+                continue
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Error purging creator from SearchCache: {e}")
+
+
 @router.post("/candidates/ban")
 def ban_candidate(req: BanCandidateRequest, db: Session = Depends(get_db)):
     """Permanently bans a video candidate so it is never fetched again."""
+    clean_id = req.source_video_id.strip()
+    norm_ids = normalize_video_id(clean_id)
+    raw_num = [v for v in norm_ids if not v.startswith(("pexels_", "pixabay_", "local_"))]
+    normalized_id = raw_num[0] if raw_num else clean_id
+    now = datetime.datetime.utcnow()
+
+    # 1. Permanent entry in BannedCandidate
+    banned = db.query(BannedCandidate).filter(
+        (BannedCandidate.source_video_id.in_(norm_ids)) |
+        (BannedCandidate.normalized_id == normalized_id)
+    ).first()
+
+    if not banned:
+        banned = BannedCandidate(
+            source_video_id=clean_id,
+            normalized_id=normalized_id,
+            source=req.source or "pexels",
+            source_url=req.source_url,
+            creator_name=req.creator_name,
+            reason=req.reason or "Manually banned by user",
+            banned_at=now
+        )
+        db.add(banned)
+    else:
+        banned.source_url = req.source_url or banned.source_url
+        banned.creator_name = req.creator_name or banned.creator_name
+        banned.reason = req.reason or banned.reason
+        banned.banned_at = now
+
+    # 2. Mark rejected in VideoLibraryItem if present or create stub
     item = db.query(VideoLibraryItem).filter(
-        VideoLibraryItem.source_video_id == req.source_video_id
+        VideoLibraryItem.source_video_id == clean_id
     ).first()
     
     if not item:
         item = VideoLibraryItem(
-            source=req.source,
-            source_video_id=req.source_video_id,
+            source=req.source or "pexels",
+            source_video_id=clean_id,
             source_url=req.source_url,
             creator_name=req.creator_name,
             preview_url=req.preview_url,
             is_approved=False,
-            rejected_at=datetime.datetime.utcnow(),
+            rejected_at=now,
             rejection_reason=req.reason or "Manually banned by user"
         )
         db.add(item)
     else:
         item.is_approved = False
-        item.rejected_at = datetime.datetime.utcnow()
+        item.rejected_at = now
         item.rejection_reason = req.reason or "Manually banned by user"
     
     db.commit()
-    return {"status": "banned", "source_video_id": req.source_video_id, "message": "Video permanently banned"}
+
+    # 3. Purge matching items from SearchCache
+    purge_video_from_search_cache(db, clean_id, req.source_url)
+
+    return {"status": "banned", "source_video_id": clean_id, "message": "Video permanently banned"}
 
 
 @router.post("/candidates/unban")
 def unban_candidate(source_video_id: str = Query(...), db: Session = Depends(get_db)):
     """Removes the ban on a video candidate."""
+    clean_id = source_video_id.strip()
+    norm_ids = normalize_video_id(clean_id)
+    
+    # Remove from BannedCandidate
+    db.query(BannedCandidate).filter(
+        (BannedCandidate.source_video_id.in_(norm_ids)) |
+        (BannedCandidate.normalized_id.in_(norm_ids))
+    ).delete(synchronize_session=False)
+
+    # Update or clean VideoLibraryItem
     item = db.query(VideoLibraryItem).filter(
-        VideoLibraryItem.source_video_id == source_video_id
+        VideoLibraryItem.source_video_id == clean_id
     ).first()
     if item:
-        item.is_approved = True
-        item.rejected_at = None
-        item.rejection_reason = None
-        db.commit()
-    return {"status": "unbanned", "source_video_id": source_video_id}
+        if (item.times_used or 0) == 0 and not item.local_file_path:
+            db.delete(item)
+        else:
+            item.is_approved = True
+            item.rejected_at = None
+            item.rejection_reason = None
+
+    db.commit()
+    return {"status": "unbanned", "source_video_id": clean_id}
+
+
+@router.get("/candidates/banned")
+def get_banned_candidates(db: Session = Depends(get_db)):
+    """Returns list of all permanently banned videos."""
+    banned = db.query(BannedCandidate).order_by(BannedCandidate.banned_at.desc()).all()
+    return [
+        {
+            "id": b.id,
+            "source_video_id": b.source_video_id,
+            "source": b.source,
+            "source_url": b.source_url,
+            "creator_name": b.creator_name,
+            "reason": b.reason,
+            "banned_at": b.banned_at
+        }
+        for b in banned
+    ]
+
+
+@router.post("/creators/ban")
+def ban_creator(req: BanCreatorRequest, db: Session = Depends(get_db)):
+    """Permanently blocks an uploader/creator across all searches."""
+    clean_name = req.creator_name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Creator name cannot be empty")
+    
+    existing = db.query(BannedCreator).filter(
+        func.lower(BannedCreator.creator_name) == clean_name.lower()
+    ).first()
+
+    now = datetime.datetime.utcnow()
+    if not existing:
+        existing = BannedCreator(
+            creator_name=clean_name,
+            creator_url=req.creator_url,
+            source=req.source or "pexels",
+            reason=req.reason or "Manually blocked by user",
+            banned_at=now
+        )
+        db.add(existing)
+    else:
+        existing.creator_url = req.creator_url or existing.creator_url
+        existing.reason = req.reason or existing.reason
+        existing.banned_at = now
+    
+    db.commit()
+
+    # Purge any videos by this creator from SearchCache
+    purge_creator_from_search_cache(db, clean_name, req.creator_url)
+
+    return {"status": "blocked", "creator_name": clean_name, "message": f"Uploader '{clean_name}' permanently blocked"}
+
+
+@router.post("/creators/unban")
+def unban_creator(creator_name: str = Query(...), db: Session = Depends(get_db)):
+    """Unblocks an uploader/creator."""
+    clean_name = creator_name.strip()
+    db.query(BannedCreator).filter(
+        func.lower(BannedCreator.creator_name) == clean_name.lower()
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"status": "unblocked", "creator_name": clean_name}
+
+
+@router.get("/creators/banned", response_model=List[BannedCreatorItem])
+def get_banned_creators(db: Session = Depends(get_db)):
+    """Returns list of all blocked creators."""
+    creators = db.query(BannedCreator).order_by(BannedCreator.banned_at.desc()).all()
+    return creators
+
 
 
 @router.delete("/library/{item_id}")

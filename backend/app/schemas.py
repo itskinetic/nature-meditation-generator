@@ -193,6 +193,22 @@ class BanCandidateRequest(BaseModel):
     preview_url: Optional[str] = None
 
 
+class BanCreatorRequest(BaseModel):
+    creator_name: str
+    creator_url: Optional[str] = None
+    source: str = "pexels"
+    reason: Optional[str] = "Manually blocked by user"
+
+
+class BannedCreatorItem(BaseModel):
+    id: int
+    creator_name: str
+    creator_url: Optional[str] = None
+    source: str
+    reason: Optional[str] = None
+    banned_at: Optional[datetime] = None
+
+
 class SearchResponse(BaseModel):
     candidates: List[CandidateItem]
     total_found: int

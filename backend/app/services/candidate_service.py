@@ -1,12 +1,39 @@
 import datetime
 import logging
+import re
 from typing import List, Set, Optional
 from sqlalchemy.orm import Session
 
-from backend.app.models import VideoLibraryItem
+from backend.app.models import VideoLibraryItem, BannedCandidate, BannedCreator
 from backend.app.schemas import CandidateItem, PresetSchema, IntentAnalysisResult
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_video_id(vid: Optional[str]) -> Set[str]:
+    """Returns a set of normalized variants for a video ID (e.g. 'pexels_12345', '12345')."""
+    if not vid:
+        return set()
+    cleaned = str(vid).strip().lower()
+    variants = {cleaned}
+    for prefix in ["pexels_", "pixabay_", "local_"]:
+        if cleaned.startswith(prefix):
+            raw = cleaned[len(prefix):]
+            if raw:
+                variants.add(raw)
+        else:
+            variants.add(f"{prefix}{cleaned}")
+    return variants
+
+
+def normalize_url(url: Optional[str]) -> str:
+    """Normalizes URL by stripping query strings, trailing slashes, and protocol."""
+    if not url:
+        return ""
+    u = str(url).strip().lower()
+    u = u.split("?")[0].rstrip("/")
+    u = re.sub(r"^https?://(www\.)?", "", u)
+    return u
 
 
 GLOBAL_PROHIBITED_TERMS = [
@@ -97,32 +124,64 @@ class CandidateService:
         seen_urls: Set[str] = set()
         filtered: List[CandidateItem] = []
 
-        # Load rejected and existing library IDs/URLs from DB
-        rejected_ids: Set[str] = set()
-        library_ids: Set[str] = set()
-        library_urls: Set[str] = set()
+        # Load banned items, blocked creators, and existing library IDs/URLs from DB
+        banned_id_variants: Set[str] = set()
+        banned_urls: Set[str] = set()
+        banned_creator_names: Set[str] = set()
+        banned_creator_urls: Set[str] = set()
+        saved_id_variants: Set[str] = set()
+        saved_urls: Set[str] = set()
 
         if db:
             try:
-                # Query previously rejected / banned items
-                rejected_rows = db.query(VideoLibraryItem.source_video_id).filter(
+                # 1. Query permanently banned candidate videos
+                banned_cand_rows = db.query(
+                    BannedCandidate.source_video_id,
+                    BannedCandidate.normalized_id,
+                    BannedCandidate.source_url
+                ).all()
+                for row in banned_cand_rows:
+                    if row[0]:
+                        banned_id_variants.update(normalize_video_id(row[0]))
+                    if row[1]:
+                        banned_id_variants.update(normalize_video_id(row[1]))
+                    if row[2]:
+                        banned_urls.add(normalize_url(row[2]))
+
+                # Also include any rejected items from video_library
+                rejected_rows = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).filter(
                     VideoLibraryItem.is_approved == False
                 ).all()
                 for row in rejected_rows:
                     if row[0]:
-                        rejected_ids.add(str(row[0]))
-
-                # Only treat items as existing history if they have been used (times_used > 0) or downloaded to disk
-                used_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).filter(
-                    (VideoLibraryItem.times_used > 0) | (VideoLibraryItem.local_file_path.isnot(None))
-                ).all()
-                for row in used_items:
-                    if row[0]:
-                        library_ids.add(str(row[0]))
+                        banned_id_variants.update(normalize_video_id(row[0]))
                     if row[1]:
-                        library_urls.add(str(row[1]).strip().rstrip("/"))
+                        banned_urls.add(normalize_url(row[1]))
+
+                # 2. Query permanently blocked creators / uploaders
+                banned_creator_rows = db.query(
+                    BannedCreator.creator_name,
+                    BannedCreator.creator_url
+                ).all()
+                for row in banned_creator_rows:
+                    if row[0]:
+                        banned_creator_names.add(row[0].strip().lower())
+                    if row[1]:
+                        banned_creator_urls.add(normalize_url(row[1]))
+
+                # 3. Query all saved videos in Video Library (strictly exclude from fresh searches)
+                saved_items = db.query(VideoLibraryItem.source_video_id, VideoLibraryItem.source_url).filter(
+                    (VideoLibraryItem.is_approved == True) | 
+                    (VideoLibraryItem.times_used > 0) | 
+                    (VideoLibraryItem.local_file_path.isnot(None))
+                ).all()
+                for row in saved_items:
+                    if row[0]:
+                        saved_id_variants.update(normalize_video_id(row[0]))
+                    if row[1]:
+                        saved_urls.add(normalize_url(row[1]))
             except Exception as db_err:
-                logger.warning(f"Error querying history in candidate filter: {db_err}")
+                logger.warning(f"Error querying ban/library records in candidate filter: {db_err}")
 
         # Build strict negative terms list (Always enforces global prohibitions)
         negative_terms = set(GLOBAL_PROHIBITED_TERMS)
@@ -138,29 +197,26 @@ class CandidateService:
             seen_ids.add(c.source_video_id)
 
             # 2. Deduplication by URL
-            clean_url = (c.source_url or "").strip().rstrip("/")
-            if clean_url:
-                if clean_url in seen_urls:
+            cand_norm_url = normalize_url(c.source_url)
+            if cand_norm_url:
+                if cand_norm_url in seen_urls:
                     continue
-                seen_urls.add(clean_url)
+                seen_urls.add(cand_norm_url)
 
-            # 3. Check previously rejected / banned
-            if c.source_video_id in rejected_ids:
-                c.is_approved = False
-                c.rejection_reason = "Previously rejected/banned video"
+            # 3. Strict exclusion: Permanently banned videos
+            cand_id_variants = normalize_video_id(c.source_video_id)
+            if cand_id_variants.intersection(banned_id_variants) or (cand_norm_url and cand_norm_url in banned_urls):
                 continue
 
-            # 4. Check existing library & past history: If candidate already exists or was used
-            is_in_library = (c.source_video_id in library_ids) or (clean_url and clean_url in library_urls)
-            if is_in_library:
-                if exclude_all_history:
-                    c.is_approved = False
-                    c.rejection_reason = "Already saved in Video Library or used in previous video"
-                    continue
-                elif c.source in ("pexels", "pixabay"):
-                    # Tag as reusable library asset
-                    c.source = "library"
-                    c.is_reused = True
+            # 4. Strict exclusion: Blocked creators / uploaders
+            cand_creator_name = (c.creator_name or "").strip().lower()
+            cand_creator_url = normalize_url(c.creator_url)
+            if (cand_creator_name and cand_creator_name in banned_creator_names) or (cand_creator_url and cand_creator_url in banned_creator_urls):
+                continue
+
+            # 5. Strict exclusion: Saved videos in Video Library
+            if cand_id_variants.intersection(saved_id_variants) or (cand_norm_url and cand_norm_url in saved_urls):
+                continue
 
             # 5. Check minimum & maximum duration
             if c.duration > 0 and c.duration < min_duration:

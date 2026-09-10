@@ -353,5 +353,15 @@ export interface ApiErrorInfo {
   category: 'provider' | 'ai' | 'server' | 'network' | 'rate_limit' | 'validation' | 'client';
 }
 
+export interface BannedCreatorItem {
+  id: number;
+  creator_name: string;
+  creator_url?: string;
+  source: string;
+  reason?: string;
+  banned_at?: string;
+}
+
+
 
 

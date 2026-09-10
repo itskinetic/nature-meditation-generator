@@ -337,6 +337,31 @@ export function App() {
     }
   };
 
+  // 1-Click Block Creator Handler
+  const handleBanCreator = async (candidate: CandidateItem) => {
+    if (!candidate.creator_name || candidate.creator_name === 'Public Creator') return;
+    try {
+      await api.banCreator({
+        creator_name: candidate.creator_name,
+        creator_url: candidate.creator_url,
+        source: candidate.source,
+      });
+      const blockedName = candidate.creator_name.trim().toLowerCase();
+      // Instantly remove all candidates by this creator from current pool
+      setCandidates((prev) =>
+        prev.filter((c) => (c.creator_name || '').trim().toLowerCase() !== blockedName)
+      );
+      setSelectedCandidateIds((prev) =>
+        prev.filter((id) => {
+          const matchingCand = candidates.find((c) => c.source_video_id === id);
+          return (matchingCand?.creator_name || '').trim().toLowerCase() !== blockedName;
+        })
+      );
+    } catch (err) {
+      console.error('Failed to block creator:', err);
+    }
+  };
+
   // AI Script Storyboard Breakdown Mutation
   const breakdownStoryboardMutation = useMutation({
     mutationFn: () =>
@@ -655,6 +680,7 @@ export function App() {
                   onDeselectAll={handleDeselectAll}
                   onSaveCandidate={(c) => saveCandidateMutation.mutate(c)}
                   onBanCandidate={handleBanCandidate}
+                  onBanCreator={handleBanCreator}
                   onFetchMore={handleFetchMore}
                   isFetchingMore={searchMutation.isPending && searchPage > 1}
                   projectTitle={title}

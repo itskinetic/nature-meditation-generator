@@ -500,4 +500,129 @@ def test_batch_save_and_download_zip_endpoints(db_session, tmp_path):
     app.dependency_overrides.clear()
 
 
+def test_comprehensive_ban_and_creator_block_flow(db_session):
+    from fastapi.testclient import TestClient
+    from backend.app.main import app
+    from backend.app.database import get_db
+
+    app.dependency_overrides[get_db] = lambda: db_session
+    client = TestClient(app)
+
+    cand1 = CandidateItem(
+        source="pexels",
+        source_video_id="pexels_test_ban_1",
+        source_url="https://www.pexels.com/video/test-ban-1",
+        creator_name="Test Photographer Alpha",
+        creator_url="https://www.pexels.com/@alpha",
+        duration=20.0,
+        width=1920,
+        height=1080,
+        preview_url="https://images.pexels.com/test-ban-1.jpg",
+        is_approved=True
+    )
+
+    cand2 = CandidateItem(
+        source="pexels",
+        source_video_id="pexels_test_ban_2",
+        source_url="https://www.pexels.com/video/test-ban-2",
+        creator_name="Blocked Creator Beta",
+        creator_url="https://www.pexels.com/@beta",
+        duration=22.0,
+        width=1920,
+        height=1080,
+        preview_url="https://images.pexels.com/test-ban-2.jpg",
+        is_approved=True
+    )
+
+    cand3 = CandidateItem(
+        source="pixabay",
+        source_video_id="pixabay_test_save_3",
+        source_url="https://pixabay.com/videos/test-save-3",
+        creator_name="Creator Gamma",
+        creator_url="https://pixabay.com/users/gamma",
+        duration=25.0,
+        width=1920,
+        height=1080,
+        preview_url="https://pixabay.com/test-save-3.jpg",
+        is_approved=True
+    )
+
+    pool = [cand1, cand2, cand3]
+
+    # Step 1: All 3 pass initially
+    initial = candidate_service.filter_candidates(pool, min_duration=10.0, db=db_session)
+    assert len(initial) == 3
+
+    # Step 2: Ban cand1 via API
+    ban_res = client.post("/api/candidates/ban", json={
+        "source_video_id": "pexels_test_ban_1",
+        "source": "pexels",
+        "source_url": cand1.source_url,
+        "creator_name": cand1.creator_name,
+        "reason": "Ugly color grading"
+    })
+    assert ban_res.status_code == 200
+    assert ban_res.json()["status"] == "banned"
+
+    # Verify banned list endpoint
+    list_banned = client.get("/api/candidates/banned")
+    assert list_banned.status_code == 200
+    banned_vids = [b["source_video_id"] for b in list_banned.json()]
+    assert "pexels_test_ban_1" in banned_vids
+
+    # Candidate cand1 MUST now be excluded
+    filtered_after_ban = candidate_service.filter_candidates(pool, min_duration=10.0, db=db_session)
+    remaining_ids = [c.source_video_id for c in filtered_after_ban]
+    assert "pexels_test_ban_1" not in remaining_ids
+    assert len(filtered_after_ban) == 2
+
+    # Step 3: Block creator "Blocked Creator Beta" via API
+    creator_res = client.post("/api/creators/ban", json={
+        "creator_name": "Blocked Creator Beta",
+        "creator_url": cand2.creator_url,
+        "source": "pexels",
+        "reason": "Low quality clips"
+    })
+    assert creator_res.status_code == 200
+    assert creator_res.json()["status"] == "blocked"
+
+    # Verify banned creators list endpoint
+    creators_list = client.get("/api/creators/banned")
+    assert creators_list.status_code == 200
+    blocked_names = [c["creator_name"].lower() for c in creators_list.json()]
+    assert "blocked creator beta" in blocked_names
+
+    # Candidate cand2 from blocked creator MUST now be excluded
+    filtered_after_creator = candidate_service.filter_candidates(pool, min_duration=10.0, db=db_session)
+    remaining_ids2 = [c.source_video_id for c in filtered_after_creator]
+    assert "pexels_test_ban_2" not in remaining_ids2
+    assert len(filtered_after_creator) == 1
+    assert remaining_ids2 == ["pixabay_test_save_3"]
+
+    # Step 4: Save cand3 to Video Library via API
+    save_res = client.post("/api/library/save-candidate", json=cand3.model_dump())
+    assert save_res.status_code == 200
+
+    # cand3 MUST now be excluded because it is already saved in the Video Library!
+    filtered_after_save = candidate_service.filter_candidates(pool, min_duration=10.0, db=db_session)
+    assert len(filtered_after_save) == 0
+
+    # Step 5: Unban candidate and creator
+    unban_res = client.post(f"/api/candidates/unban?source_video_id={cand1.source_video_id}")
+    assert unban_res.status_code == 200
+
+    unban_creator_res = client.post(f"/api/creators/unban?creator_name=Blocked%20Creator%20Beta")
+    assert unban_creator_res.status_code == 200
+
+    # cand1 and cand2 should now be discoverable again
+    filtered_restored = candidate_service.filter_candidates([cand1, cand2], min_duration=10.0, db=db_session)
+    restored_ids = [c.source_video_id for c in filtered_restored]
+    assert "pexels_test_ban_1" in restored_ids
+    assert "pexels_test_ban_2" in restored_ids
+    assert len(filtered_restored) == 2
+
+    app.dependency_overrides.clear()
+
+
+
 

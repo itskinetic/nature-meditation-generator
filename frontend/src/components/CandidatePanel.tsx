@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Film, CheckCircle2, XCircle, AlertCircle,
-  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban,
+  ExternalLink, Clock, Play, Pause, X, CheckSquare, Square, Eye, Bookmark, BookmarkCheck, Ban, UserX,
   Sparkles, Mountain, Leaf, Waves, Search as SearchIcon, Compass, Image as ImageIcon, PlusCircle,
   Download, Loader2
 } from 'lucide-react';
@@ -16,6 +16,7 @@ interface CandidatePanelProps {
   onDeselectAll: () => void;
   onSaveCandidate?: (candidate: CandidateItem) => void;
   onBanCandidate?: (candidate: CandidateItem) => void;
+  onBanCreator?: (candidate: CandidateItem) => void;
   onFetchMore?: () => void;
   isFetchingMore?: boolean;
   projectTitle?: string;
@@ -75,6 +76,7 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
   onDeselectAll,
   onSaveCandidate,
   onBanCandidate,
+  onBanCreator,
   onFetchMore,
   isFetchingMore,
   projectTitle,
@@ -426,9 +428,25 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
-                    Creator: {c.creator_name || 'Public Creator'}
-                  </p>
+                  <div className="flex items-center justify-between text-xs text-stone-500 dark:text-stone-400">
+                    <span className="truncate" title={`Creator: ${c.creator_name || 'Public Creator'}`}>
+                      Creator: {c.creator_name || 'Public Creator'}
+                    </span>
+                    {onBanCreator && c.creator_name && c.creator_name !== 'Public Creator' && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onBanCreator(c);
+                        }}
+                        title={`Block creator "${c.creator_name}" (never show their footage)`}
+                        className="shrink-0 ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/70 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <UserX className="w-2.5 h-2.5" />
+                        <span>Block</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Score Pills */}
@@ -592,6 +610,20 @@ export const CandidatePanel: React.FC<CandidatePanelProps> = ({
                   >
                     <Ban className="w-3.5 h-3.5" />
                     <span>Ban Footage</span>
+                  </button>
+                )}
+                {onBanCreator && activePreviewVideo.creator_name && activePreviewVideo.creator_name !== 'Public Creator' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onBanCreator(activePreviewVideo);
+                      setActivePreviewVideo(null);
+                    }}
+                    title={`Block uploader "${activePreviewVideo.creator_name}" from all future searches`}
+                    className="h-9 px-3.5 rounded-xl text-xs font-semibold bg-rose-50/80 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Block Creator</span>
                   </button>
                 )}
                 <button
