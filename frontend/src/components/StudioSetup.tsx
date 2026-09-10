@@ -1101,7 +1101,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
                 type="text"
                 value={newBankKeyword}
                 onChange={(e) => setNewBankKeyword(e.target.value)}
-                placeholder="Add high-aesthetic search keyword (e.g. golden sunrise redwood misty 4k)..."
+                placeholder="Add high-aesthetic search keyword (e.g. golden sunrise redwood misty)..."
                 className="flex-1 min-w-[200px] h-8 px-3 text-xs bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-lg outline-none focus:ring-2 focus:ring-amber-500/30 text-stone-900 dark:text-white"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && newBankKeyword.trim()) {
@@ -1230,7 +1230,7 @@ export const StudioSetup: React.FC<StudioSetupProps> = ({
               rows={6}
               value={bulkInputText}
               onChange={(e) => setBulkInputText(e.target.value)}
-              placeholder={`aerial redwood forest morning fog 4k\npeaceful alpine lake reflection daylight 4k\nslow motion turquoise waves sunny day 4k`}
+              placeholder={`aerial redwood forest morning fog\npeaceful alpine lake reflection daylight\nslow motion turquoise waves sunny day`}
               className="w-full bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 rounded-xl p-3 text-xs text-stone-900 dark:text-white placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500/30 font-mono"
               autoFocus
             />

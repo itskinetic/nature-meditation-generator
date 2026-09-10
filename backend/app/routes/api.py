@@ -277,11 +277,11 @@ async def search_candidates(req: SearchRequest, db: Session = Depends(get_db)):
                                 break
                     clean_name = env_spec.name.lower()
                     fallbacks = [
-                        f"bright daylight {clean_name} forward drone glide 4k",
-                        f"clear sunny day {clean_name} forward aerial 4k",
-                        f"peaceful {clean_name} slow tracking daylight 4k",
-                        f"vibrant {clean_name} landscape sunny day 4k",
-                        f"crystal clear {clean_name} calm daylight 4k"
+                        f"bright daylight {clean_name} forward drone glide",
+                        f"clear sunny day {clean_name} forward aerial",
+                        f"peaceful {clean_name} slow tracking daylight",
+                        f"vibrant {clean_name} landscape sunny day",
+                        f"crystal clear {clean_name} calm daylight"
                     ]
                     for fb in fallbacks:
                         if len(queries_to_run) >= 5:
@@ -680,9 +680,9 @@ async def run_generation_pipeline(job_id: str, req: GenerationRequest):
                     if matched and matched.queries:
                         queries.extend(matched.queries[:2])
                     else:
-                        queries.append(f"{env_name} wildlife 4k" if active_mode == "documentary" else f"{env_name} nature 4k")
+                        queries.append(f"{env_name} wildlife" if active_mode == "documentary" else f"{env_name} nature")
             else:
-                queries = analysis.generated_queries or (preset.queries if preset else (["african wildlife 4k", "savanna lions 4k"] if active_mode == "documentary" else ["misty forest", "peaceful nature"]))
+                queries = analysis.generated_queries or (preset.queries if preset else (["african wildlife", "savanna lions"] if active_mode == "documentary" else ["misty forest", "peaceful nature"]))
 
             if len(collected_candidates) < req.maximum_unique_videos:
                 update_job("searching", 20, f"Searching footage for {active_mode} preset")

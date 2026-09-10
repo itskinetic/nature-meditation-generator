@@ -77,11 +77,11 @@ export function App() {
 
   // Pure Keyword-Driven Search Keywords
   const [searchKeywords, setSearchKeywords] = useState<string[]>([
-    'peaceful green forest sunlight daylight 4k',
-    'calm mountain lake horizon sunny day 4k',
-    'serene ocean beach gentle waves sunny day 4k',
-    'tranquil meadow wildflowers distant hills 4k',
-    'crystal clear turquoise river daylight 4k',
+    'peaceful green forest sunlight daylight',
+    'calm mountain lake horizon sunny day',
+    'serene ocean beach gentle waves sunny day',
+    'tranquil meadow wildflowers distant hills',
+    'crystal clear turquoise river daylight',
   ]);
 
   // Generation Settings State
