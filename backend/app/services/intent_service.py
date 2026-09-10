@@ -12,8 +12,8 @@ import re
 logger = logging.getLogger(__name__)
 
 
-def sanitize_keyword(kw: str) -> str:
-    """Removes unnecessary resolution, tech tags (4k, 8k, hd, etc.), and quotes from search keywords."""
+def sanitize_keyword(kw: str, max_words: int = 4) -> str:
+    """Removes tech tags and strictly enforces at most 4 words per search keyword."""
     if not kw:
         return ""
     clean = str(kw).strip().strip('"\'`')
@@ -21,6 +21,9 @@ def sanitize_keyword(kw: str) -> str:
     clean = re.sub(r'\b(4k|8k|uhd|hd|1080p|720p|60fps|30fps|video|footage|stock footage|stock video)\b', '', clean, flags=re.IGNORECASE)
     # Collapse multiple spaces and trim
     clean = re.sub(r'\s+', ' ', clean).strip()
+    words = clean.split()
+    if len(words) > max_words:
+        clean = " ".join(words[:max_words])
     return clean
 
 
@@ -167,8 +170,11 @@ DIRECTOR INSTRUCTIONS (FRESH, AUTHENTIC KEYWORDS — NO PRESET REPETITION):
 - DO NOT default to generic forest or mountain lake tropes unless specifically called for by the script.
 - DECODE the specific nature imagery, geography, elements, textures, and metaphors described in the script (e.g. desert sands, ocean tide pools, gentle rainfall on leaves, misty redwood giants, alpine meadows, crystal brooks, bamboo groves, calm seas, sunlit rolling hills).
 - KEYWORD REQUIREMENT: Generate at least 10 to 18 diverse, specific, high-aesthetic stock video search queries in "generated_queries".
-- Formulate queries that stock footage engines (Pexels & Pixabay) index cleanly:
-  * Combine: [Serene Atmosphere] + [Specific Nature Element] + [Horizon/Reflection/Water/Sky] + [Daylight]
+- QUERY LENGTH (STRICTLY AT MOST 4 WORDS PER KEYWORD — LESS IS MORE):
+  * Every single query in "generated_queries" MUST be short, punchy, and concise: exactly 2, 3, or AT MOST 4 WORDS.
+  * NEVER generate 5 or more words. Overly descriptive sentence queries cause stock video engines to fail.
+  * Formula: [Optional Adjective] + [Core Nature Subject] (e.g. "sunlit redwood forest", "alpine lake reflection", "turquoise ocean waves", "blooming wildflower meadow", "misty mountain stream").
+  * Omit generic filler words like "peaceful", "tranquil", "scenic", "beautiful", "daylight", "horizon".
 - STRICTLY FORBIDDEN TECHNICAL TAGS (NO RESOLUTION OR FORMAT TAGS):
   * DO NOT include resolution, quality, or tech tags like "4k", "8k", "hd", "uhd", "1080p", "60fps", "footage", or "video". Stock video search engines index subject and atmosphere; resolution tags clutter queries and reduce search quality.
 - VISUAL COMPOSITION:
@@ -178,7 +184,7 @@ DIRECTOR INSTRUCTIONS (FRESH, AUTHENTIC KEYWORDS — NO PRESET REPETITION):
   * STRICTLY FORBIDDEN: "canopy", "treetops", "drone glide", "aerial tracking", "overhead", "top down", "dark", "sunset", "golden hour", "dusk", "night" (unless sleep theme is explicitly requested).
 
 - MANDATORY DAYTIME NATURE ONLY:
-  * All stock video search queries MUST be bright, sunlit, crystal-clear daytime natural landscapes (e.g. "sunlit pine forest morning sunlight", "peaceful alpine lake reflection blue sky sunny", "crystal clear turquoise ocean waves daylight", "sunlit wildflower meadow rolling hills").
+  * All stock video search queries MUST be bright, sunlit, crystal-clear daytime natural landscapes (e.g. "sunlit pine forest", "alpine lake reflection", "turquoise ocean waves", "blooming wildflower meadow").
   * STRICTLY FORBIDDEN: "night", "starry sky", "galaxy", "darkness", "midnight", "moonlight", "dusk", "dark", "gloomy", "murky", "sunset", "twilight" (unless sleep is explicitly and unequivocally requested in the user's script). Meditation videos must be bright, calming daytime tranquility.
 
 Return ONLY valid JSON matching this schema:
@@ -191,16 +197,16 @@ Return ONLY valid JSON matching this schema:
   "visual_motifs": ["open horizons", "gentle flowing water", "peaceful nature vistas"],
   "avoid_visuals": ["4k", "hd", "night", "stars", "moon", "midnight", "dark", "twilight", "dusk", "sunset", "canopy", "treetops", "top down", "overhead", "choppy water", "ski", "skier", "chairlift", "ski resort", "snow slope", "cluttered", "dense", "gloomy", "grey overcast", "murky", "underexposed", "silhouette", "backlit", "macro", "close up", "closeup", "detail", "flower", "flowers", "petal", "bee", "insect", "boat", "ship", "building", "car", "people", "timelapse", "storm", "foggy grey", "text", "fast motion"],
   "generated_queries": [
-    "distinct stock video query 1 matching script",
-    "distinct stock video query 2 matching script",
-    "distinct stock video query 3 matching script",
-    "distinct stock video query 4 matching script",
-    "distinct stock video query 5 matching script",
-    "distinct stock video query 6 matching script",
-    "distinct stock video query 7 matching script",
-    "distinct stock video query 8 matching script",
-    "distinct stock video query 9 matching script",
-    "distinct stock video query 10 matching script"
+    "sunlit redwood forest",
+    "alpine lake reflection",
+    "turquoise ocean waves",
+    "blooming wildflower meadow",
+    "misty mountain stream",
+    "bamboo forest grove",
+    "coastal ocean ripples",
+    "desert sand dunes",
+    "green valley hills",
+    "crystal mountain river"
   ],
   "planned_environments": [
     {{
@@ -208,9 +214,9 @@ Return ONLY valid JSON matching this schema:
       "name": "Distinct Visual Setting 1",
       "icon": "🌿",
       "keywords": [
-        "distinct query 1 daylight",
-        "distinct query 2 daylight",
-        "distinct query 3 daylight"
+        "sunlit redwood forest",
+        "mossy forest trail",
+        "green pine canopy"
       ],
       "suggested_clips": 10,
       "enabled": true
@@ -270,13 +276,13 @@ Return ONLY valid JSON matching this schema:
 
             clean_name = str(pe.get("name") or "Nature Scene").strip().lower()
             supplements = [
-                f"peaceful {clean_name} landscape horizon blue sky daylight",
-                f"calm {clean_name} reflection sunny day tranquil",
-                f"serene {clean_name} open vista daylight",
-                f"tranquil {clean_name} shore clear water daylight",
-                f"peaceful {clean_name} meadow distant hills sunny day",
-                f"quiet {clean_name} nature path sunlight daylight",
-                f"calm {clean_name} gentle shoreline horizon sunny day"
+                f"sunlit {clean_name}",
+                f"{clean_name} landscape",
+                f"calm {clean_name}",
+                f"{clean_name} reflection",
+                f"scenic {clean_name} vista",
+                f"{clean_name} trail",
+                f"clear {clean_name} water"
             ]
             for supp in supplements:
                 if len(unique_kws) >= 5:
@@ -474,11 +480,11 @@ Return ONLY valid JSON matching this schema:
                 if len(kw) < 5:
                     clean_name = env_def.name.lower()
                     kw.extend([
-                        f"peaceful {clean_name} landscape horizon blue sky daylight",
-                        f"calm {clean_name} reflection sunny day tranquil",
-                        f"serene {clean_name} open vista daylight",
-                        f"tranquil {clean_name} shore clear water daylight",
-                        f"peaceful {clean_name} meadow distant hills sunny day"
+                        f"sunlit {clean_name}",
+                        f"{clean_name} landscape",
+                        f"calm {clean_name}",
+                        f"{clean_name} reflection",
+                        f"clear {clean_name} water"
                     ])
                 selected_envs.append(PlannedEnvironment(
                     id=env_def.id,
@@ -706,14 +712,15 @@ Title: {title or 'Serene Meditation'}
 Script context: {script or 'Tranquil presence and peaceful nature'}
 Existing queries to avoid duplicating: {json.dumps(existing_list[:20])}
 
-Generate exactly ONE single, highly specific, aesthetic stock video search query (3-6 words) that offers a fresh, distinct visual perspective.
-MANDATORY: Focus on bright, tranquil daytime nature (sunlit forests, clear mountain waters, peaceful meadows, calm ocean ripples).
+Generate exactly ONE single, punchy stock video search query (STRICTLY 2 TO 4 WORDS AT MOST).
+MANDATORY: Focus on bright, tranquil daytime nature (e.g. "sunlit redwood forest", "alpine lake reflection", "turquoise ocean waves").
+NEVER exceed 4 words. Omit filler words like "peaceful", "tranquil", "scenic".
 NEVER output night, starry skies, darkness, moonlight, dusk, or sunsets.
 STRICTLY FORBIDDEN: Do NOT include tags like "4k", "8k", "hd", "uhd", "video", or "footage".
 
 Return JSON matching this schema:
 {{
-  "keyword": "distinct daytime nature query"
+  "keyword": "sunlit redwood forest"
 }}"""
 
         if self.api_key and len(self.api_key.strip()) > 5:
