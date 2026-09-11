@@ -163,19 +163,32 @@ export function App() {
   });
 
   // Active Job Polling
-  const { data: jobDetail, refetch: refetchJob } = useQuery({
+  const { data: jobDetail, error: jobError, refetch: refetchJob } = useQuery({
     queryKey: ['job', activeJobId],
     queryFn: () => (activeJobId ? api.getJobDetail(activeJobId) : null),
     enabled: !!activeJobId,
+    retry: (failureCount, error: any) => {
+      // Do not retry if job does not exist (404)
+      if (error?.status === 404) return false;
+      return failureCount < 2;
+    },
     refetchInterval: (query) => {
+      if (query.state.error) return false;
       const data = query.state.data as JobDetail | undefined;
-      if (!data) return 1000;
+      if (!data) return false;
       if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
         return false;
       }
       return 1000;
     },
   });
+
+  // Automatically dismiss active job tracking if the job was not found on the server (e.g. after reboot or purge)
+  useEffect(() => {
+    if (jobError && (jobError as any)?.status === 404) {
+      setActiveJobId(null);
+    }
+  }, [jobError]);
 
   // Keep candidates in sync when job updates
   useEffect(() => {

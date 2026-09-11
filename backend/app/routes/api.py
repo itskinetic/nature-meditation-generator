@@ -1028,6 +1028,7 @@ def cancel_job(job_id: str):
 
 
 @router.get("/jobs/{job_id}", response_model=JobDetailResponse)
+@router.get("/jobs/{job_id}/detail", response_model=JobDetailResponse)
 def get_job_detail(job_id: str, db: Session = Depends(get_db)):
     job = db.query(GenerationJob).filter(GenerationJob.id == job_id).first()
     if not job:
